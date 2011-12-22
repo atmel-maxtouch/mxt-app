@@ -1,0 +1,34 @@
+#!C:\Program Files (x86)\ActiveState Perl Dev Kit 6.0 Deployment\bin\lib\pai.exe
+PAP-Version: 1.0
+Packer: C:\Program Files (x86)\ActiveState Perl Dev Kit 6.0 Deployment\bin\perlapp.exe
+Script: android-flash.pl
+Cwd: C:\SvnWorkingCopies\Atmel Bootloader
+Byref: 0
+Clean: 0
+Date: 2011-10-19 12:22:10
+Debug: 
+Dependent: 0
+Dyndll: 0
+Exe: android-flash.exe
+Force: 0
+Gui: 0
+Hostname: Mars
+No-Compress: 0
+No-Gui: 0
+No-Logo: 0
+Runlib: 
+Shared: none
+Singleton: 0
+Tmpdir: 
+Verbose: 0
+Version-Comments: 
+Version-CompanyName: 
+Version-FileDescription: 
+Version-FileVersion: 
+Version-InternalName: 
+Version-LegalCopyright: 
+Version-LegalTrademarks: 
+Version-OriginalFilename: 
+Version-ProductName: 
+Version-ProductVersion: 
+Xclude: 0

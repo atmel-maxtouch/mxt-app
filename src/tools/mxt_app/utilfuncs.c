@@ -1,0 +1,273 @@
+//------------------------------------------------------------------------------
+/// \file   utilfuncs.c
+/// \brief  Utility functions for Linux maXTtouch app.
+/// \author Iiro Valkonen.
+//------------------------------------------------------------------------------
+// Copyright 2011 Atmel Corporation. All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 
+//    1. Redistributions of source code must retain the above copyright notice,
+//    this list of conditions and the following disclaimer.
+// 
+//    2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 
+// THIS SOFTWARE IS PROVIDED BY ATMEL ''AS IS'' AND ANY EXPRESS OR IMPLIED
+// WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+// EVENT SHALL ATMEL OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+// INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+// OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+// EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//------------------------------------------------------------------------------
+
+/*----------------------------------------------------------------------------
+  include files
+  ----------------------------------------------------------------------------*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+#include "libmaxtouch/libmaxtouch.h"
+#include "libmaxtouch/info_block.h"
+#include "libmaxtouch/info_block_driver.h"
+#include "touch_app.h"
+#include "utilfuncs.h"
+
+
+void print_info_block()
+{
+  int i;
+
+  /* Show the Version Info */
+  printf("Family ID:         0x%02X\n", info_block->info_id.family_id);
+  printf("Variant ID:        0x%02X\n", info_block->info_id.variant_id);
+  printf("Version:           %d.%d\n", (info_block->info_id.version & 0xF0) >> 4, (info_block->info_id.version & 0x0F));
+  printf("Build:             %d\n", info_block->info_id.build);
+  printf("Matrix X Size:     %d\n", info_block->info_id.matrix_x_size);
+  printf("Matrix Y Size:     %d\n", info_block->info_id.matrix_y_size);
+  printf("Number of objects: %d\n", info_block->info_id.num_declared_objects);
+  printf("\n");
+
+  /* Show the object table */
+  printf("%s: OBJECT TABLE\n", __func__);
+  for (i = 0; i < id->num_declared_objects; i++)
+  {
+    printf("Object Type:\t\t %s\n", objname(object_table[i].object_type));
+    printf("Address:\t\t %d\n", get_start_position(object_table[i]));
+    printf("Size:\t\t\t %d\n", object_table[i].size);
+    printf("Instances:\t\t %d\n", object_table[i].instances);
+    printf("ReportIDs:\t\t %d\n", object_table[i].num_report_ids);
+    printf("\n");
+  }
+
+  /* Show the CRC */
+  printf("InfoBlock CRC:\t\t 0x%X \n", 
+    (info_block->CRC_hi<<16u) | (info_block->CRC));
+}
+
+char *objname(uint8_t objtype)
+{
+  switch(objtype)
+  {
+    case DEBUG_DELTAS_T2:
+      return("DEBUG_DELTAS_T2");
+    case DEBUG_REFERENCES_T3:
+      return("DEBUG_REFERENCES_T3");
+    case DEBUG_SIGNALS_T4:
+      return("DEBUG_SIGNALS_T4");
+    case GEN_MESSAGEPROCESSOR_T5:
+      return("GEN_MESSAGEPROCESSOR_T5");
+    case GEN_COMMANDPROCESSOR_T6:
+      return("GEN_COMMANDPROCESSOR_T6");
+    case GEN_POWERCONFIG_T7:
+      return("GEN_POWERCONFIG_T7");
+    case GEN_ACQUISITIONCONFIG_T8:
+      return("GEN_ACQUISITIONCONFIG_T8");
+    case TOUCH_MULTITOUCHSCREEN_T9:
+      return("TOUCH_MULTITOUCHSCREEN_T9");
+    case TOUCH_SINGLETOUCHSCREEN_T10:
+      return("TOUCH_SINGLETOUCHSCREEN_T10");
+    case TOUCH_XSLIDER_T11:
+      return("TOUCH_XSLIDER_T11");
+    case TOUCH_YSLIDER_T12:
+      return("TOUCH_YSLIDER_T12");
+    case TOUCH_XWHEEL_T13:
+      return("TOUCH_XWHEEL_T13");
+    case TOUCH_YWHEEL_T14:
+      return("TOUCH_YWHEEL_T14");
+    case TOUCH_KEYARRAY_T15:
+      return("TOUCH_KEYARRAY_T15");
+    case PROCG_SIGNALFILTER_T16:
+      return("PROCG_SIGNALFILTER_T16");
+    case PROCI_LINEARIZATIONTABLE_T17:
+      return("PROCI_LINEARIZATIONTABLE_T17");
+    case SPT_COMMSCONFIG_T18:
+      return("SPT_COMMSCONFIG_T18");
+    case SPT_GPIOPWM_T19:
+      return("SPT_GPIOPWM_T19");
+    case PROCI_GRIPFACESUPPRESSION_T20:
+      return("PROCI_GRIPFACESUPPRESSION_T20");
+    case PROCG_NOISESUPPRESSION_T22:
+      return("PROCG_NOISESUPPRESSION_T22");
+    case TOUCH_PROXIMITY_T23:
+      return("TOUCH_PROXIMITY_T23");
+    case PROCI_ONETOUCHGESTUREPROCESSOR_T24:
+      return("PROCI_ONETOUCHGESTUREPROCESSOR_T24");
+    case SPT_SELFTEST_T25:
+      return("SPT_SELFTEST_T25");
+    case DEBUG_CTERANGE_T26:
+      return("DEBUG_CTERANGE_T26");
+    case PROCI_TWOTOUCHGESTUREPROCESSOR_T27:
+      return("PROCI_TWOTOUCHGESTUREPROCESSOR_T27");
+    case SPT_CTECONFIG_T28:
+      return("SPT_CTECONFIG_T28");
+    case SPT_GPI_T29:
+      return("SPT_GPI_T29");
+    case SPT_GATE_T30:
+      return("SPT_GATE_T30");
+    case TOUCH_KEYSET_T31:
+      return("TOUCH_KEYSET_T31");
+    case TOUCH_XSLIDERSET_T32:
+      return("TOUCH_XSLIDERSET_T32");
+    case GEN_MESSAGEBLOCK_T34:
+      return("GEN_MESSAGEBLOCK_T34");
+    case SPT_GENERICDATA_T35:
+      return("SPT_GENERICDATA_T35");
+    case DEBUG_DIAGNOSTIC_T37:
+      return("DEBUG_DIAGNOSTIC_T37");
+    case SPT_USERDATA_T38:
+      return("SPT_USERDATA_T38");
+    case PROCI_GRIPSUPPRESSION_T40:
+      return("PROCI_GRIPSUPPRESSION_T40");
+    case PROCI_PALMSUPPRESSION_T41:
+      return("PROCI_PALMSUPPRESSION_T41");
+    case PROCI_TOUCHSUPPRESSION_T42:
+      return("PROCI_TOUCHSUPPRESSION_T42");
+    case SPT_DIGITIZER_T43:
+      return("SPT_DIGITIZER_T43");
+    case SPT_MESSAGECOUNT_T44:
+      return("SPT_MESSAGECOUNT_T44");
+    case PROCI_VIRTUALKEY_T45:
+      return("PROCI_VIRTUALKEY_T45");
+    case SPT_CTECONFIG_T46:
+      return("SPT_CTECONFIG_T46");
+    case PROCI_STYLUS_T47:
+      return("PROCI_STYLUS_T47");
+    case PROCG_NOISESUPPRESSION_T48:
+      return("PROCG_NOISESUPPRESSION_T48");
+    case GEN_DUALPULSE_T49:
+      return("GEN_DUALPULSE_T49");
+    case SPT_SONY_CUSTOM_T51:
+      return("SPT_SONY_CUSTOM_T51");
+    case TOUCH_PROXKEY_T52:
+      return("TOUCH_PROXKEY_T52");
+    case GEN_DATASOURCE_T53:
+      return("GEN_DATASOURCE_T53");
+    case PROCG_NOISESUPPRESSION_T54:
+      return("PROCG_NOISESUPPRESSION_T54");
+    case PROCI_ADAPTIVETHRESHOLD_T55:
+      return("PROCI_ADAPTIVETHRESHOLD_T55");
+    case PROCI_SHIELDLESS_T56:
+      return("PROCI_SHIELDLESS_T56");
+    case PROCI_EXTRATOUCHSCREENDATA_T57:
+      return("PROCI_EXTRATOUCHSCREENDATA_T57");
+    case SPT_EXTRANOISESUPCTRLS_T58:
+      return("SPT_EXTRANOISESUPCTRLS_T58");
+    default:
+      return("UNKNOWN");
+  }
+}
+
+void write_to_object(int obj_num)
+{
+  uint8_t obj_tbl_num, i;
+  uint8_t *temp;
+  int yn;
+  int value;
+
+  obj_tbl_num = get_object_table_num(obj_num);
+
+  temp = (uint8_t *)malloc(sizeof(char)*(object_table[obj_tbl_num].size+1));
+  if (temp == NULL)
+  {
+    fputs ("Memory error\n",stderr);
+    exit (2);
+  }
+
+  if(obj_tbl_num == 255)
+  {
+    printf("Object not found\n");
+  }
+  else
+  {
+    printf("%s:\n", objname(object_table[obj_tbl_num].object_type));
+    mxt_read_register(temp, get_start_position(object_table[obj_tbl_num]), object_table[obj_tbl_num].size+1);
+
+
+    for(i = 0; i < (object_table[obj_tbl_num].size+1); i++)
+    {
+      printf("Object element %d =\t %d\n",i, *(temp+i));
+      printf("Do you want to change this value? (1 for yes/2 for no)");
+      scanf("%d", &yn);
+      if(yn == 1)
+      {
+        printf("Enter the value to be written to object element %d\t :", i);
+        scanf("%d", &value);
+        *(temp+i) = (uint8_t) value;
+        printf("wrote %d\n", (uint8_t) value);
+      }
+    }
+
+    mxt_write_register(temp, get_start_position(object_table[obj_tbl_num]), object_table[obj_tbl_num].size+1);
+  }
+}
+
+
+void read_object(int obj_num)
+{
+  uint8_t obj_tbl_num;
+  uint8_t *temp;
+  int i;
+
+  obj_tbl_num = get_object_table_num(obj_num);
+
+  temp = (uint8_t *)malloc(sizeof(char)*(object_table[obj_tbl_num].size+1));
+  if (temp == NULL)
+  {
+    fputs ("Memory error\n",stderr); 
+    exit (2);
+  }
+
+  if(obj_tbl_num == 255)
+  {
+    printf("Object not found\n");
+  }
+  else
+  {
+    printf("%s:\n", objname(object_table[obj_tbl_num].object_type));
+    mxt_read_register(temp, get_start_position(object_table[obj_tbl_num]), object_table[obj_tbl_num].size+1);
+
+    for(i=0; i<(object_table[obj_tbl_num].size+1); i++)
+    {
+      printf("Object element %d =\t %d\n",i, *(temp+i));
+    }
+  }
+}
+
+void print_objs()
+{
+  int i;
+  for (i = 0; i < id->num_declared_objects; i++)
+  {
+    printf("\t %s\n", objname(object_table[i].object_type));
+  }
+}
