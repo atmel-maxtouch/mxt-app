@@ -10,9 +10,6 @@ OBPCFLAGS="-g -Wall \
 -Wstrict-prototypes -Wshadow \
 -Wformat-security -Wtype-limits"
 
-libtoolize \
-&& aclocal \
-&& automake --add-missing \
-&& autoconf
+autoreconf -v --install
 
 ./configure CFLAGS="${OBPCFLAGS} ${CFLAGS}" $@
