@@ -154,7 +154,7 @@ static int scan_sysfs_directory(struct dirent *i2c_dir, char *dirname, int adapt
     strcpy(gpDevice->mem_access_path, pszDirname);
     strncat(gpDevice->mem_access_path, "/mem_access", strlen(pszDirname) + 20);
 
-    LOG(LOG_INFO, "Registered device adapter:%d address:%x path:%s",
+    LOG(LOG_INFO, "Registered sysfs adapter:%d address:%x path:%s",
           gpDevice->adapter, gpDevice->address, gpDevice->path);
 
     gpDevice->calibrate_found = calibrate_found;
