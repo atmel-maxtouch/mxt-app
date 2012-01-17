@@ -4,17 +4,17 @@
 /// \author Nick Dyer
 //------------------------------------------------------------------------------
 // Copyright 2011 Atmel Corporation. All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
-// 
+//
 //    1. Redistributions of source code must retain the above copyright notice,
 //    this list of conditions and the following disclaimer.
-// 
+//
 //    2. Redistributions in binary form must reproduce the above copyright
 //    notice, this list of conditions and the following disclaimer in the
 //    documentation and/or other materials provided with the distribution.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY ATMEL ''AS IS'' AND ANY EXPRESS OR IMPLIED
 // WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
@@ -75,7 +75,7 @@ int mxt_scan()
   {
     LOG(LOG_ERROR, "Unable to find any mXT devices");
   }
-  
+
   return ret;
 }
 
@@ -535,19 +535,19 @@ int mxt_save_config_file(const char *cfg_file)
   fprintf(fp, "OBP_RAW V1\n");
 
   fprintf(fp, "%02X %02X %02X %02X %02X %02X %02X\n",
-          info_block->info_id.family_id, info_block->info_id.variant_id,
-          info_block->info_id.version, info_block->info_id.build,
-          info_block->info_id.matrix_x_size, info_block->info_id.matrix_y_size,
-          info_block->info_id.num_declared_objects);
+          info_block.id->family_id, info_block.id->variant_id,
+          info_block.id->version, info_block.id->build,
+          info_block.id->matrix_x_size, info_block.id->matrix_y_size,
+          info_block.id->num_declared_objects);
 
-  fprintf(fp, "%06X\n", (info_block->CRC_hi<<16u | (info_block->CRC)));
+  fprintf(fp, "%06X\n", info_block_crc(info_block.crc));
 
   /* can't read object table CRC at present */
   fprintf(fp, "000000\n");
 
-  for (obj_idx = 0; obj_idx < id->num_declared_objects; obj_idx++)
+  for (obj_idx = 0; obj_idx < info_block.id->num_declared_objects; obj_idx++)
   {
-    object = &object_table[obj_idx];
+    object = &(info_block.objects[obj_idx]);
     num_bytes = object->size + 1;
 
     temp = (uint8_t *)malloc(sizeof(char)*(num_bytes));

@@ -4,17 +4,17 @@
 /// \author Iiro Valkonen.
 //------------------------------------------------------------------------------
 // Copyright 2011 Atmel Corporation. All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
-// 
+//
 //    1. Redistributions of source code must retain the above copyright notice,
 //    this list of conditions and the following disclaimer.
-// 
+//
 //    2. Redistributions in binary form must reproduce the above copyright
 //    notice, this list of conditions and the following disclaimer in the
 //    documentation and/or other materials provided with the distribution.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY ATMEL ''AS IS'' AND ANY EXPRESS OR IMPLIED
 // WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
@@ -48,30 +48,30 @@ void print_info_block()
   int i;
 
   /* Show the Version Info */
-  printf("Family ID:         0x%02X\n", info_block->info_id.family_id);
-  printf("Variant ID:        0x%02X\n", info_block->info_id.variant_id);
-  printf("Version:           %d.%d\n", (info_block->info_id.version & 0xF0) >> 4, (info_block->info_id.version & 0x0F));
-  printf("Build:             %d\n", info_block->info_id.build);
-  printf("Matrix X Size:     %d\n", info_block->info_id.matrix_x_size);
-  printf("Matrix Y Size:     %d\n", info_block->info_id.matrix_y_size);
-  printf("Number of objects: %d\n", info_block->info_id.num_declared_objects);
+  printf("Family ID:         0x%02X\n", info_block.id->family_id);
+  printf("Variant ID:        0x%02X\n", info_block.id->variant_id);
+  printf("Version:           %d.%d\n", (info_block.id->version & 0xF0) >> 4, (info_block.id->version & 0x0F));
+  printf("Build:             %d\n", info_block.id->build);
+  printf("Matrix X Size:     %d\n", info_block.id->matrix_x_size);
+  printf("Matrix Y Size:     %d\n", info_block.id->matrix_y_size);
+  printf("Number of objects: %d\n", info_block.id->num_declared_objects);
   printf("\n");
 
   /* Show the object table */
   printf("%s: OBJECT TABLE\n", __func__);
-  for (i = 0; i < id->num_declared_objects; i++)
+  for (i = 0; i < info_block.id->num_declared_objects; i++)
   {
-    printf("Object Type:\t\t %s\n", objname(object_table[i].object_type));
-    printf("Address:\t\t %d\n", get_start_position(object_table[i]));
-    printf("Size:\t\t\t %d\n", object_table[i].size);
-    printf("Instances:\t\t %d\n", object_table[i].instances);
-    printf("ReportIDs:\t\t %d\n", object_table[i].num_report_ids);
+    printf("Object Type:\t\t %s\n", objname(info_block.objects[i].object_type));
+    printf("Address:\t\t %d\n", get_start_position(info_block.objects[i]));
+    printf("Size:\t\t\t %d\n", info_block.objects[i].size);
+    printf("Instances:\t\t %d\n", info_block.objects[i].instances);
+    printf("ReportIDs:\t\t %d\n", info_block.objects[i].num_report_ids);
     printf("\n");
   }
 
   /* Show the CRC */
-  printf("InfoBlock CRC:\t\t 0x%X \n", 
-    (info_block->CRC_hi<<16u) | (info_block->CRC));
+  printf("InfoBlock CRC:\t\t 0x%X \n",
+    (info_block.crc->CRC_hi<<16u) | (info_block.crc->CRC));
 }
 
 char *objname(uint8_t objtype)
@@ -196,7 +196,7 @@ void write_to_object(int obj_num)
 
   obj_tbl_num = get_object_table_num(obj_num);
 
-  temp = (uint8_t *)malloc(sizeof(char)*(object_table[obj_tbl_num].size+1));
+  temp = (uint8_t *)malloc(sizeof(char)*(info_block.objects[obj_tbl_num].size+1));
   if (temp == NULL)
   {
     fputs ("Memory error\n",stderr);
@@ -209,11 +209,11 @@ void write_to_object(int obj_num)
   }
   else
   {
-    printf("%s:\n", objname(object_table[obj_tbl_num].object_type));
-    mxt_read_register(temp, get_start_position(object_table[obj_tbl_num]), object_table[obj_tbl_num].size+1);
+    printf("%s:\n", objname(info_block.objects[obj_tbl_num].object_type));
+    mxt_read_register(temp, get_start_position(info_block.objects[obj_tbl_num]), info_block.objects[obj_tbl_num].size+1);
 
 
-    for(i = 0; i < (object_table[obj_tbl_num].size+1); i++)
+    for(i = 0; i < (info_block.objects[obj_tbl_num].size+1); i++)
     {
       printf("Object element %d =\t %d\n",i, *(temp+i));
       printf("Do you want to change this value? (1 for yes/2 for no)");
@@ -227,7 +227,7 @@ void write_to_object(int obj_num)
       }
     }
 
-    mxt_write_register(temp, get_start_position(object_table[obj_tbl_num]), object_table[obj_tbl_num].size+1);
+    mxt_write_register(temp, get_start_position(info_block.objects[obj_tbl_num]), info_block.objects[obj_tbl_num].size+1);
   }
 }
 
@@ -240,10 +240,10 @@ void read_object(int obj_num)
 
   obj_tbl_num = get_object_table_num(obj_num);
 
-  temp = (uint8_t *)malloc(sizeof(char)*(object_table[obj_tbl_num].size+1));
+  temp = (uint8_t *)malloc(sizeof(char)*(info_block.objects[obj_tbl_num].size+1));
   if (temp == NULL)
   {
-    fputs ("Memory error\n",stderr); 
+    fputs ("Memory error\n",stderr);
     exit (2);
   }
 
@@ -253,10 +253,10 @@ void read_object(int obj_num)
   }
   else
   {
-    printf("%s:\n", objname(object_table[obj_tbl_num].object_type));
-    mxt_read_register(temp, get_start_position(object_table[obj_tbl_num]), object_table[obj_tbl_num].size+1);
+    printf("%s:\n", objname(info_block.objects[obj_tbl_num].object_type));
+    mxt_read_register(temp, get_start_position(info_block.objects[obj_tbl_num]), info_block.objects[obj_tbl_num].size+1);
 
-    for(i=0; i<(object_table[obj_tbl_num].size+1); i++)
+    for(i=0; i<(info_block.objects[obj_tbl_num].size+1); i++)
     {
       printf("Object element %d =\t %d\n",i, *(temp+i));
     }
@@ -266,8 +266,8 @@ void read_object(int obj_num)
 void print_objs()
 {
   int i;
-  for (i = 0; i < id->num_declared_objects; i++)
+  for (i = 0; i < info_block.id->num_declared_objects; i++)
   {
-    printf("\t %s\n", objname(object_table[i].object_type));
+    printf("\t %s\n", objname(info_block.objects[i].object_type));
   }
 }

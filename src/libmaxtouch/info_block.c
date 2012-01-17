@@ -4,17 +4,17 @@
 /// \author Iiro Valkonen
 //------------------------------------------------------------------------------
 // Copyright 2011 Atmel Corporation. All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
-// 
+//
 //    1. Redistributions of source code must retain the above copyright notice,
 //    this list of conditions and the following disclaimer.
-// 
+//
 //    2. Redistributions in binary form must reproduce the above copyright
 //    notice, this list of conditions and the following disclaimer in the
 //    documentation and/or other materials provided with the distribution.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY ATMEL ''AS IS'' AND ANY EXPRESS OR IMPLIED
 // WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
@@ -34,8 +34,8 @@
 
 #include "info_block.h"
 
-/*! Pointer to Information Block structure. */
-info_block_t *info_block;
+/*! Information Block structure. */
+info_block_t info_block;
 
 /*! Pointer to report ID look-up table. */
 static report_id_map_t *report_id_map;
@@ -43,11 +43,73 @@ static report_id_map_t *report_id_map;
 /*! Command processor start position. */
 uint16_t command_processor_address;
 
-/*! Pointer to info block structure. */
-info_id_t *id;
+/*!
+ * @brief Information block checksum return function.
+ * @return 24-bit checksum value in 32-bit integer.
+ */
+uint32_t info_block_crc(crc_t * crc)
+{
+  return ((crc->CRC_hi<<16u) | (crc->CRC));
+}
 
-/*! Pointer to object table structure. */
-object_t *object_table;
+/*!
+ * @brief  Information Block Checksum algorithm.
+ * @return Calculated Information Block Checksum.
+ */
+uint32_t crc24(uint32_t crc, uint8_t firstbyte, uint8_t secondbyte)
+{
+  static const uint32_t CRCPOLY = 0x0080001B;
+  uint32_t result;
+  uint16_t data_word;
+
+  data_word = (uint16_t) ((uint16_t)(secondbyte << 8u) | firstbyte);
+  result = ((crc << 1u) ^ (uint32_t)data_word);
+
+  /* Check if 25th bit is set, and XOR the result to create 24-bit checksum */
+  if (result & 0x1000000)
+  {
+    result ^= CRCPOLY;
+  }
+  return result;
+}
+
+/*!
+ * @brief  Calculates and reports the Information Block Checksum.
+ * @return Zero on success, negative for error.
+ */
+int info_block_checksum(uint32_t read_crc, uint8_t *idb_base_addr, uint16_t crc_area_size)
+{
+  uint32_t calc_crc = 0; /* Checksum calculated by the driver code */
+  uint16_t crc_byte_index = 0;
+
+  /* Call the CRC function crc24() iteratively to calculate the CRC,
+   * passing it two characters at a time.
+   */
+
+  while (crc_byte_index < ((crc_area_size % 2) ? (crc_area_size - 1) : crc_area_size))
+  {
+    calc_crc = crc24(calc_crc, *(idb_base_addr + crc_byte_index), *(idb_base_addr + crc_byte_index + 1));
+    crc_byte_index += 2;
+  }
+
+  /* Call crc24() for the final byte, plus an extra
+   *  0 value byte to make the sequence even if it's odd
+   */
+  if (crc_area_size % 2)
+  {
+    calc_crc = crc24(calc_crc, *(idb_base_addr + crc_byte_index), 0);
+  }
+
+  calc_crc &= calc_crc & 0x00FFFFFF; /* Mask 32-bit calculated checksum to 24-bit */
+
+  /* Compare the read checksum with calculated checksum */
+  if (read_crc != calc_crc)
+  {
+    return -1;
+  }
+
+  return 0;
+}
 
 /*!
  * @brief  Reads the information block from the chip.
@@ -58,79 +120,85 @@ int read_information_block()
   int ret = -1;
 
   int memory_offset = 0;
-  int no_of_bytes;
 
-  static const int crc_length = 3;
-  uint8_t crc[crc_length];
+  /*
+   * Offset to the member of ID Information block containing
+   * information about number of objects in object table
+   */
+  const uint8_t ID_OBJECTS_OFFSET = 6;
 
-  /* Allocate space to read object table */
-  no_of_bytes = sizeof(info_id_t);
-  id = (info_id_t *) malloc(no_of_bytes);
-  if (id == NULL)
-  {
-    LOG(LOG_ERROR, "Failed to allocate %d bytes to store the ID Information", no_of_bytes);
-    return -1;
-  }
-  LOG(LOG_DEBUG, "Allocated %d bytes to store the ID Information", no_of_bytes);
+  uint8_t no_of_bytes;
+  const uint8_t NUM_ID_BYTES = 7; /* Number of bytes of information in ID block */
+  uint8_t num_declared_objects;
 
-  /* Read the ID information fields */
-  ret = mxt_read_register((unsigned char *)id, memory_offset, no_of_bytes);
+  static const int CRC_LENGTH = 3;
+  uint32_t read_crc = 0; /* Checksum value as read from the chip */
+  uint16_t crc_area_size; /* Size of data for CRC calculation */
+  uint8_t *idb_base_addr;
+
+  unsigned char *info_block_shadow;
+
+  /* Read "num_declared_objects" field of ID Information block */
+  ret = mxt_read_register((unsigned char *)&num_declared_objects, ID_OBJECTS_OFFSET, 1);
   if (ret < 0)
   {
-    LOG(LOG_ERROR, "Failed to read ID Information");
+    LOG(LOG_ERROR, "Failed to read information about number of objects");
     return -1;
   }
-  memory_offset += no_of_bytes;
 
   LOG(LOG_VERBOSE, "Successfully read and stored the ID Information");
 
-  /* Allocate space to read object table */
-  no_of_bytes = id->num_declared_objects * sizeof(object_t);
-  object_table = (object_t *) malloc(no_of_bytes);
-  if (object_table == NULL)
+  /* Determine the number of data bytes in Information Block for checksum calculation */
+  crc_area_size = NUM_ID_BYTES + num_declared_objects * sizeof(object_t);
+
+  /* Allocate space to read Information Block AND Checksum from the chip */
+  no_of_bytes = crc_area_size + CRC_LENGTH;
+
+  info_block_shadow = (char *) malloc(no_of_bytes);
+  if (info_block_shadow == NULL)
   {
-    LOG(LOG_ERROR, "Failed to allocate %d bytes for the Object Table data", no_of_bytes);
+    LOG(LOG_ERROR, "Failed to allocate %d bytes for the Information Block data", no_of_bytes);
     return -1;
   }
-  LOG(LOG_DEBUG, "Allocated %d bytes to store Object Table data", no_of_bytes);
+  LOG(LOG_DEBUG, "Allocated %d bytes to store Information Block data", no_of_bytes);
 
-  /* Read the object table */
-  ret = mxt_read_register((unsigned char *)object_table, memory_offset, no_of_bytes);
+  /* Read the Information Block from the chip */
+  ret = mxt_read_register(info_block_shadow, memory_offset, no_of_bytes);
   if (ret < 0)
   {
-    LOG(LOG_ERROR, "Failed to read the Object Table");
+    LOG(LOG_ERROR, "Failed to read the Information Block");
     return -1;
   }
-  memory_offset += no_of_bytes;
 
-  LOG(LOG_VERBOSE, "Successfully read and stored the Object Table data");
+  LOG(LOG_VERBOSE, "Successfully read and stored the Information Block data");
 
-  /* Read CRC */
-  ret = mxt_read_register((unsigned char *)crc, memory_offset, crc_length);
+  /*
+   * id, objects, and crc pointers should be pointing
+   * to the memory areas storing these values from the chip
+   */
+  info_block.id = (info_id_t *) info_block_shadow;
+  info_block.objects = (object_t *) ((uint8_t *)(info_block_shadow) + NUM_ID_BYTES);
+  info_block.crc = (crc_t *) ((uint8_t *)(info_block_shadow) + crc_area_size);
+
+  /* Read CRC for checksum comparision */
+  read_crc = ((uint32_t)info_block.crc->CRC);
+  read_crc += ((uint32_t)info_block.crc->CRC_hi << 16u);
+
+  /* assign byte pointer the base address of Information Block */
+  idb_base_addr = (uint8_t *)info_block.id;
+
+  /* Calculate and compare Information Block Checksum */
+  ret = info_block_checksum(read_crc, idb_base_addr, crc_area_size);
   if (ret < 0)
   {
-    LOG(LOG_ERROR, "Failed to read the Information Block Checksum");
+    LOG(LOG_ERROR, "Information Block Checksum mismatch");
     return -1;
   }
 
-  LOG(LOG_VERBOSE, "Successfully read and stored the Information Block Checksum");
-
-  /* Assign pointers to parent structure */
-  no_of_bytes = sizeof(info_block_t);
-  info_block = malloc(no_of_bytes);
-  if (info_block == NULL)
-  {
-    LOG(LOG_ERROR, "Failed to allocate %d bytes to store the Information Block structure", no_of_bytes);
-    return -1;
-  }
-  LOG(LOG_DEBUG, "Allocated %d bytes to store the Information Block structure", no_of_bytes);
-
-  info_block->info_id = *id;
-  info_block->objects = object_table;
-  info_block->CRC = (crc[1] * 256) + crc[0];
-  info_block->CRC_hi = crc[2];
+  LOG(LOG_VERBOSE, "Successfully matched and stored the Information Block Checksum");
 
   return 0;
+
 }
 
 /*!
@@ -151,9 +219,9 @@ int calc_report_ids()
   object_t element;
 
   /* Calculate the number of report IDs */
-  for (element_index = 0; element_index < id->num_declared_objects; element_index++)
+  for (element_index = 0; element_index < info_block.id->num_declared_objects; element_index++)
   {
-    element = object_table[element_index];
+    element = info_block.objects[element_index];
     num_report_ids += (element.instances + 1) * element.num_report_ids;
   }
 
@@ -168,9 +236,9 @@ int calc_report_ids()
   LOG(LOG_DEBUG, "Allocated %d bytes to store the Report ID LUT", no_of_bytes);
 
   /* Store the object and instance for each report ID */
-  for (element_index = 0; element_index < id->num_declared_objects; element_index++)
+  for (element_index = 0; element_index < info_block.id->num_declared_objects; element_index++)
   {
-    element = object_table[element_index];
+    element = info_block.objects[element_index];
 
     for (instance_index = 0; instance_index < (element.instances + 1); instance_index++)
     {
@@ -190,10 +258,10 @@ int calc_report_ids()
 
 int get_firmware_build()
 {
-  if (id == NULL)
+  if (info_block.id == NULL)
     return -1;
 
-  return id->build;
+  return info_block.id->build;
 }
 
 /*!
@@ -206,18 +274,18 @@ void display_chip_info()
   int no_of_touch_instances = 0;
 
   /* Display ID information */
-  LOG(LOG_INFO, "Family ID = 0x%02X", id->family_id);
-  LOG(LOG_INFO, "Variant ID = 0x%02X", id->variant_id);
-  LOG(LOG_INFO, "Version = %d.%d", (id->version & 0xF0) >> 4, (id->version & 0x0F));
-  LOG(LOG_INFO, "Build = 0x%02X", id->build);
-  LOG(LOG_INFO, "Matrix X Size = %d", id->matrix_x_size);
-  LOG(LOG_INFO, "Matrix Y Size = %d", id->matrix_y_size);
-  LOG(LOG_INFO, "Number of elements in the Object Table = %d", id->num_declared_objects);
+  LOG(LOG_INFO, "Family ID = 0x%02X", info_block.id->family_id);
+  LOG(LOG_INFO, "Variant ID = 0x%02X", info_block.id->variant_id);
+  LOG(LOG_INFO, "Version = %d.%d", (info_block.id->version & 0xF0) >> 4, (info_block.id->version & 0x0F));
+  LOG(LOG_INFO, "Build = 0x%02X", info_block.id->build);
+  LOG(LOG_INFO, "Matrix X Size = %d", info_block.id->matrix_x_size);
+  LOG(LOG_INFO, "Matrix Y Size = %d", info_block.id->matrix_y_size);
+  LOG(LOG_INFO, "Number of elements in the Object Table = %d", info_block.id->num_declared_objects);
 
   /* Display information about specific objects */
-  for (element_index = 0; element_index < id->num_declared_objects; element_index++)
+  for (element_index = 0; element_index < info_block.id->num_declared_objects; element_index++)
   {
-    element = object_table[element_index];
+    element = info_block.objects[element_index];
 
     LOG(LOG_INFO, "T%u size:%u instances:%u address:%u",
       element.object_type, element.size,
@@ -273,9 +341,9 @@ uint16_t get_object_address(uint8_t object_type, uint8_t instance)
   int element_index = 0;
   object_t element;
 
-  for (element_index = 0; element_index < id->num_declared_objects; element_index++)
+  for (element_index = 0; element_index < info_block.id->num_declared_objects; element_index++)
   {
-    element = object_table[element_index];
+    element = info_block.objects[element_index];
 
     /* Does object type match? */
     if (element.object_type == object_type)
@@ -311,7 +379,7 @@ uint8_t get_object_size(uint8_t object_type)
     return OBJECT_NOT_FOUND;
   }
 
-  return object_table[element_index].size + 1;
+  return info_block.objects[element_index].size + 1;
 }
 
 /*!
@@ -324,9 +392,9 @@ uint8_t get_object_table_num(uint8_t object_type)
 {
   int element_index;
 
-  for (element_index = 0; element_index < id->num_declared_objects; element_index++)
+  for (element_index = 0; element_index < info_block.id->num_declared_objects; element_index++)
   {
-    if (object_table[element_index].object_type == object_type)
+    if (info_block.objects[element_index].object_type == object_type)
     {
       return element_index;
     }
@@ -347,4 +415,3 @@ uint16_t get_start_position(object_t element)
 {
   return (element.start_pos_msbyte * 256) + element.start_pos_lsbyte;
 }
-

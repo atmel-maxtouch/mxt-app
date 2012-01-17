@@ -6,17 +6,17 @@
 /// \author Iiro Valkonen
 //------------------------------------------------------------------------------
 // Copyright 2011 Atmel Corporation. All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
-// 
+//
 //    1. Redistributions of source code must retain the above copyright notice,
 //    this list of conditions and the following disclaimer.
-// 
+//
 //    2. Redistributions in binary form must reproduce the above copyright
 //    notice, this list of conditions and the following disclaimer in the
 //    documentation and/or other materials provided with the distribution.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY ATMEL ''AS IS'' AND ANY EXPRESS OR IMPLIED
 // WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
@@ -37,9 +37,9 @@
 //      but the object table is pointer to array instead of array, since
 //      the size of that array is not known before the info block is
 //      read from touch chip.
-//   
+//
 //   This file needs to be kept in sync with firmware info_block.h!
-//   
+//
 //------------------------------------------------------------------------------
 
 #include <stdint.h>
@@ -47,6 +47,16 @@
 /*----------------------------------------------------------------------------
   type definitions
 ----------------------------------------------------------------------------*/
+
+/*! \brief Checksum element struct. */
+typedef struct
+{
+  /*! CRC field. */
+  uint16_t CRC;
+
+  /*! CRC field: higher byte */
+  uint8_t CRC_hi;
+} crc_t;
 
 /*! \brief Object table element struct. */
 typedef struct
@@ -74,37 +84,34 @@ typedef struct
    uint8_t matrix_x_size;        /* address 4 */
    uint8_t matrix_y_size;        /* address 5 */
 
-   /*! Number of entries in the object table. The actual number of objects 
+   /*! Number of entries in the object table. The actual number of objects
     * can be different if any object has more than one instance. */
    uint8_t num_declared_objects; /* address 6 */
 } info_id_t;
 
 
 /*! \brief Info block struct holding ID and object table data and their CRC sum.
- * 
- * Info block struct. Similar to one in info_block.h, but since 
+ *
+ * Info block struct. Similar to one in info_block.h, but since
  * the size of object table is not known beforehand, it's pointer to an
  * array instead of an array. This is not defined in info_block.h unless
  * we are compiling with IAR AVR or AVR32 compiler (__ICCAVR__ or __ICCAVR32__
  * is defined). If this driver is compiled with those compilers, the
  * info_block.h needs to be edited to not include that struct definition.
- * 
+ *
  * CRC is 24 bits, consisting of CRC and CRC_hi; CRC is the lower 16 bits and
- * CRC_hi the upper 8. 
- * 
+ * CRC_hi the upper 8.
+ *
  */
 
 typedef struct
 {
-   /*! Info ID struct. */
-   info_id_t info_id;
+   /*! Pointer to the struct containing ID Information. */
+   info_id_t *id;
 
    /*! Pointer to an array of objects. */
    object_t *objects;
 
-   /*! CRC field, low bytes. */
-   uint16_t CRC;
-
-   /*! CRC field, high byte. */
-   uint8_t CRC_hi;
+   /*! Pointer to CRC field. */
+   crc_t *crc;
 } info_block_t;
