@@ -366,7 +366,7 @@ bool mxt_get_pause()
 //******************************************************************************
 /// \brief  Perform fallback reset
 /// \return 0 = success, negative = fail
-static int mxt_reset_fallback(bool bootloader_mode)
+static int mxt_send_reset_command(bool bootloader_mode)
 {
   int ret;
   unsigned char write_value = RESET_COMMAND;
@@ -401,19 +401,8 @@ int mxt_reset_chip(bool bootloader_mode)
       break;
 
     case E_SYSFS:
-      if (!bootloader_mode && sysfs_reset_file_present())
-      {
-        /* Write to command file to perform command */
-        ret = sysfs_reset_chip();
-      }
-      else
-      {
-        ret = mxt_reset_fallback(bootloader_mode);
-      }
-      break;
-
     case E_I2C_DEV:
-      ret = mxt_reset_fallback(bootloader_mode);
+      ret = mxt_send_reset_command(bootloader_mode);
       break;
 
 #ifdef HAVE_LIBUSB
@@ -441,17 +430,6 @@ int mxt_calibrate_chip()
   {
     LOG(LOG_ERROR, "Device uninitialised");
   }
-#ifdef HAVE_LIBUSB
-  else if (gDeviceType == E_USB)
-  {
-    LOG(LOG_ERROR, "Device type not supported");
-  }
-#endif /* HAVE_LIBUSB */
-  else if (gDeviceType == E_SYSFS && sysfs_calibrate_file_present())
-  {
-    /* Write to command file to perform command */
-    ret = sysfs_calibrate_chip();
-  }
   else
   {
     /* Write to command processor register to perform command */
@@ -462,11 +440,11 @@ int mxt_calibrate_chip()
 
     if (ret == 0)
     {
-      LOG(LOG_INFO, "Performed global recalibration on all channels");
+      LOG(LOG_INFO, "Send calibration command");
     }
     else
     {
-      LOG(LOG_ERROR, "Failed to calibrate chip");
+      LOG(LOG_ERROR, "Failed to send calibration command");
     }
   }
 
@@ -491,11 +469,6 @@ int mxt_backup_config()
     LOG(LOG_ERROR, "Device type not supported");
   }
 #endif /* HAVE_LIBUSB */
-  else if (gDeviceType == E_SYSFS && sysfs_calibrate_file_present())
-  {
-    /* Write to command file to perform command */
-    ret = sysfs_backup_config();
-  }
   else
   {
     /* Write to command processor register to perform command */

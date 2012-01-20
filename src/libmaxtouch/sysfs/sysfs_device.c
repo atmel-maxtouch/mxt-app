@@ -51,9 +51,6 @@ typedef struct sysfs_device_tag {
   int address;
   char *path;
   char *mem_access_path;
-  bool calibrate_found;
-  bool backup_found;
-  bool reset_found;
 } sysfs_device;
 
 /* detected devices */
@@ -75,9 +72,6 @@ static int scan_sysfs_directory(struct dirent *i2c_dir, char *dirname, int adapt
   bool mem_access_found = false;
   bool pause_found = false;
   bool debug_found = false;
-  bool calibrate_found = false;
-  bool backup_found = false;
-  bool reset_found = false;
   int ret = 0;
 
   length = strlen(dirname) + strlen(i2c_dir->d_name) + 1;
@@ -117,24 +111,6 @@ static int scan_sysfs_directory(struct dirent *i2c_dir, char *dirname, int adapt
       LOG(LOG_DEBUG, "Found debug_enable interface at %s/debug_enable", pszDirname);
       debug_found = true;
     }
-
-    if (!strcmp(pEntry->d_name, "command_calibrate"))
-    {
-      LOG(LOG_DEBUG, "Found command_calibrate interface at %s/command_calibrate", pszDirname);
-      calibrate_found = true;
-    }
-
-    if (!strcmp(pEntry->d_name, "command_reset"))
-    {
-      LOG(LOG_DEBUG, "Found command_reset interface at %s/command_reset", pszDirname);
-      reset_found = true;
-    }
-
-    if (!strcmp(pEntry->d_name, "command_backup"))
-    {
-      LOG(LOG_DEBUG, "Found command_backup interface at %s/command_backup", pszDirname);
-      backup_found = true;
-    }
   }
 
   /* If device found, store it and return success */
@@ -157,11 +133,7 @@ static int scan_sysfs_directory(struct dirent *i2c_dir, char *dirname, int adapt
     LOG(LOG_INFO, "Registered sysfs adapter:%d address:%x path:%s",
           gpDevice->adapter, gpDevice->address, gpDevice->path);
 
-    gpDevice->calibrate_found = calibrate_found;
-    gpDevice->backup_found = backup_found;
-    gpDevice->reset_found = reset_found;
-
-  ret = 1;
+    ret = 1;
     goto close;
   }
 
@@ -213,24 +185,24 @@ static int scan_driver_directory(char *path, struct dirent *dir)
 
   while ((pEntry = readdir(pDirectory)) != NULL)
   {
-     if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
-       continue;
+    if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
+      continue;
 
-     if (sscanf(pEntry->d_name, "%d-%x", &adapter, &address) == 2)
-     {
-       ret = scan_sysfs_directory(pEntry, pszDirname, adapter, address);
+    if (sscanf(pEntry->d_name, "%d-%x", &adapter, &address) == 2)
+    {
+      ret = scan_sysfs_directory(pEntry, pszDirname, adapter, address);
 
-       // If found or error finish
-       if (ret != 0) goto close;
-     }
+      // If found or error finish
+      if (ret != 0) goto close;
+    }
 
-     if (sscanf(pEntry->d_name, "spi%d.%d", &adapter, &address) == 2)
-     {
-       ret = scan_sysfs_directory(pEntry, pszDirname, adapter, address);
+    if (sscanf(pEntry->d_name, "spi%d.%d", &adapter, &address) == 2)
+    {
+      ret = scan_sysfs_directory(pEntry, pszDirname, adapter, address);
 
-       // If found or error finish
-       if (ret != 0) goto close;
-  }
+      // If found or error finish
+      if (ret != 0) goto close;
+    }
   }
 
 close:
@@ -267,7 +239,7 @@ static int sysfs_scan_tree(char *root)
     if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
       continue;
 
-     ret = scan_driver_directory(root, pEntry);
+    ret = scan_driver_directory(root, pEntry);
   }
 
   (void)closedir(pDirectory);
@@ -344,8 +316,11 @@ static int open_device_file()
 
   file = open(gpDevice->mem_access_path, O_RDWR);
 
-  if (file < 0) {
-    LOG(LOG_ERROR, "Could not open %s, error %s (%d)", gpDevice->mem_access_path, strerror(errno), errno);
+  if (file < 0)
+  {
+    LOG(LOG_ERROR, "Could not open %s, error %s (%d)",
+        gpDevice->mem_access_path, strerror(errno), errno);
+
     return -1;
   }
 
@@ -367,7 +342,8 @@ int sysfs_read_register(unsigned char *buf, int start_register, int count)
 
   LOG(LOG_VERBOSE, "Calling lseek offset:%d", start_register);
 
-  if (lseek(fd, start_register, 0) < 0) {
+  if (lseek(fd, start_register, 0) < 0)
+  {
     LOG(LOG_ERROR, "lseek error %s (%d)", strerror(errno), errno);
     ret = -1;
     goto close;
@@ -376,13 +352,15 @@ int sysfs_read_register(unsigned char *buf, int start_register, int count)
   LOG(LOG_VERBOSE, "Calling read count:%d", count);
 
   bytes_read = 0;
-  while (bytes_read < count) {
+  while (bytes_read < count)
+  {
     ret = read(fd, buf + bytes_read, count - bytes_read);
-    if (ret < 0) {
-    LOG(LOG_ERROR, "read error %s (%d)", strerror(errno), errno);
-    ret = -1;
+    if (ret < 0)
+    {
+      LOG(LOG_ERROR, "read error %s (%d)", strerror(errno), errno);
+      ret = -1;
       goto close;
-  }
+    }
 
     bytes_read += ret;
   }
@@ -409,7 +387,8 @@ int sysfs_write_register(unsigned char *buf, int start_register, int count)
 
   LOG(LOG_VERBOSE, "Calling lseek offset:%d", start_register);
 
-  if (lseek(fd, start_register, 0) < 0) {
+  if (lseek(fd, start_register, 0) < 0)
+  {
     LOG(LOG_ERROR, "lseek error %s (%d)", strerror(errno), errno);
     ret = -1;
     goto close;
@@ -421,11 +400,12 @@ int sysfs_write_register(unsigned char *buf, int start_register, int count)
   while (bytes_written < count)
   {
     ret = write(fd, buf+bytes_written, count - bytes_written);
-    if (ret < 0) {
-    LOG(LOG_ERROR, "Error %s (%d) writing to register", strerror(errno), errno);
-    ret = -1;
+    if (ret < 0)
+    {
+      LOG(LOG_ERROR, "Error %s (%d) writing to register", strerror(errno), errno);
+      ret = -1;
       goto close;
-  }
+    }
 
     bytes_written += ret;
   }
@@ -581,73 +561,3 @@ bool sysfs_get_pause()
 
   return read_boolean_file(make_path("pause_driver"));
 }
-
-//******************************************************************************
-/// \brief  Returns the state of the reset_found flag
-/// \return true if the command_reset file is present, otherwise false
-bool sysfs_reset_file_present()
-{
-  return gpDevice->reset_found;
-}
-
-//******************************************************************************
-/// \brief  Reset maxtouch chip
-/// \return zero on success, negative error
-int sysfs_reset_chip()
-{
-  // Check device is initialised
-  if (gpDevice == NULL)
-  {
-    LOG(LOG_ERROR, "Device uninitialised");
-    return -1;
-  }
-
-  return write_boolean_file(make_path("command_reset"), true);
-}
-
-//******************************************************************************
-/// \brief  Returns the state of the calibrate_found flag
-/// \return true if the command_calibrate file is present, otherwise false
-bool sysfs_calibrate_file_present()
-{
-  return gpDevice->calibrate_found;
-}
-
-//******************************************************************************
-/// \brief  Calibrate maxtouch chip
-/// \return zero on success, negative error
-int sysfs_calibrate_chip()
-{
-  // Check device is initialised
-  if (gpDevice == NULL)
-  {
-    LOG(LOG_ERROR, "Device uninitialised");
-    return -1;
-  }
-
-  return write_boolean_file(make_path("command_calibrate"), true);
-}
-
-//******************************************************************************
-/// \brief  Returns the state of the backup_found flag
-/// \return true if the command_backup file is present, otherwise false
-bool sysfs_backup_file_present()
-{
-  return gpDevice->backup_found;
-}
-
-//******************************************************************************
-/// \brief  Backup configuration settings to non-volatile memory
-/// \return zero on success, negative error
-int sysfs_backup_config()
-{
-  // Check device is initialised
-  if (gpDevice == NULL)
-  {
-    LOG(LOG_ERROR, "Device uninitialised");
-    return -1;
-  }
-
-  return write_boolean_file(make_path("command_backup"), true);
-}
-
