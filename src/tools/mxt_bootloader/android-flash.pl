@@ -121,7 +121,7 @@ sub flash_device
   }
   elsif (-e $status_file)
   {
-    open (COMPLETED, "<", $status_file); 
+    open (COMPLETED, "<", $status_file);
     my $completed = <COMPLETED>;
     if ($completed eq $firmware_version)
     {
@@ -145,7 +145,7 @@ sub flash_device
   adb_shell("su -c mkdir -p /data/maxtouch-flash");
   print "Uploading flash tool: ";
   system("adb push $bootloader_location $android_dir");
-  
+
   print "Uploading firmware: ";
   system("adb push \"$firmware_file\" $android_dir");
 
@@ -164,7 +164,7 @@ sub flash_device
   print "Capturing log\n";
   system("adb logcat -d > $logdir/logcat.txt");
 
-  if ($bootloader_output =~ m/SUCCESS/ 
+  if ($bootloader_output =~ m/SUCCESS/
       || $bootloader_output =~ m/Firmware already correct version/)
   {
     open (STATUS, ">", $status_file);

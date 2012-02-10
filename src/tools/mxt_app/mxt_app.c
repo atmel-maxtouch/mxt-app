@@ -4,17 +4,17 @@
 /// \author Srivalli Ineni & Iiro Valkonen.
 //------------------------------------------------------------------------------
 // Copyright 2011 Atmel Corporation. All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
-// 
+//
 //    1. Redistributions of source code must retain the above copyright notice,
 //    this list of conditions and the following disclaimer.
-// 
+//
 //    2. Redistributions in binary form must reproduce the above copyright
 //    notice, this list of conditions and the following disclaimer in the
 //    documentation and/or other materials provided with the distribution.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY ATMEL ''AS IS'' AND ANY EXPRESS OR IMPLIED
 // WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
@@ -67,7 +67,7 @@ int main (int argc, char *argv[])
      printf("Failed to init device - exiting the application\n");
      return -1;
    }
-   
+
    if (mxt_get_info() < 0)
    {
      printf("Error reading info block, exiting...\n");
@@ -101,11 +101,11 @@ int main (int argc, char *argv[])
          printf("Trying to open %s...\n", cfg_file);
          if (mxt_load_config_file(cfg_file, false) == 0)
          {
-           printf("Successfully uploaded the configuration file\n"); 
+           printf("Successfully uploaded the configuration file\n");
          }
          else
          {
-           printf("Failed to upload the configuration\n"); 
+           printf("Failed to upload the configuration\n");
          }
          break;
       case 's':
@@ -114,11 +114,11 @@ int main (int argc, char *argv[])
          scanf("%s", cfg_file);
          if (mxt_save_config_file(cfg_file) == 0)
          {
-           printf("Successfully saved configuration to file\n"); 
+           printf("Successfully saved configuration to file\n");
          }
          else
          {
-           printf("Failed to save configuration\n"); 
+           printf("Failed to save configuration\n");
          }
          break;
       case 'i':
@@ -187,7 +187,7 @@ int main (int argc, char *argv[])
         /* Backup the config data */
         if (mxt_backup_config() == 0)
         {
-          printf("Settings successfully backed up to non-volatile memory\n"); 
+          printf("Settings successfully backed up to non-volatile memory\n");
         }
         else
         {

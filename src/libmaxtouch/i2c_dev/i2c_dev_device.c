@@ -4,17 +4,17 @@
 /// \author Nick Dyer
 //------------------------------------------------------------------------------
 // Copyright 2011 Atmel Corporation. All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
-// 
+//
 //    1. Redistributions of source code must retain the above copyright notice,
 //    this list of conditions and the following disclaimer.
-// 
+//
 //    2. Redistributions in binary form must reproduce the above copyright
 //    notice, this list of conditions and the following disclaimer in the
 //    documentation and/or other materials provided with the distribution.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY ATMEL ''AS IS'' AND ANY EXPRESS OR IMPLIED
 // WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
@@ -70,7 +70,7 @@ int i2c_dev_set_address(int adapter, int address)
     LOG_INFO, "Registered i2c-dev adapter:%d address:0x%x",
     gpDevDevice->adapter, gpDevDevice->address
   );
-  
+
   mxt_set_device_type(E_I2C_DEV);
 
   return 1;
@@ -107,7 +107,7 @@ static int open_and_set_slave_address()
     close(fd);
     return ret;
   }
-  
+
   return fd;
 }
 
@@ -122,7 +122,7 @@ int i2c_dev_read_register(unsigned char *buf, int start_register, int count)
   LOG(LOG_DEBUG, "start_register:%d count:%d\n", start_register, count);
 
   fd = open_and_set_slave_address();
-  
+
   if (fd < 0)
     return fd;
 
@@ -200,7 +200,7 @@ int i2c_dev_bootloader_read(unsigned char *buf, int count)
   int ret;
 
   fd = open_and_set_slave_address();
-  
+
   if (fd < 0)
     return fd;
 

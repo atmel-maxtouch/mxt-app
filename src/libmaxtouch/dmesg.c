@@ -3,17 +3,17 @@
 /// \brief  Functions to read kernel message buffer
 //------------------------------------------------------------------------------
 // Copyright 2011 Atmel Corporation. All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
-// 
+//
 //    1. Redistributions of source code must retain the above copyright notice,
 //    this list of conditions and the following disclaimer.
-// 
+//
 //    2. Redistributions in binary form must reproduce the above copyright
 //    notice, this list of conditions and the following disclaimer in the
 //    documentation and/or other materials provided with the distribution.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY ATMEL ''AS IS'' AND ANY EXPRESS OR IMPLIED
 // WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
@@ -98,7 +98,7 @@ static void dmesg_list_empty(void)
     old_node = next_node;
   }
   free(old_node);
-  
+
   return;
 }
 
@@ -111,7 +111,7 @@ int mxt_get_debug_messages()
   char line[BUFFERSIZE*2];
   char *lineptr;
   int n, op, sp, ep;
-  
+
   dmesg_item cur_dmesg;
 
   // Read entire kernel log buffer
@@ -140,15 +140,15 @@ int mxt_get_debug_messages()
     // Copy line into line buffer
     strncpy(line, buffer+sp, ep);
     line[ep] = '\0';
-        
+
     // Set up start point for next line
     sp = sp + ep + 1;
 
     cur_dmesg.sec = 0;
     cur_dmesg.msec = 0;
     n = 0;
-   
-    // Try to parse the line format 
+
+    // Try to parse the line format
     n = sscanf(line, "<%*c>[%lu.%06lu] %[^\n]", &cur_dmesg.sec, &cur_dmesg.msec, cur_dmesg.msg);
 
     // If successful in parsing
@@ -166,7 +166,7 @@ int mxt_get_debug_messages()
         }
       }
     }
-    
+
     // Only 500 at a time, otherwise we overrun JNI reference limit.
     if (dmesg_count > 500)
       break;
@@ -175,7 +175,7 @@ int mxt_get_debug_messages()
     if(sp >= op)
       break;
   }
-  
+
   // Set the timestamp to the last message
   timestamp = cur_dmesg.sec;
   mtimestamp = cur_dmesg.msec;
@@ -194,7 +194,7 @@ char *mxt_retrieve_message()
   char *msg_string;
 
   msg_string = dmesg_ptr->msg;
-  
+
   if(dmesg_ptr != (void *) 0)
   {
     // Get next record in linked list

@@ -4,17 +4,17 @@
 /// \author Nick Dyer
 //------------------------------------------------------------------------------
 // Copyright 2011 Atmel Corporation. All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
-// 
+//
 //    1. Redistributions of source code must retain the above copyright notice,
 //    this list of conditions and the following disclaimer.
-// 
+//
 //    2. Redistributions in binary form must reproduce the above copyright
 //    notice, this list of conditions and the following disclaimer in the
 //    documentation and/or other materials provided with the distribution.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY ATMEL ''AS IS'' AND ANY EXPRESS OR IMPLIED
 // WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
@@ -59,7 +59,7 @@ static void display_usage(void)
   );
 }
 
-static int readline(int fd, char *str, int maxlen) 
+static int readline(int fd, char *str, int maxlen)
 {
   int n;
   int readcount;
@@ -74,15 +74,15 @@ static int readline(int fd, char *str, int maxlen)
          break;
       *str = c;
       str++;
-    } 
+    }
     else if (readcount == 0)
     {
       if (n == 1)
         return (0);
       else
         break;
-    } 
-    else 
+    }
+    else
       return (-1);
   }
 
@@ -123,7 +123,7 @@ static int mxt_convert_hex(char *hex, unsigned char *databuf, int *count)
             || highnibble == '\0' || highnibble == '\n')
             break;
 
-        *(databuf + datapos) = (to_digit(highnibble) << 4) 
+        *(databuf + datapos) = (to_digit(highnibble) << 4)
                                 | to_digit(lownibble);
         datapos++;
 
@@ -158,7 +158,7 @@ static int handle_cmd(int sockfd)
   int address, count, i;
   unsigned char databuf[BUF_SIZE];
 
-  ret = readline(sockfd, buf, BUF_SIZE); 
+  ret = readline(sockfd, buf, BUF_SIZE);
   if (ret < 0) {
       LOG(LOG_ERROR, "error reading");
       return (ret);
@@ -232,11 +232,11 @@ static int bridge(struct hostent *server)
 
     bzero((char *) &serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr, 
+    bcopy((char *)server->h_addr,
          (char *)&serv_addr.sin_addr.s_addr,
          server->h_length);
     serv_addr.sin_port = htons(portno);
-    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) 
+    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
         LOG(LOG_ERROR, "ERROR connecting");
 
     /* set up select timeout */
@@ -268,7 +268,7 @@ static int bridge(struct hostent *server)
           goto close;
         }
       }
-      
+
       handle_messages(sockfd);
     }
 
@@ -308,7 +308,7 @@ int main (int argc, char *argv[])
       printf("Error initializing, exiting...\n");
       return -1;
   }
-  
+
   if (mxt_get_info() < 0)
   {
     printf("Error reading info block, exiting...\n");
