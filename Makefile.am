@@ -32,7 +32,7 @@ endif
 
 mxt_config_loader_LDADD = libmaxtouch.la
 mxt_config_loader_SOURCES = \
-	src/tools/config_loader/config_loader.c
+	src/tools/mxt_config_loader/mxt_config_loader.c
 
 mxt_bridge_LDADD = libmaxtouch.la
 mxt_bridge_SOURCES = \

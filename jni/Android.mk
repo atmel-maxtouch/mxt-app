@@ -6,7 +6,7 @@ subdirs := $(addprefix $(SRC_PATH)/,$(addsuffix /Android.mk, \
     libmaxtouch \
     jni \
     tools/mxt_app \
-    tools/config_loader \
+    tools/mxt_config_loader \
     tools/mxt_bridge \
     tools/mxt_bootloader \
   ))
