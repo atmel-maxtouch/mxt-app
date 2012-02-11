@@ -39,19 +39,222 @@
 #include "touch_app.h"
 #include "utilfuncs.h"
 
-/* \brief Defines CHANGE line active mode. */
-#define CHANGELINE_ASSERTED 0
-#define MESSAGE_READ_OK             1u
-#define MESSAGE_READ_FAILED         2u
-
-/*! \brief Returns the changeline state. */
-uint8_t read_changeline(void);
-
-int main (int argc, char *argv[])
+//******************************************************************************
+/// \brief Load config from file
+static void load_config(void)
 {
-   char main_menu[255];
-   int obj_num, exit_loop, ret;
    char cfg_file[255];
+
+   /* Load config file */
+   printf("Give cfg file name: ");
+   scanf("%255s", cfg_file);
+   printf("Trying to open %s...\n", cfg_file);
+
+   if (mxt_load_config_file(cfg_file, false) == 0)
+   {
+      printf("Successfully uploaded the configuration file\n");
+   }
+   else
+   {
+      printf("Failed to upload the configuration\n");
+   }
+}
+
+//******************************************************************************
+/// \brief Save config to file
+static void save_config(void)
+{
+   char cfg_file[255];
+
+   /* Save config file */
+   printf("Give cfg file name: ");
+   scanf("%255s", cfg_file);
+
+   if (mxt_save_config_file(cfg_file) == 0)
+   {
+      printf("Successfully saved configuration to file\n");
+   }
+   else
+   {
+      printf("Failed to save configuration\n");
+   }
+}
+
+//******************************************************************************
+/// \brief Read objects according to the input value
+static void read_object_command(void)
+{
+   int obj_num;
+
+   printf("Objects on the chip:\n");
+
+   while(1)
+   {
+      print_objs();
+
+      printf("Enter the object number to read the object's "
+             "field values; Enter 255 to return to main menu\n");
+      scanf("%d",&obj_num);
+
+      if ((obj_num >= 0) && (obj_num < 255))
+      {
+         read_object(obj_num);
+      }
+      else if (obj_num == 255)
+      {
+         break;
+      }
+      else
+      {
+         printf("Please enter a valid object number\n");
+         printf("Coming out of objects space...\n");
+         break;
+      }
+   }
+}
+
+//******************************************************************************
+/// \brief Write objects
+static void write_object_command(void)
+{
+   int obj_num;
+
+   printf("Objects on the chip:\n");
+   while(1)
+   {
+     print_objs();
+     printf("Enter the object number to modify the object's "
+       "field values; or 255 to return to main menu\n");
+     scanf("%d",&obj_num);
+
+     if((obj_num >= 0) && (obj_num < 255))
+     {
+       write_to_object(obj_num);
+     }
+     else if(obj_num == 255)
+     {
+       break;
+     }
+     else
+     {
+       printf("Please enter a valid object number\n");
+       printf("Coming out of objects space...\n");
+       break;
+     }
+   }
+}
+
+//******************************************************************************
+/// \brief Handle command
+static int mxt_app_command(char selection)
+{
+   int exit_loop = 0;
+
+   switch(selection)
+   {
+   case 'l':
+      load_config();
+      break;
+   case 's':
+      save_config();
+   case 'i':
+      /* Print info block */
+      printf("Reading info block.....\n");
+      print_info_block();
+      break;
+   case 'd':
+      read_object_command();
+      break;
+    case 'w':
+      write_object_command();
+      break;
+    case 'f':
+      /* Run the self-test */
+      self_test_handler();
+      break;
+    case 'b':
+      /* Backup the config data */
+      if (mxt_backup_config() == 0)
+      {
+        printf("Settings successfully backed up to non-volatile memory\n");
+      }
+      else
+      {
+        printf("Failed to back up settings\n");
+      }
+      break;
+    case 'r':
+      /* Reset the chip */
+      if (mxt_reset_chip(false) == 0)
+      {
+        printf("Successfully forced a reset of the device\n");
+      }
+      else
+      {
+        printf("Failed to force a reset\n");
+      }
+      break;
+    case 'a':
+      /* Calibrate the device*/
+      if (mxt_calibrate_chip() == 0)
+      {
+        printf("Successfully performed a global recalibration on all channels\n");
+      }
+      else
+      {
+        printf("Failed to perform a global recalibration\n");
+      }
+      break;
+    case 'e':
+      /* Read the events generated */
+      event_printer();
+      break;
+    case 'm':
+      /* Display raw messages */
+      if (mxt_get_device_type() == E_USB)
+      {
+        printf("to be implemented...\n\n");
+      }
+      else
+      {
+        print_raw_messages();
+      }
+      break;
+    case 'o':
+      /* Restart the chip in bootlader mode, and exit */
+      if (mxt_reset_chip(true) == 0)
+      {
+        printf
+        (
+          "Successfully restarted the device in bootloader mode...\n"
+          "...quitting the maxtouch application\n"
+        );
+        exit_loop = 1;
+      }
+      else
+      {
+        printf("Failed to restart the device in bootloader mode\n");
+      }
+      break;
+    case 'q':
+      printf("Quitting the maxtouch application\n");
+      exit_loop = 1;
+      break;
+    default:
+      printf("Invalid menu option\n");
+      break;
+  }
+
+  return exit_loop;
+}
+
+//******************************************************************************
+/// \brief Menu function for mxt-app
+static int mxt_menu(void)
+{
+   char menu_input;
+   int exit_loop;
+   int ret;
 
    printf("Command line tool for Atmel maXTouch chips\n");
 
@@ -75,6 +278,7 @@ int main (int argc, char *argv[])
    }
 
    exit_loop = 0;
+
    while(!exit_loop)
    {
      printf("\nSelect one of the options:\n\n"
@@ -91,173 +295,20 @@ int main (int argc, char *argv[])
        "Enter M:   Display raw (M)essages\n"
        "Enter O:   Set to b(O)otloader mode and quit\n"
        "Enter Q:   (Q)uit the application\n");
-     scanf("%255s", main_menu);
-     switch(tolower(main_menu[0]))
-     {
-       case 'l':
-         /* Load config file */
-         printf("Give cfg file name: ");
-         scanf("%s", cfg_file);
-         printf("Trying to open %s...\n", cfg_file);
-         if (mxt_load_config_file(cfg_file, false) == 0)
-         {
-           printf("Successfully uploaded the configuration file\n");
-         }
-         else
-         {
-           printf("Failed to upload the configuration\n");
-         }
-         break;
-      case 's':
-         /* Save config file */
-         printf("Give cfg file name: ");
-         scanf("%s", cfg_file);
-         if (mxt_save_config_file(cfg_file) == 0)
-         {
-           printf("Successfully saved configuration to file\n");
-         }
-         else
-         {
-           printf("Failed to save configuration\n");
-         }
-         break;
-      case 'i':
-         /* Print info block */
-         printf("Reading info block.....\n");
-         print_info_block();
-         break;
-      case 'd':
-         /* Read objects according to the input value */
-         printf("Objects on the chip: \n");
-         while(1)
-         {
-           print_objs();
 
-           printf("Enter the object number to read the object's "
-             "field values; Enter 255 to return to main menu \n");
-           scanf("%d",&obj_num);
+     scanf("%1s", &menu_input);
 
-           if((obj_num >= 0) && (obj_num < 255))
-           {
-             read_object(obj_num);
-           }
-           else if(obj_num == 255)
-           {
-             break;
-           }
-           else
-           {
-             printf("Please enter a valid object number\n");
-             printf("Coming out of objects space... \n");
-             break;
-           }
-         }
-         break;
-      case 'w':
-        printf("Objects on the chip: \n");
-        while(1)
-        {
-          print_objs();
-          printf("Enter the object number to modify the object's "
-            "field values; or 255 to return to main menu\n");
-          scanf("%d",&obj_num);
+     exit_loop = mxt_app_command(menu_input);
+   }
 
-          if((obj_num >= 0) && (obj_num < 255))
-          {
-            write_to_object(obj_num);
-          }
-          else if(obj_num == 255)
-          {
-            break;
-          }
-          else
-          {
-            printf("Please enter a valid object number\n");
-            printf("Coming out of objects space...\n");
-            break;
-          }
-        }
+   mxt_release();
 
-        break;
-      case 'f':
-        /* Run the self-test */
-        self_test_handler();
-        break;
-      case 'b':
-        /* Backup the config data */
-        if (mxt_backup_config() == 0)
-        {
-          printf("Settings successfully backed up to non-volatile memory\n");
-        }
-        else
-        {
-          printf("Failed to back up settings\n");
-        }
-        break;
-      case 'r':
-        /* Reset the chip */
-        if (mxt_reset_chip(false) == 0)
-        {
-          printf("Successfully forced a reset of the device\n");
-        }
-        else
-        {
-          printf("Failed to force a reset\n");
-        }
-        break;
-      case 'a':
-        /* Calibrate the device*/
-        if (mxt_calibrate_chip() == 0)
-        {
-          printf("Successfully performed a global recalibration on all channels\n");
-        }
-        else
-        {
-          printf("Failed to perform a global recalibration\n");
-        }
-        break;
-      case 'e':
-        /* Read the events generated */
-        event_printer();
-        break;
-      case 'm':
-        /* Display raw messages */
-        if (mxt_get_device_type() == E_USB)
-        {
-          printf("to be implemented...\n\n");
-        }
-        else
-        {
-          print_raw_messages();
-        }
-        break;
-      case 'o':
-        /* Restart the chip in bootlader mode, and exit */
-        if (mxt_reset_chip(true) == 0)
-        {
-          printf
-          (
-            "Successfully restarted the device in bootloader mode...\n"
-            "...quitting the maxtouch application\n"
-          );
-          exit_loop = 1;
-        }
-        else
-        {
-          printf("Failed to restart the device in bootloader mode\n");
-        }
-        break;
-      case 'q':
-        printf("Quitting the maxtouch application\n");
-        mxt_release();
-        exit_loop = 1;
-        break;
-      default:
-        printf("Invalid menu option\n");
-        break;
-    }
-  }
-
-  return 0;
+   return 0;
 }
 
+//******************************************************************************
+/// \brief Main function for mxt-app
+int main (int argc, char *argv[])
+{
+   return mxt_menu();
+}
