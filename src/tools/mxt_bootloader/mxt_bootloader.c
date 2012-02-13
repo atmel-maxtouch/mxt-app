@@ -184,7 +184,6 @@ int main (int argc, char *argv[])
   int frame_retry = 0;
   unsigned char buffer[FIRMWARE_BUFFER_SIZE];
   int i;
-  int c;
   char *filename = NULL;
   FILE *fp;
   int adapter;

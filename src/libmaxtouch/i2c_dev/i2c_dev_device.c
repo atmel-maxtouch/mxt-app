@@ -88,7 +88,7 @@ void i2c_dev_release()
 
 //******************************************************************************
 /// \brief  Open the i2c dev interface and set the slave address
-static int open_and_set_slave_address()
+static int open_and_set_slave_address(void)
 {
   int fd;
   int ret;

@@ -56,7 +56,7 @@ uint32_t info_block_crc(crc_t * crc)
  * @brief  Information Block Checksum algorithm.
  * @return Calculated Information Block Checksum.
  */
-uint32_t crc24(uint32_t crc, uint8_t firstbyte, uint8_t secondbyte)
+static uint32_t crc24(uint32_t crc, uint8_t firstbyte, uint8_t secondbyte)
 {
   static const uint32_t CRCPOLY = 0x0080001B;
   uint32_t result;
@@ -77,7 +77,8 @@ uint32_t crc24(uint32_t crc, uint8_t firstbyte, uint8_t secondbyte)
  * @brief  Calculates and reports the Information Block Checksum.
  * @return Zero on success, negative for error.
  */
-int info_block_checksum(uint32_t read_crc, uint8_t *idb_base_addr, uint16_t crc_area_size)
+static int info_block_checksum(uint32_t read_crc, uint8_t *idb_base_addr,
+                               uint16_t crc_area_size)
 {
   uint32_t calc_crc = 0; /* Checksum calculated by the driver code */
   uint16_t crc_byte_index = 0;
@@ -154,7 +155,7 @@ int read_information_block()
   /* Allocate space to read Information Block AND Checksum from the chip */
   no_of_bytes = crc_area_size + CRC_LENGTH;
 
-  info_block_shadow = (char *) malloc(no_of_bytes);
+  info_block_shadow = (unsigned char *) malloc(no_of_bytes);
   if (info_block_shadow == NULL)
   {
     LOG(LOG_ERROR, "Failed to allocate %d bytes for the Information Block data", no_of_bytes);

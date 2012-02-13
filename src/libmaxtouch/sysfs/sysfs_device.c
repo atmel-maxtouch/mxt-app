@@ -301,7 +301,7 @@ int sysfs_get_i2c_address()
 
 //******************************************************************************
 /// \brief Open memory access file
-static int open_device_file()
+static int open_device_file(void)
 {
   int file;
 
