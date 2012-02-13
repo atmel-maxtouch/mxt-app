@@ -416,3 +416,13 @@ uint16_t get_start_position(object_t element)
 {
   return (element.start_pos_msbyte * 256) + element.start_pos_lsbyte;
 }
+
+/*!
+ * @brief  Look up object type from report ID
+ * @param  report_id Report ID
+ * @return Object type number
+ */
+uint16_t report_id_to_type(int report_id)
+{
+  return (report_id_map[report_id].object_type);
+}

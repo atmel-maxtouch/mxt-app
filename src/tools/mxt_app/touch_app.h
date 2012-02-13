@@ -1,7 +1,7 @@
 #pragma once
 //------------------------------------------------------------------------------
 /// \file   touch_app.h
-/// \brief  Header file for Atmel maXTouch Linux command line tool
+/// \brief  Utility functions for mxt-app
 /// \author Iiro Valkonen
 //------------------------------------------------------------------------------
 // Copyright 2011 Atmel Corporation. All rights reserved.
@@ -28,6 +28,5 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-uint8_t self_test_handler(void);
 int print_raw_messages(void);
 void event_printer(void);

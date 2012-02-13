@@ -107,6 +107,7 @@ uint8_t get_object_table_num(uint8_t object_type);
 uint16_t get_start_position(object_t element);
 int get_firmware_build(void);
 uint32_t info_block_crc(crc_t *);
+uint16_t report_id_to_type(int report_id);
 
 /*!
  * @brief Struct holding the object type / instance info.

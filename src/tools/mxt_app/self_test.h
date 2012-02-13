@@ -1,9 +1,10 @@
 #pragma once
 //------------------------------------------------------------------------------
-/// \file   dmesg.h
-/// \brief  Functions to read kernel message buffer
+/// \file   self_test.h
+/// \brief  Self test functions
+/// \author Nick Dyer
 //------------------------------------------------------------------------------
-// Copyright 2011 Atmel Corporation. All rights reserved.
+// Copyright 2012 Atmel Corporation. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -27,23 +28,12 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-//******************************************************************************
-/// Defines for size of kernel message buffer
-#define KLOG_BUF_SHIFT  17      /* CONFIG_LOG_BUF_SHIFT from our kernel */
-#define KLOG_BUF_LEN    (1 << KLOG_BUF_SHIFT)
+#define SELF_TEST_ANALOG       0x01
+#define SELF_TEST_PIN_FAULT    0x11
+#define SELF_TEST_SIGNAL_LIMIT 0x17
+#define SELF_TEST_GAIN         0x20
+#define SELF_TEST_ALL          0xFE
+#define SELF_TEST_INVALID      0xFD
 
-#define BUFFERSIZE 256
-
-//******************************************************************************
-/// \brief  Linked list item structure
-typedef struct dmesg_item_tag {
-  unsigned long sec;
-  unsigned long msec;
-  char msg[BUFFERSIZE*2];
-  void *next;
-} dmesg_item;
-
-int mxt_get_debug_messages(void);
-char *mxt_retrieve_message(void);
-int mxt_retrieve_message_bytes(unsigned char *buf, size_t buflen);
-int mxt_dmesg_reset(void);
+uint8_t self_test_handler(void);
+void run_self_tests(uint8_t cmd);

@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 /// \file   touch_app.c
-/// \brief  Linux application demo for Atmel chips using the Object Based Project protocol
+/// \brief  Utility functions for mxt-app
 /// \author Iiro Valkonen
 //------------------------------------------------------------------------------
 // Copyright 2011 Atmel Corporation. All rights reserved.
@@ -27,31 +27,23 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-/*----------------------------------------------------------------------------
-  include files
-  ----------------------------------------------------------------------------*/
-
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 #include <errno.h>
-
-#include "touch_app.h"
-
-#include "libmaxtouch/dmesg.h"
-#include "libmaxtouch/libmaxtouch.h"
-#include "libmaxtouch/info_block.h"
-
 #include <linux/input.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/types.h>
 
-/*----------------------------------------------------------------------------
-  Function definitions
-  ----------------------------------------------------------------------------*/
+#include "libmaxtouch/dmesg.h"
+#include "libmaxtouch/libmaxtouch.h"
 
+#include "touch_app.h"
+
+//******************************************************************************
+/// \brief Print input events
 void event_printer()
 {
   FILE *fp;
@@ -169,63 +161,10 @@ void event_printer()
   fclose(fp);
 }
 
-uint8_t self_test_handler()
+//******************************************************************************
+/// \brief Print messages
+int print_raw_messages()
 {
-  int self_test;
-  uint16_t self_test_address;
-  uint8_t cmd;
-
-  self_test_address = get_object_address(SPT_SELFTEST_T25, 0);
-
-  while(1)
-  {
-    printf("Self-test menu:\n\
-      Enter 1 for running Analog power test\n\
-      Enter 2 for running Pin fault test\n\
-      Enter 3 for running Signal Limit test\n\
-      Enter 4 for running Gain test\n\
-      Enter 5 for running all the above tests\n\
-      Enter 255 to get out of the self-test menu\n");
-    scanf("%d", &self_test);
-    switch(self_test)
-    {
-      case 1:
-        cmd = 0x01;
-        break;
-      case 2:
-        cmd = 0x11;
-        break;
-      case 3:
-        cmd = 0x17;
-        break;
-      case 4:
-        cmd = 0x20;
-        break;
-      case 5:
-        cmd = 0xFE;
-        break;
-      case 255:
-        return 1;
-      default:
-        printf("Invalid option\n");
-        break;
-    }
-
-    if(0 == mxt_write_register(&cmd, self_test_address + 1, 1))
-    {
-      printf("Write command successful\n");
-    }
-    else
-    {
-      printf("Write command unsuccessful\n");
-    }
-  }
-
-}
-
-
-int print_raw_messages(){
-
   int count, i;
 
   /* Get the number of new messages */
@@ -251,5 +190,4 @@ int print_raw_messages(){
   }
 
   return 0;
-
 }

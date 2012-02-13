@@ -28,6 +28,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <sys/klog.h>
 
@@ -37,6 +38,7 @@
 
 #include "dmesg.h"
 #include "libmaxtouch.h"
+#include "log.h"
 #include "sysinfo.h"
 
 int dmesg_count = 0;
@@ -202,6 +204,42 @@ char *mxt_retrieve_message()
   }
 
   return msg_string;
+}
+
+//******************************************************************************
+/// \brief  Get debug message as byte array
+/// \param  buf  Pointer to buffer
+/// \param  buflen  Length of buffer
+/// \return number of bytes read
+int mxt_retrieve_message_bytes(unsigned char *buf, size_t buflen)
+{
+   unsigned int bufidx = 0;
+   int offset;
+   char *message;
+   const char prefix[] = "MXT MSG:";
+
+   message = mxt_retrieve_message();
+
+   /* Check message begins with prefix */
+   if (strncmp(prefix, message, strlen(prefix)))
+   {
+      return 0;
+   }
+
+   message += strlen(prefix);
+
+   while (1 == sscanf(message, "%hhx%n", buf + bufidx, &offset))
+   {
+      LOG(LOG_VERBOSE, "byte %d: %d", bufidx, buf[bufidx]);
+
+      message += offset;
+      bufidx++;
+
+      if (bufidx >= buflen)
+         break;
+   }
+
+   return bufidx;
 }
 
 //******************************************************************************

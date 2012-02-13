@@ -27,17 +27,18 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdint.h>
+#include <string.h>
 #include <ctype.h>
 #include <fcntl.h>
-#include <unistd.h>
 
 #include "libmaxtouch/libmaxtouch.h"
 #include "touch_app.h"
 #include "utilfuncs.h"
+#include "self_test.h"
 
 //******************************************************************************
 /// \brief Load config from file
@@ -254,29 +255,8 @@ static int mxt_menu(void)
 {
    char menu_input;
    int exit_loop;
-   int ret;
 
    printf("Command line tool for Atmel maXTouch chips\n");
-
-   /*! Find an mXT device and read the info block */
-   ret = mxt_scan();
-   if (ret == 0)
-   {
-     printf("Unable to find any maXTouch devices - exiting the application\n");
-     return -1;
-   }
-   else if (ret < 0)
-   {
-     printf("Failed to init device - exiting the application\n");
-     return -1;
-   }
-
-   if (mxt_get_info() < 0)
-   {
-     printf("Error reading info block, exiting...\n");
-     return -1;
-   }
-
    exit_loop = 0;
 
    while(!exit_loop)
@@ -301,8 +281,6 @@ static int mxt_menu(void)
      exit_loop = mxt_app_command(menu_input);
    }
 
-   mxt_release();
-
    return 0;
 }
 
@@ -310,5 +288,52 @@ static int mxt_menu(void)
 /// \brief Main function for mxt-app
 int main (int argc, char *argv[])
 {
-   return mxt_menu();
+   int opt;
+   int ret;
+   bool test = false;
+
+   while ((opt = getopt(argc, argv, "t")) != -1)
+   {
+      switch (opt)
+      {
+      case 't':
+         test = true;
+         break;
+      }
+   }
+
+   /*! Find an mXT device and read the info block */
+   ret = mxt_scan();
+   if (ret == 0)
+   {
+     printf("Unable to find any maXTouch devices - exiting the application\n");
+     return -1;
+   }
+   else if (ret < 0)
+   {
+     printf("Failed to init device - exiting the application\n");
+     return -1;
+   }
+
+   if (mxt_get_info() < 0)
+   {
+     printf("Error reading info block, exiting...\n");
+     return -1;
+   }
+
+   mxt_set_debug(true);
+
+   if (test)
+   {
+      run_self_tests(SELF_TEST_ALL);
+   }
+   else
+   {
+      return mxt_menu();
+   }
+
+   mxt_set_debug(false);
+   mxt_release();
+
+   return 0;
 }

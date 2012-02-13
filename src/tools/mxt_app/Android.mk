@@ -5,6 +5,7 @@ LOCAL_C_INCLUDES := $(SRC_PATH)
 LOCAL_SRC_FILES := \
   mxt_app.c \
   touch_app.c \
+  self_test.c \
   utilfuncs.c
 LOCAL_LDLIBS := -llog
 LOCAL_STATIC_LIBRARIES := maxtouch
