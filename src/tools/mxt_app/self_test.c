@@ -82,7 +82,8 @@ static void self_test_handle_messages(void)
                
                if (object_type == SPT_SELFTEST_T25)
                {
-                  for (byte = 1; byte < len; byte++) {
+                  for (byte = 1; byte < len; byte++)
+                  {
                      printf("%02X ", buf[byte]);
                   }
                   printf("\n\n");
@@ -152,7 +153,6 @@ static void print_t25_limits(uint16_t t25_addr)
       case TOUCH_XSLIDERSET_T32:
          for (instance = 0; (instance < element.instances + 1); instance++)
          {
-
             mxt_read_register((uint8_t *)&buf, get_start_position(element), 1);
 
             printf("%s[%d] %s\n",
