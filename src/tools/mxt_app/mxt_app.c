@@ -292,6 +292,7 @@ int main (int argc, char *argv[])
    int ret;
    bool test = false;
 
+   /*! Handle command line options */
    while ((opt = getopt(argc, argv, "t")) != -1)
    {
       switch (opt)
@@ -321,8 +322,10 @@ int main (int argc, char *argv[])
      return -1;
    }
 
+   /*! Turn on kernel dmesg output of MSG */
    mxt_set_debug(true);
 
+   /*! Run tests, otherwise display menu */
    if (test)
    {
       run_self_tests(SELF_TEST_ALL);
