@@ -216,17 +216,17 @@ int mxt_retrieve_message_bytes(unsigned char *buf, size_t buflen)
    unsigned int bufidx = 0;
    int offset;
    char *message;
-   const char prefix[] = "MXT MSG:";
+   const char MSG_PREFIX[] = "MXT MSG:";
 
    message = mxt_retrieve_message();
 
    /* Check message begins with prefix */
-   if (strncmp(prefix, message, strlen(prefix)))
+   if (strncmp(MSG_PREFIX, message, strlen(MSG_PREFIX)))
    {
       return 0;
    }
 
-   message += strlen(prefix);
+   message += strlen(MSG_PREFIX);
 
    while (1 == sscanf(message, "%hhx%n", buf + bufidx, &offset))
    {
