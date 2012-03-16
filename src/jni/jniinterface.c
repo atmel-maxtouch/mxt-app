@@ -217,6 +217,26 @@ JNIEXPORT jobjectArray JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetDebugMessa
 }
 
 //******************************************************************************
+/// \brief  Get location of interface in sysfs
+/// \return directory path
+JNIEXPORT jstring JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetSysfsDirectory
+  (JNIEnv *env, jobject this)
+{
+  jclass stringClass;
+  jstring sysfsLocation;
+
+  char *szLocation;
+
+  szLocation = (char *)sysfs_get_directory();
+
+  stringClass = NULL;
+  stringClass = (*env)->FindClass(env, "java/lang/String");
+  sysfsLocation = (*env)->NewStringUTF(env, szLocation);
+
+  return sysfsLocation;
+}
+
+//******************************************************************************
 /// \brief  Backup configuration to non-volatile memory
 /// \return Zero on success, or negative error
 JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_BackupConfig

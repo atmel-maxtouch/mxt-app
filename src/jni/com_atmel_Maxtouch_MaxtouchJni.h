@@ -17,6 +17,14 @@ JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_Initialise
 
 /*
  * Class:     com_atmel_Maxtouch_MaxtouchJni
+ * Method:    GetSysfsDirectory
+ * Signature: ()Ljava/lang/String;
+ */
+JNIEXPORT jstring JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetSysfsDirectory
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     com_atmel_Maxtouch_MaxtouchJni
  * Method:    GetDebugMessages
  * Signature: ()[Ljava/lang/String;
  */

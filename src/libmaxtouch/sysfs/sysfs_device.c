@@ -116,15 +116,15 @@ static int scan_sysfs_directory(struct dirent *i2c_dir, char *dirname, int adapt
   /* If device found, store it and return success */
   if (mem_access_found && pause_found && debug_found)
   {
-  gpDevice = (sysfs_device *)malloc(sizeof(sysfs_device));
-  gpDevice->path = (char *)malloc(strlen(pszDirname) + 1);
+    gpDevice = (sysfs_device *)malloc(sizeof(sysfs_device));
+    gpDevice->path = (char *)malloc(strlen(pszDirname) + 1);
     gpDevice->mem_access_path = (char *)malloc(strlen(pszDirname) + 20);
 
-  gpDevice->adapter = adapter;
-  gpDevice->address = address;
+    gpDevice->adapter = adapter;
+    gpDevice->address = address;
 
-  gpDevice->path[0] = '\0';
-  strcpy(gpDevice->path, pszDirname);
+    gpDevice->path[0] = '\0';
+    strcpy(gpDevice->path, pszDirname);
 
     // Cache memory access path for fast access
     strcpy(gpDevice->mem_access_path, pszDirname);
@@ -560,4 +560,19 @@ bool sysfs_get_pause()
   }
 
   return read_boolean_file(make_path("pause_driver"));
+}
+
+//******************************************************************************
+/// \brief  Get sysfs directory
+/// \return location of the sysfs interface files
+char *sysfs_get_directory(void)
+{
+  // Check device is initialised
+  if (gpDevice == NULL)
+  {
+    LOG(LOG_ERROR, "Device uninitialised");
+    return 0;
+  }
+
+  return gpDevice->path;
 }

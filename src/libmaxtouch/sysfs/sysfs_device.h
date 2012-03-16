@@ -38,3 +38,4 @@ int sysfs_set_pause(bool pause_state);
 bool sysfs_get_pause(void);
 int sysfs_get_i2c_adapter(void);
 int sysfs_get_i2c_address(void);
+char *sysfs_get_directory(void);
