@@ -463,12 +463,6 @@ int mxt_backup_config()
   {
     LOG(LOG_ERROR, "Device uninitialised");
   }
-#ifdef HAVE_LIBUSB
-  else if (gDeviceType == E_USB)
-  {
-    LOG(LOG_ERROR, "Device type not supported");
-  }
-#endif /* HAVE_LIBUSB */
   else
   {
     /* Write to command processor register to perform command */
