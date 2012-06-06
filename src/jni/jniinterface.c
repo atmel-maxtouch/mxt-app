@@ -200,6 +200,21 @@ JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_LoadConfigFile
 }
 
 //******************************************************************************
+/// \brief Save Config File
+JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_SaveConfigFile
+  (JNIEnv *env, jobject this, jstring filename)
+{
+  const char *szFilename = (*env)->GetStringUTFChars(env, filename, 0);
+  int ret;
+
+  ret = mxt_save_config_file(szFilename);
+
+  (*env)->ReleaseStringUTFChars(env, filename, szFilename);
+
+  return ret;
+}
+
+//******************************************************************************
 /// \brief  Get debug messages
 /// \return Array of java string objects
 JNIEXPORT jobjectArray JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetDebugMessages

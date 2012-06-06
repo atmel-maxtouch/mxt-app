@@ -97,6 +97,14 @@ JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_LoadConfigFile
 
 /*
  * Class:     com_atmel_Maxtouch_MaxtouchJni
+ * Method:    SaveConfigFile
+ * Signature: (Ljava/lang/String;)I
+ */
+JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_SaveConfigFile
+  (JNIEnv *, jobject, jstring);
+
+/*
+ * Class:     com_atmel_Maxtouch_MaxtouchJni
  * Method:    BackupConfig
  * Signature: ()I
  */
