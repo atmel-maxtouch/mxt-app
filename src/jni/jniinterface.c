@@ -49,7 +49,7 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved)
 //******************************************************************************
 /// \brief  Scan for device
 /// \return device found true/false
-JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_Initialise
+JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_Scan
   (JNIEnv *env, jobject this)
 {
   int ret;
@@ -60,6 +60,19 @@ JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_Initialise
   {
     return JNI_FALSE;
   }
+  else
+  {
+    return JNI_TRUE;
+  }
+}
+
+//******************************************************************************
+/// \brief  Read info block
+/// \return success true/false
+JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetInfo
+  (JNIEnv *env, jobject this)
+{
+  int ret;
 
   ret = mxt_get_info();
 

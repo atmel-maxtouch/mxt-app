@@ -9,10 +9,18 @@ extern "C" {
 #endif
 /*
  * Class:     com_atmel_Maxtouch_MaxtouchJni
- * Method:    Initialise
+ * Method:    Scan
  * Signature: ()Z
  */
-JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_Initialise
+JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_Scan
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     com_atmel_Maxtouch_MaxtouchJni
+ * Method:    GetInfo
+ * Signature: ()Z
+ */
+JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetInfo
   (JNIEnv *, jobject);
 
 /*
