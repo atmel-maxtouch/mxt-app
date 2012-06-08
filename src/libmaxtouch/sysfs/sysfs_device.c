@@ -312,8 +312,6 @@ static int open_device_file(void)
     return -1;
   }
 
-  LOG(LOG_DEBUG, "Opening %s", gpDevice->mem_access_path);
-
   file = open(gpDevice->mem_access_path, O_RDWR);
 
   if (file < 0)
@@ -340,16 +338,12 @@ int sysfs_read_register(unsigned char *buf, int start_register, int count)
   if (fd < 0)
     return fd;
 
-  LOG(LOG_VERBOSE, "Calling lseek offset:%d", start_register);
-
   if (lseek(fd, start_register, 0) < 0)
   {
     LOG(LOG_ERROR, "lseek error %s (%d)", strerror(errno), errno);
     ret = -1;
     goto close;
   }
-
-  LOG(LOG_VERBOSE, "Calling read count:%d", count);
 
   bytes_read = 0;
   while (bytes_read < count)
@@ -385,16 +379,12 @@ int sysfs_write_register(unsigned char *buf, int start_register, int count)
   if (fd < 0)
     return fd;
 
-  LOG(LOG_VERBOSE, "Calling lseek offset:%d", start_register);
-
   if (lseek(fd, start_register, 0) < 0)
   {
     LOG(LOG_ERROR, "lseek error %s (%d)", strerror(errno), errno);
     ret = -1;
     goto close;
   }
-
-  LOG(LOG_VERBOSE, "Calling write count:%d", count);
 
   bytes_written = 0;
   while (bytes_written < count)
