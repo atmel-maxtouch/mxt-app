@@ -92,6 +92,15 @@
 #define PROCI_SHIELDLESS_T56                      56u
 #define PROCI_EXTRATOUCHSCREENDATA_T57            57u
 #define SPT_EXTRANOISESUPCTRLS_T58                58u
+#define SPT_FASTDRIFT_T59                         59u
+#define SPT_TIMER_T61                             61u
+#define PROCG_NOISESUPPRESSION_T62                62u
+#define PROCI_ACTIVESTYLUS_T63                    63u
+#define SPT_REFERENCERELOAD_T64                   64u
+#define PROCI_LENSBENDING_T65                     65u
+#define SPT_GOLDENREFERENCES_T66                  66u
+#define PROCI_CUSTOMGESTUREPROCESSOR_T67          67u
+#define SERIAL_DATA_COMMAND_T68                   68u
 #define RESERVED_T255                             255u
 
 /*! Returned by get_object_address() if object is not found. */
