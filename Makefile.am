@@ -11,7 +11,12 @@ AM_LDFLAGS = \
 	-Wl,--gc-sections \
 	-Wl,--as-needed
 
-bin_PROGRAMS = mxt-app mxt-config-loader mxt-bridge mxt-bootloader
+bin_PROGRAMS = \
+  mxt-app \
+  mxt-config-loader \
+  mxt-bridge \
+  mxt-bootloader \
+  mxt-debug-dump
 noinst_LTLIBRARIES = libmaxtouch.la
 
 libmaxtouch_la_SOURCES =\
@@ -41,6 +46,10 @@ mxt_bridge_SOURCES = \
 mxt_bootloader_LDADD = libmaxtouch.la
 mxt_bootloader_SOURCES = \
 	src/tools/mxt_bootloader/mxt_bootloader.c
+
+mxt_debug_dump_LDADD = libmaxtouch.la
+mxt_debug_dump_SOURCES = \
+	src/tools/mxt_debug_dump/mxt_debug_dump.c
 
 mxt_app_LDADD = libmaxtouch.la
 mxt_app_SOURCES =\
