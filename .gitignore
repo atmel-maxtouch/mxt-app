@@ -1,6 +1,7 @@
 aclocal.m4
 config.guess
 config.h
+config.h.in
 config.log
 config.status
 config.sub
@@ -19,6 +20,7 @@ mxt-app
 mxt-bootloader
 mxt-bridge
 mxt-config-loader
+mxt-debug-dump
 autom4te.cache/
 m4/
 obj/
