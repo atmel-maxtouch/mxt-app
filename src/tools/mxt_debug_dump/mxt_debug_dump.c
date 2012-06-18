@@ -59,6 +59,12 @@
 #define DELTAS_MODE       0x10
 #define REFS_MODE         0x11
 
+#define MAX_NUM_FRAMES          1000000000
+#define MAX_FILENAME_LENGTH     255
+
+
+int exit_loop;
+
 struct mxt_debug_data {
   int x_size;
   int y_size;
@@ -74,7 +80,7 @@ struct mxt_debug_data {
   int t37_addr;
   int t37_size;
 
-  unsigned int frame;
+  unsigned long frame;
   int stripe;
   int page;
   int x_ptr;
@@ -85,6 +91,17 @@ struct mxt_debug_data {
 
   FILE *hawkeye;
 };
+
+static void display_usage(void)
+{
+   printf
+   (
+      "Usage:  mxt-debug-dump mode file frames\n"
+      "mode: 'd' or 'D' for delta; 'r' or 'R' for reference\n"
+      "file:   Name of the (csv) file the data should be saved to\n"
+      "frames: Number of frames\n"
+   );
+}
 
 static int get_objects_addr(struct mxt_debug_data *mxt_dd)
 {
@@ -295,7 +312,7 @@ static int mxt_hawkeye_output(struct mxt_debug_data *mxt_dd)
   fprintf(mxt_dd->hawkeye, "%s,", timestr);
 
   /* print frame number */
-  fprintf(mxt_dd->hawkeye, "%d,", mxt_dd->frame);
+  fprintf(mxt_dd->hawkeye, "%lu,", mxt_dd->frame);
 
   /* iterate through columns */
   for (x = 0; x < mxt_dd->x_size; x++)
@@ -314,32 +331,54 @@ static int mxt_hawkeye_output(struct mxt_debug_data *mxt_dd)
   return 0;
 }
 
-static unsigned int get_num_frames()
+static unsigned long get_num_frames(void)
 {
-  unsigned int frames;
+  unsigned long frames;
 
   printf("Number of frames: ");
 
-  scanf("%u", &frames);
+  if (scanf("%lu", &frames) == EOF)
+  {
+    LOG(LOG_ERROR, "Could not handle the input, exiting\n");
+    return -1;
+  }
 
   return frames;
 }
 
-static int mxt_debug_dump(int mode)
+static int mxt_debug_dump(int mode, const char *csv_file, unsigned long input_frames, bool cmd_line)
 {
   struct mxt_debug_data mxt_dd;
   int x_size, y_size;
-  unsigned int frames = 0;
-  int pages_per_stripe;
-  int num_stripes;
+  unsigned long frames = 0;
+  int pages_per_stripe = 0;
+  int num_stripes = 1;
   int ret;
   int page;
   time_t t1;
   time_t t2;
 
-  frames = get_num_frames();
+  if (cmd_line)
+  {
+    frames = input_frames;
+  }
+  else
+  {
+    frames = get_num_frames();
+  }
 
-  printf("Reading %u frames\n", frames);
+  if (frames > MAX_NUM_FRAMES)
+  {
+    LOG(LOG_INFO, "Too many frames requested, defaulting to 1,000,000,000\n");
+    frames = MAX_NUM_FRAMES;
+  }
+  if (frames <= 0)
+  {
+     LOG(LOG_INFO, "Too few frames requested, defaulting to 1\n");
+     frames = 1;
+  }
+
+  printf("Reading %lu frames\n", frames);
 
   t1 = time(NULL);
 
@@ -349,7 +388,8 @@ static int mxt_debug_dump(int mode)
   mxt_dd.mode = mode;
 
   ret = get_objects_addr(&mxt_dd);
-  if (ret) {
+  if (ret)
+  {
     LOG(LOG_ERROR, "Failed to get object information");
     return -1;
   }
@@ -361,6 +401,7 @@ static int mxt_debug_dump(int mode)
       num_stripes = 1;
       pages_per_stripe = 4;
       mxt_dd.x_size = x_size;
+      break;
 
     case 0xA0:
       /* mXT1386 (Galaxy Tab) */
@@ -391,13 +432,14 @@ static int mxt_debug_dump(int mode)
       {
         /* mXT1664 */
         num_stripes = 1;
-        pages_per_stripe = 30;
+        pages_per_stripe = 26;
         mxt_dd.x_size = x_size;
       }
       else
       {
         LOG(LOG_ERROR, "Unrecognized variant ID");
       }
+      break;
 
     default:
       LOG(LOG_ERROR, "Unrecognized family ID");
@@ -420,7 +462,6 @@ static int mxt_debug_dump(int mode)
     LOG(LOG_ERROR, "malloc failure");
     return -1;
   }
-
   mxt_dd.data_buf = (uint16_t *)malloc(sizeof(uint16_t)
                                      * mxt_dd.x_size * mxt_dd.y_size);
   if (!mxt_dd.data_buf) {
@@ -428,14 +469,13 @@ static int mxt_debug_dump(int mode)
     ret = -1;
     goto free_page_buf;
   }
-
-  mxt_dd.hawkeye = fopen("hawkeye.csv","w");
+  mxt_dd.hawkeye = fopen(csv_file,"w");
   if (!mxt_dd.hawkeye) {
     printf("Failed to open file!\n");
     ret = -1;
     goto free_page_buf;
   }
-
+  
   for (mxt_dd.frame = 1; mxt_dd.frame <= frames; mxt_dd.frame++)
   {
     /* iterate through stripes */
@@ -472,8 +512,7 @@ static int mxt_debug_dump(int mode)
   mxt_hawkeye_generate_control_file(&mxt_dd);
 
   t2 = time(NULL);
-  printf("%d frames in %d seconds\n", frames, (int)(t2-t1));
-
+  printf("%lu frames in %d seconds\n", frames, (int)(t2-t1));
   ret = 0;
 
 free:
@@ -488,46 +527,47 @@ free_page_buf:
  * @brief
  * @return Zero.
  */
-static int mxt_dd_cmd(char selection)
+static int mxt_dd_cmd(char selection, const char *csv_file, unsigned long frames, bool cmd_line)
 {
-  int exit_loop = 0;
+  exit_loop = 0;
+  int ret = 0;
 
   switch (selection)
   {
     case 'd':
     case 'D':
-      mxt_debug_dump(DELTAS_MODE);
+      ret = mxt_debug_dump(DELTAS_MODE, csv_file, frames, cmd_line);
       break;
     case 'r':
     case 'R':
-      mxt_debug_dump(REFS_MODE);
-      break;
-    case 'c':
-    case 'C':
-      /* Get co-ordinates */
+      ret = mxt_debug_dump(REFS_MODE, csv_file, frames, cmd_line);
       break;
     case 'q':
     case 'Q':
-      printf("Quitting the debug dump utility\n");
-      exit_loop = 1;
+      if(!cmd_line)
+      {
+        printf("Quitting the debug dump utility\n");
+        exit_loop = 1;
+      }
       break;
     default:
       printf("Invalid menu option\n");
+      display_usage();
+      ret = -1;
       break;
   }
-  return exit_loop;
+  return ret;
 }
 
 /*!
  * @brief  Menu function for the debug dump utility.
  * @return Zero.
  */
-static int mxt_dd_menu(void)
+static int mxt_dd_menu(char option, const char *csv_file, unsigned long frames, bool cmd_line)
 {
   char menu_input;
-  int exit_loop;
-
-  printf("Debug data dump utility v. %s for Atmel maXTouch chips\n\n", VERSION);
+  int ret;
+  char csv_file_in[MAX_FILENAME_LENGTH + 1];
 
   exit_loop = 0;
 
@@ -536,15 +576,31 @@ static int mxt_dd_menu(void)
     printf("\nSelect one of the options:\n\n"
         "Enter D:   (D)elta dump\n"
         "Enter R:   (R)eference dump\n"
-        "Enter C:   (C)oordinates dump\n"
         "Enter Q:   (Q)uit the application\n");
 
-    scanf("%1s", &menu_input);
+    if (scanf("%1s", &menu_input) == EOF)
+    {
+      LOG(LOG_ERROR, "Could not handle the input, exiting\n");
+      return -1;
+    }
 
-    exit_loop = mxt_dd_cmd(menu_input);
+    if ((menu_input != 'q') && (menu_input != 'Q'))
+    {
+      printf("\nFile name: ");
+      if (scanf("%255s", csv_file_in) == EOF)
+      {
+        LOG(LOG_ERROR, "Could not handle the input, exiting\n");
+        return -1;
+      }
+    }
+
+    ret = mxt_dd_cmd(menu_input, csv_file_in, frames, cmd_line);
+    if (ret < 0)
+    {
+      return ret;
+    }
   }
-
-  return 0;
+  return ret;
 }
 
 /*!
@@ -554,6 +610,9 @@ static int mxt_dd_menu(void)
 int main (int argc, char *argv[])
 {
   int ret;
+  char mode = 'i';
+  unsigned long frames = 0;
+  char csv_file[MAX_FILENAME_LENGTH + 1];
 
   /*! Find an mXT device and read the info block */
   ret = mxt_scan();
@@ -574,5 +633,25 @@ int main (int argc, char *argv[])
     return -1;
   }
 
-  return mxt_dd_menu();
+  printf("Debug data dump utility v. %s for Atmel maXTouch chips\n\n", VERSION);
+
+  /* Parse input arguments */
+  if (argc == 4)
+  {
+    mode = *argv[1];
+    strncpy(csv_file, argv[2], MAX_FILENAME_LENGTH);
+    csv_file[MAX_FILENAME_LENGTH] = '\0';
+    frames = atoi(argv[3]);
+
+    return mxt_dd_cmd(mode, csv_file, frames, 1);
+  }
+  else if (argc == 1)
+  {
+    return mxt_dd_menu(mode, csv_file, frames, 0);
+  }
+  else
+  {
+     display_usage();
+     return -1;
+  }
 }
