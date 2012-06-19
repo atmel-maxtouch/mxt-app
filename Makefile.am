@@ -5,7 +5,13 @@ AM_CFLAGS = \
 	-I$(top_srcdir)/src \
 	-fvisibility=hidden \
 	-ffunction-sections \
-	-fdata-sections
+	-fdata-sections \
+  -g -Wall \
+  -Wmissing-declarations -Wmissing-prototypes \
+  -Wnested-externs -Wpointer-arith \
+  -Wsign-compare -Wchar-subscripts \
+  -Wstrict-prototypes -Wshadow \
+  -Wformat-security -Wtype-limits
 
 AM_LDFLAGS = \
 	-Wl,--gc-sections \
