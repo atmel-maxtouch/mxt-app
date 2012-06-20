@@ -221,22 +221,6 @@ static int mxt_app_command(char selection)
         print_raw_messages();
       }
       break;
-    case 'o':
-      /* Restart the chip in bootlader mode, and exit */
-      if (mxt_reset_chip(true) == 0)
-      {
-        printf
-        (
-          "Successfully restarted the device in bootloader mode...\n"
-          "...quitting the maxtouch application\n"
-        );
-        exit_loop = 1;
-      }
-      else
-      {
-        printf("Failed to restart the device in bootloader mode\n");
-      }
-      break;
     case 'q':
       printf("Quitting the maxtouch application\n");
       exit_loop = 1;
@@ -273,7 +257,6 @@ static int mxt_menu(void)
        "Enter A:   C(A)librate the maxtouch device\n"
        "Enter E:   Display the input (E)vents from the device\n"
        "Enter M:   Display raw (M)essages\n"
-       "Enter O:   Set to b(O)otloader mode and quit\n"
        "Enter Q:   (Q)uit the application\n");
 
      scanf("%1s", &menu_input);
