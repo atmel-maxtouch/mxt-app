@@ -435,6 +435,13 @@ static int mxt_debug_dump(int mode, const char *csv_file, unsigned long input_fr
         pages_per_stripe = 26;
         mxt_dd.x_size = x_size;
       }
+      else if(info_block.id->variant_id == 0x01)
+      {
+        /* mXT1188 */
+        num_stripes = 1;
+        pages_per_stripe = 19;
+        mxt_dd.x_size = x_size;
+      }
       else
       {
         LOG(LOG_ERROR, "Unrecognized variant ID");
