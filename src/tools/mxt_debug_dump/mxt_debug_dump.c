@@ -80,7 +80,7 @@ struct mxt_debug_data {
   int t37_addr;
   int t37_size;
 
-  unsigned long frame;
+  uint16_t frame;
   int stripe;
   int page;
   int x_ptr;
@@ -288,13 +288,13 @@ static void mxt_hawkeye_generate_control_file(struct mxt_debug_data *mxt_dd)
     return;
   }
 
-  fprintf(fp, "uint8,1,1,TIN\n");
+  fprintf(fp, "uint16_lsb_msb,1,1,FRAME\n");
 
   for (x = 0; x < mxt_dd->x_size; x++)
   {
     for (y = 0; y < mxt_dd->y_size; y++)
     {
-      fprintf(fp, "int16_lsb_msb,%d,%d,X%dY%d_Delta16\n", y+1, x+1, x, y);
+      fprintf(fp, "int16_lsb_msb,%d,%d,X%dY%d_Delta16\n", y+1, x+3, x, y);
     }
   }
 
@@ -311,7 +311,7 @@ static int mxt_hawkeye_output(struct mxt_debug_data *mxt_dd)
   mxt_print_timestamp(mxt_dd);
 
   /* print frame number */
-  fprintf(mxt_dd->hawkeye, "%lu,", mxt_dd->frame);
+  fprintf(mxt_dd->hawkeye, "%u,", mxt_dd->frame);
 
   /* iterate through columns */
   for (x = 0; x < mxt_dd->x_size; x++)
