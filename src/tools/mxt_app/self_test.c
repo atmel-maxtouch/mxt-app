@@ -203,6 +203,12 @@ static void disable_noise_suppression(void)
    {
       mxt_write_register(&disable, addr, 1);
    }
+
+   addr = get_object_address(PROCG_NOISESUPPRESSION_T62, 0);
+   if (addr != OBJECT_NOT_FOUND)
+   {
+      mxt_write_register(&disable, addr, 1);
+   }
 }
 
 //******************************************************************************
