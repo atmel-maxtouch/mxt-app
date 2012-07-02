@@ -37,6 +37,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <sys/stat.h>
 
 #include "libmaxtouch/libmaxtouch.h"
@@ -61,7 +62,6 @@
 
 #define MAX_NUM_FRAMES          1000000000
 #define MAX_FILENAME_LENGTH     255
-
 
 int exit_loop;
 
@@ -261,6 +261,21 @@ static int mxt_debug_print(struct mxt_debug_data *mxt_dd)
 }
 #endif
 
+static void mxt_print_timestamp(struct mxt_debug_data *mxt_dd)
+{
+  struct timeval tv;
+  time_t nowtime;
+  struct tm *nowtm;
+  char tmbuf[64];
+
+  gettimeofday(&tv, NULL);
+  nowtime = tv.tv_sec;
+  nowtm = localtime(&nowtime);
+  strftime(tmbuf, sizeof tmbuf, "%H:%M:%S", nowtm);
+
+  fprintf(mxt_dd->hawkeye, "%s.%06ld,", tmbuf, tv.tv_usec);
+}
+
 static void mxt_hawkeye_generate_control_file(struct mxt_debug_data *mxt_dd)
 {
   int x;
@@ -292,24 +307,8 @@ static int mxt_hawkeye_output(struct mxt_debug_data *mxt_dd)
   int y;
   int ofs;
   int16_t value;
-  time_t t;
-  struct tm *tmp;
-  char timestr[20];
 
-  /* print timestamp */
-  t = time(NULL);
-  tmp = localtime(&t);
-  if (tmp == NULL)
-  {
-    return -1;
-  }
-
-  if (strftime(timestr, sizeof(timestr), "%T", tmp) == 0)
-  {
-    return -1;
-  }
-
-  fprintf(mxt_dd->hawkeye, "%s,", timestr);
+  mxt_print_timestamp(mxt_dd);
 
   /* print frame number */
   fprintf(mxt_dd->hawkeye, "%lu,", mxt_dd->frame);
