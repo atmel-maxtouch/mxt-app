@@ -356,13 +356,14 @@ uint16_t get_object_address(uint8_t object_type, uint8_t instance)
       }
       else
       {
-        LOG(LOG_ERROR, "Specified instance not found by %s()", __func__);
+        LOG(LOG_WARN, "Warning: T%u instance %u does not exist",
+                      object_type, instance);
         return OBJECT_NOT_FOUND;
       }
     }
   }
 
-  LOG(LOG_ERROR, "Specified object type not found by %s()", __func__);
+  LOG(LOG_WARN, "Warning: T%u does not exist", object_type);
   return OBJECT_NOT_FOUND;
 }
 
