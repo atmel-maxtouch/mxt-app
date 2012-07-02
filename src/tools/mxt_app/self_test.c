@@ -245,6 +245,8 @@ uint8_t self_test_handler()
 
    while(1)
    {
+      cmd = 0;
+
       printf("Self-test menu:\n\
       Enter 1 for running Analog power test\n\
       Enter 2 for running Pin fault test\n\
@@ -279,6 +281,9 @@ uint8_t self_test_handler()
         break;
       }
 
-      run_self_tests(cmd);
+      if (cmd > 0)
+      {
+        run_self_tests(cmd);
+      }
    }
 }
