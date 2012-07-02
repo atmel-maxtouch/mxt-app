@@ -200,6 +200,25 @@ static int mxt_debug_dump_page(struct mxt_debug_data *mxt_dd)
   return 0;
 }
 
+static void mxt_generate_hawkeye_header(struct mxt_debug_data *mxt_dd)
+{
+  int x;
+  int y;
+
+  fprintf(mxt_dd->hawkeye, "Frame,");
+
+  for (x = 0; x < mxt_dd->x_size; x++)
+  {
+    for (y = 0; y < mxt_dd->y_size; y++)
+    {
+      fprintf(mxt_dd->hawkeye, "X%dY%d_%s16,", x, y,
+        (mxt_dd->mode == DELTAS_MODE) ? "Delta" : "Reference");
+    }
+  }
+
+  fprintf(mxt_dd->hawkeye, "\n");
+}
+
 static int mxt_debug_insert_data(struct mxt_debug_data *mxt_dd)
 {
   int i;
@@ -294,7 +313,8 @@ static void mxt_hawkeye_generate_control_file(struct mxt_debug_data *mxt_dd)
   {
     for (y = 0; y < mxt_dd->y_size; y++)
     {
-      fprintf(fp, "int16_lsb_msb,%d,%d,X%dY%d_Delta16\n", y+1, x+3, x, y);
+      fprintf(fp, "int16_lsb_msb,%d,%d,X%dY%d_%s16\n", y+1, x+3, x, y,
+        (mxt_dd->mode == DELTAS_MODE) ? "Delta" : "Reference");
     }
   }
 
@@ -475,12 +495,16 @@ static int mxt_debug_dump(int mode, const char *csv_file, unsigned long input_fr
     ret = -1;
     goto free_page_buf;
   }
+
+  /* Open Hawkeye output file */
   mxt_dd.hawkeye = fopen(csv_file,"w");
   if (!mxt_dd.hawkeye) {
     printf("Failed to open file!\n");
     ret = -1;
     goto free_page_buf;
   }
+
+  mxt_generate_hawkeye_header(&mxt_dd);
   
   for (mxt_dd.frame = 1; mxt_dd.frame <= frames; mxt_dd.frame++)
   {
