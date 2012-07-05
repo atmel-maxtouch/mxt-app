@@ -29,7 +29,7 @@
 //------------------------------------------------------------------------------
 
 #define SELF_TEST_ANALOG       0x01
-#define SELF_TEST_PIN_FAULT    0x11
+#define SELF_TEST_PIN_FAULT    0x12
 #define SELF_TEST_SIGNAL_LIMIT 0x17
 #define SELF_TEST_GAIN         0x20
 #define SELF_TEST_ALL          0xFE
