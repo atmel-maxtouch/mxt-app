@@ -34,11 +34,36 @@
 #include <string.h>
 #include <ctype.h>
 #include <fcntl.h>
+#include <getopt.h>
 
 #include "libmaxtouch/libmaxtouch.h"
+#include "libmaxtouch/log.h"
 #include "libmaxtouch/utilfuncs.h"
+#include "libmaxtouch/info_block.h"
 #include "touch_app.h"
 #include "self_test.h"
+
+#define BUF_SIZE 1024
+
+#define BYTETOBINARYPATTERN "%d%d%d%d %d%d%d%d"
+#define BYTETOBINARY(byte)  \
+  (byte & 0x80 ? 1 : 0), \
+  (byte & 0x40 ? 1 : 0), \
+  (byte & 0x20 ? 1 : 0), \
+  (byte & 0x10 ? 1 : 0), \
+  (byte & 0x08 ? 1 : 0), \
+  (byte & 0x04 ? 1 : 0), \
+  (byte & 0x02 ? 1 : 0), \
+  (byte & 0x01 ? 1 : 0)
+
+//******************************************************************************
+/// \brief Commands for mxt-app
+typedef enum mxt_app_cmd_tag {
+  CMD_NONE,
+  CMD_TEST,
+  CMD_WRITE,
+  CMD_READ,
+} mxt_app_cmd;
 
 //******************************************************************************
 /// \brief Load config from file
@@ -268,58 +293,326 @@ static int mxt_menu(void)
 }
 
 //******************************************************************************
+/// \brief mxt-app main program flow
+static int mxt_init_chip(void)
+{
+  int ret;
+
+  /*! Find an mXT device and read the info block */
+  ret = mxt_scan();
+  if (ret == 0)
+  {
+    printf("Unable to find any maXTouch devices - exiting the application\n");
+    return -1;
+  }
+  else if (ret < 0)
+  {
+    printf("Failed to init device - exiting the application\n");
+    return -1;
+  }
+
+  if (mxt_get_info() < 0)
+  {
+    printf("Error reading info block, exiting...\n");
+    return -1;
+  }
+
+  return 0;
+}
+
+//******************************************************************************
+/// \brief mxt-app main program flow
+static int mxt_app(mxt_app_cmd cmd)
+{
+  int ret;
+
+  ret = mxt_init_chip();
+  if (ret < 0)
+    return ret;
+
+  /*! Turn on kernel dmesg output of MSG */
+  mxt_set_debug(true);
+
+  /*! Run tests, otherwise display menu */
+  if (cmd == CMD_TEST)
+  {
+    LOG(LOG_DEBUG, "Running all tests\n");
+    run_self_tests(SELF_TEST_ALL);
+  }
+  else
+  {
+    LOG(LOG_DEBUG, "Running menu\n");
+    return mxt_menu();
+  }
+
+  mxt_set_debug(false);
+  mxt_release();
+
+  return 0;
+}
+
+//******************************************************************************
+/// \brief Print usage for mxt-app
+static void print_usage(char *prog_name)
+{
+  fprintf(stderr, "\nUsage: %s [command] [args]\n\n"
+                  "When run with no options, access menu interface.\n\n"
+                  "Available commands:\n"
+                  "  -h [--help]              : display this help and exit\n"
+                  "  -R [--read]              : read from object\n"
+                  "  -t [--test]              : run all self tests\n"
+                  "  -W [--write]             : write to object\n"
+                  "\n"
+                  "Valid options:\n"
+                  "  -n [--count] COUNT       : read/write COUNT registers\n"
+                  "  -f [--format]            : format register output\n"
+                  "  -I [--instance] INSTANCE : select object INSTANCE\n"
+                  "  -r [--register] REGISTER : start at REGISTER\n"
+                  "  -T [--type] TYPE         : select object TYPE\n"
+                  "  -v [--verbose] LEVEL     : print additional debug\n"
+                  "\n"
+                  "Examples:\n"
+                  "  %s -R -n7 -r0           : Read info block\n"
+                  "  %s -R -T9 --format      : Read T9 object, formatted output\n"
+                  "  %s -W -T38 000000       : Zero first three bytes of T38\n"
+                  "  %s --test               : run self tests\n",
+                  prog_name, prog_name, prog_name, prog_name, prog_name);
+}
+
+//******************************************************************************
 /// \brief Main function for mxt-app
 int main (int argc, char *argv[])
 {
-   int opt;
-   int ret;
-   bool test = false;
+  int ret;
+  int c;
+  int i;
+  uint16_t address = 0;
+  uint16_t object_address = 0;
+  uint8_t count = 0;
+  uint16_t object_type = 0;
+  uint8_t instance = 0;
+  uint8_t verbose = 0;
+  bool format = false;
+  char databuf[BUF_SIZE];
+  char hexbuf[BUF_SIZE];
+  char strbuf[BUF_SIZE];
+  mxt_app_cmd cmd = CMD_NONE;
 
-   /*! Handle command line options */
-   while ((opt = getopt(argc, argv, "t")) != -1)
-   {
-      switch (opt)
-      {
+  LOG(LOG_DEBUG, "Decoding cmd arguments");
+
+  while (1)
+  {
+    int option_index = 0;
+
+    static struct option long_options[] = {
+      {"count",    required_argument, 0, 'n'},
+      {"format",   no_argument,       0, 'f'},
+      {"help",     no_argument,       0, 'h'},
+      {"instance", required_argument, 0, 'I'},
+      {"read",     no_argument,       0, 'R'},
+      {"register", required_argument, 0, 'r'},
+      {"test",     no_argument,       0, 't'},
+      {"type",     required_argument, 0, 'T'},
+      {"verbose",  required_argument, 0, 'v'},
+      {"write",    no_argument,       0, 'W'},
+      {0,          0,                 0,  0 }
+    };
+
+    c = getopt_long(argc, argv, "n:fhI:Rr:tT:v:W", long_options, &option_index);
+
+    if (c == -1)
+      break;
+
+    switch (c)
+    {
       case 't':
-         test = true;
-         break;
+        if (cmd == CMD_NONE) {
+          cmd = CMD_TEST;
+        } else {
+          print_usage(argv[0]);
+          return -1;
+        }
+        break;
+
+      case 'h':
+        print_usage(argv[0]);
+        return 0;
+
+      case 'f':
+        format = true;
+        break;
+
+      case 'T':
+        if (optarg) {
+          object_type = strtol(optarg, NULL, 0);
+        }
+        break;
+
+      case 'I':
+        if (optarg) {
+          instance = strtol(optarg, NULL, 0);
+        }
+        break;
+
+      case 'r':
+        if (optarg) {
+          address = strtol(optarg, NULL, 0);
+        }
+        break;
+
+      case 'R':
+        if (cmd == CMD_NONE) {
+          cmd = CMD_READ;
+        } else {
+          print_usage(argv[0]);
+          return -1;
+        }
+        break;
+
+      case 'n':
+        if (optarg) {
+          count = strtol(optarg, NULL, 0);
+        }
+        break;
+
+      case 'v':
+        if (optarg) {
+          verbose = strtol(optarg, NULL, 0);
+          mxt_set_verbose(verbose);
+        }
+        break;
+
+      case 'W':
+        if (cmd == CMD_NONE) {
+          cmd = CMD_WRITE;
+        } else {
+          print_usage(argv[0]);
+          return -1;
+        }
+        break;
+
+      default:
+        LOG(LOG_DEBUG, "default case");
+        print_usage(argv[0]);
+        return -1;
+    }
+  }
+
+  LOG(LOG_DEBUG, "cmd:%u", cmd);
+  LOG(LOG_DEBUG, "format:%s", format ? "true" : "false");
+  LOG(LOG_DEBUG, "instance:%u", instance);
+  LOG(LOG_DEBUG, "count:%u", count);
+  LOG(LOG_DEBUG, "address:%u", address);
+  LOG(LOG_DEBUG, "object_type:%u", object_type);
+  LOG(LOG_DEBUG, "verbose:%u", verbose);
+
+  switch (cmd) {
+    case CMD_WRITE:
+      LOG(LOG_DEBUG, "Write command");
+
+      ret = mxt_init_chip();
+      if (ret < 0)
+        break;
+
+      if (object_type > 0) {
+        object_address = get_object_address(object_type, instance);
+        if (object_address == OBJECT_NOT_FOUND) {
+          printf("No such object\n");
+          ret = -1;
+          break;
+        }
+
+        LOG(LOG_DEBUG, "T%u address:%u offset:%u", object_type,
+            object_address, address);
+        address = object_address + address;
+
+        if (count == 0) {
+          count = get_object_size(object_type);
+        }
+      } else if (count == 0) {
+        printf("Not enough arguments!\n");
+        return -1;
       }
-   }
 
-   /*! Find an mXT device and read the info block */
-   ret = mxt_scan();
-   if (ret == 0)
-   {
-     printf("Unable to find any maXTouch devices - exiting the application\n");
-     return -1;
-   }
-   else if (ret < 0)
-   {
-     printf("Failed to init device - exiting the application\n");
-     return -1;
-   }
+      if (optind != (argc - 1)) {
+        printf("Must give hex input\n");
+        return -1;
+      }
 
-   if (mxt_get_info() < 0)
-   {
-     printf("Error reading info block, exiting...\n");
-     return -1;
-   }
 
-   /*! Turn on kernel dmesg output of MSG */
-   mxt_set_debug(true);
+      ret = mxt_convert_hex(argv[optind], &databuf[0], &count, sizeof(databuf));
+      if (ret < 0) {
+        printf("Hex convert error\n");
+      } else {
+        ret = mxt_write_register(&databuf[0], address, count);
+        if (ret < 0) {
+          printf("Write error\n");
+        }
+      }
+      break;
 
-   /*! Run tests, otherwise display menu */
-   if (test)
-   {
-      run_self_tests(SELF_TEST_ALL);
-   }
-   else
-   {
-      return mxt_menu();
-   }
+    case CMD_READ:
+      LOG(LOG_DEBUG, "Read command");
 
-   mxt_set_debug(false);
-   mxt_release();
+      ret = mxt_init_chip();
+      if (ret < 0)
+        break;
 
-   return 0;
+      if (object_type > 0) {
+        object_address = get_object_address(object_type, instance);
+        if (object_address == OBJECT_NOT_FOUND) {
+          printf("No such object\n");
+          ret = -1;
+          break;
+        }
+
+        LOG(LOG_DEBUG, "T%u address:%u offset:%u", object_type,
+            object_address, address);
+        address = object_address + address;
+
+        if (count == 0) {
+          count = get_object_size(object_type);
+        }
+      } else if (count == 0) {
+        printf("Not enough arguments!\n");
+        return -1;
+      }
+
+      ret = mxt_read_register(&databuf[0], address, count);
+      if (ret < 0) {
+        printf("Error in read\n");
+      } else {
+        if (format)
+        {
+          if (object_type > 0)
+            printf("T%u\n\n", object_type);
+
+          for (i = 0; i < count; i++) {
+            printf("%02d:\t0x%02X\t%3d\t" BYTETOBINARYPATTERN "\n",
+                   address - object_address + i,
+                   databuf[i],
+                   databuf[i],
+                   BYTETOBINARY(databuf[i]));
+          }
+        } else {
+          strbuf[0] = '\0';
+          for (i = 0; i < count; i++) {
+            sprintf(hexbuf, "%02X ", databuf[i]);
+            strncat(strbuf, hexbuf, BUF_SIZE);
+          }
+
+          printf("%s\n", strbuf);
+        }
+      }
+      ret = 0;
+      break;
+
+    case CMD_NONE:
+    case CMD_TEST:
+    default:
+      ret = mxt_app(cmd);
+      break;
+  }
+
+  return ret;
 }
