@@ -289,8 +289,8 @@ void display_chip_info()
     element = info_block.objects[element_index];
 
     LOG(LOG_INFO, "T%u size:%u instances:%u address:%u",
-      element.object_type, element.size,
-      element.instances, get_start_position(element));
+      element.object_type, element.size + 1,
+      element.instances + 1, get_start_position(element));
 
     switch (element.object_type)
     {
