@@ -28,43 +28,56 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-#ifndef LOG_LEVEL
-#define LOG_LEVEL LOG_INFO
-#endif
+#include <stdint.h>
+
+#define DEBUG 1
+#define LOG_TAG "libmaxtouch"
 
 /* Log levels - designed to match Android's log levels */
-#define LOG_UNKNOWN 0
-#define LOG_DEFAULT 1
-#define LOG_VERBOSE 2
-#define LOG_DEBUG   3
-#define LOG_INFO    4
-#define LOG_WARN    5
-#define LOG_ERROR   6
-#define LOG_FATAL   7
-#define LOG_SILENT  8
+typedef enum mxt_log_level {
+  LOG_UNKNOWN = 0,
+  LOG_DEFAULT = 1,
+  LOG_VERBOSE = 2,
+  LOG_DEBUG   = 3,
+  LOG_INFO    = 4,
+  LOG_WARN    = 5,
+  LOG_ERROR   = 6,
+  LOG_FATAL   = 7,
+  LOG_SILENT  = 8
+} mxt_log_level;
 
-/* Disable logging */
-#if LOG_LEVEL == LOG_SILENT
-#define LOG(...) /* Do nothing */
+extern mxt_log_level log_level;
 
-/* Log using Android API */
-#elif ANDROID
-#include <android/log.h>
-#define LOG(level, ...) \
-if (level >= LOG_LEVEL) \
-{ \
-__android_log_print(ANDROID_ ## level, "libmaxtouch", __VA_ARGS__); \
-}
+void mxt_set_verbose(uint8_t verbose);
 
-/* Log to STDOUT */
-#else
+
+#if DEBUG
+
 #include <stdio.h>
-char * get_log_level_string(int level);
+
+char * get_log_level_string(mxt_log_level level);
+
+#if ANDROID
+/* Log using Android API */
+#include <android/log.h>
+
 #define LOG(level, format, ...) \
-  if (level >= LOG_LEVEL) \
+  if (level >= log_level) { \
+    printf("%s: " format "\n", get_log_level_string(level), ##__VA_ARGS__); \
+  } else { \
+    __android_log_print(ANDROID_ ## level, LOG_TAG, format, ##__VA_ARGS__); \
+  }
+#else
+/* Log to STDOUT */
+#define LOG(level, format, ...) \
+  if (level >= log_level) \
   { \
     printf("%s: " format "\n", get_log_level_string(level), ##__VA_ARGS__); \
   }
 
 #endif
 
+#else
+/* Disable logging */
+#define LOG(...) /* Do nothing */
+#endif

@@ -29,10 +29,13 @@
 
 #include "log.h"
 
+/* Default log level */
+mxt_log_level log_level = LOG_SILENT;
+
 //******************************************************************************
 /// \brief  Returns the input log level as a human-readable string.
 /// \return Log level string
-char * get_log_level_string(int level)
+char * get_log_level_string(mxt_log_level level)
 {
   switch (level)
   {
@@ -58,3 +61,27 @@ char * get_log_level_string(int level)
   }
 }
 
+
+//******************************************************************************
+/// \brief  Sets verbosity level
+void mxt_set_verbose(uint8_t verbose)
+{
+  switch (verbose)
+  {
+    case 0:
+      log_level = LOG_SILENT;
+      break;
+    case 1:
+      log_level = LOG_ERROR;
+      break;
+    case 2:
+      log_level = LOG_INFO;
+      break;
+    case 3:
+      log_level = LOG_DEBUG;
+      break;
+    default:
+      log_level = LOG_VERBOSE;
+      break;
+  }
+}
