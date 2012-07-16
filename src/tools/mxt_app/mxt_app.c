@@ -36,8 +36,8 @@
 #include <fcntl.h>
 
 #include "libmaxtouch/libmaxtouch.h"
+#include "libmaxtouch/utilfuncs.h"
 #include "touch_app.h"
-#include "utilfuncs.h"
 #include "self_test.h"
 
 //******************************************************************************

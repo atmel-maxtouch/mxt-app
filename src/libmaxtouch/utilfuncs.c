@@ -39,7 +39,6 @@
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/info_block.h"
 #include "libmaxtouch/info_block_driver.h"
-#include "touch_app.h"
 #include "utilfuncs.h"
 
 
@@ -288,4 +287,48 @@ void print_objs()
   {
     printf("\t %s\n", objname(info_block.objects[i].object_type));
   }
+}
+
+static char to_digit(char hex)
+{
+    char decimal;
+
+    if (hex >= '0' && hex <= '9')
+        decimal = hex - '0';
+    else if (hex >= 'A' && hex <= 'F')
+        decimal = hex - 'A' + 10;
+    else if (hex >= 'a' && hex <= 'f')
+        decimal = hex - 'a' + 10;
+    else
+        decimal = 0;
+
+    return decimal;
+}
+
+int mxt_convert_hex(char *hex, unsigned char *databuf, uint8_t *count, unsigned int buf_size)
+{
+  int pos = 0;
+  uint8_t datapos = 0;
+  char highnibble;
+  char lownibble;
+
+  while (1) {
+    highnibble = *(hex + pos);
+    lownibble = *(hex + pos + 1);
+
+    if (lownibble == '\0' || lownibble == '\n'
+        || highnibble == '\0' || highnibble == '\n')
+      break;
+
+    *(databuf + datapos) = (to_digit(highnibble) << 4)
+      | to_digit(lownibble);
+    datapos++;
+
+    pos += 2;
+    if (pos > buf_size)
+      return -1;
+  }
+
+  *count = datapos;
+  return 0;
 }

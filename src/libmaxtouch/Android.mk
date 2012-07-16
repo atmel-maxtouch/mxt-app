@@ -7,6 +7,7 @@ LOCAL_SRC_FILES := \
   log.c \
   dmesg.c \
   sysinfo.c \
+  utilfuncs.c \
   info_block.c \
   sysfs/sysfs_device.c \
   i2c_dev/i2c_dev_device.c

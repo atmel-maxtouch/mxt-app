@@ -41,6 +41,7 @@
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/dmesg.h"
 #include "libmaxtouch/log.h"
+#include "libmaxtouch/utilfuncs.h"
 
 #define BUF_SIZE 1024
 
@@ -92,50 +93,6 @@ static int readline(int fd, char *str, int maxlen)
   return (n);
 }
 
-static char to_digit(char hex)
-{
-    char decimal;
-
-    if (hex >= '0' && hex <= '9')
-        decimal = hex - '0';
-    else if (hex >= 'A' && hex <= 'F')
-        decimal = hex - 'A' + 10;
-    else if (hex >= 'a' && hex <= 'f')
-        decimal = hex - 'a' + 10;
-    else
-        decimal = 0;
-
-    return decimal;
-}
-
-static int mxt_convert_hex(char *hex, unsigned char *databuf, int *count)
-{
-    int pos = 0;
-    int datapos = 0;
-    char highnibble;
-    char lownibble;
-
-    while (1) {
-        highnibble = *(hex + pos);
-        lownibble = *(hex + pos + 1);
-
-        if (lownibble == '\0' || lownibble == '\n'
-            || highnibble == '\0' || highnibble == '\n')
-            break;
-
-        *(databuf + datapos) = (to_digit(highnibble) << 4)
-                                | to_digit(lownibble);
-        datapos++;
-
-        pos += 2;
-        if (pos > BUF_SIZE)
-            return -1;
-    }
-
-    *count = datapos;
-    return 0;
-}
-
 static void handle_messages(int sockfd)
 {
     int count, i;
@@ -155,7 +112,8 @@ static void handle_messages(int sockfd)
 static int handle_cmd(int sockfd)
 {
   int ret;
-  int address, count, i;
+  int address, i;
+  uint8_t count;
   unsigned char databuf[BUF_SIZE];
 
   ret = readline(sockfd, buf, BUF_SIZE);
@@ -190,7 +148,7 @@ static int handle_cmd(int sockfd)
       strncat(buf, "\n", BUF_SIZE);
       write(sockfd, buf, strlen(buf));
   } else if (sscanf(buf, "WRI %d %s", &address, (char *)&hexbuf) == 2) {
-      ret = mxt_convert_hex(&hexbuf[0], &databuf[0], &count);
+      ret = mxt_convert_hex(&hexbuf[0], &databuf[0], &count, BUF_SIZE);
       if (ret < 0) {
           snprintf(buf, BUF_SIZE, "WRP ERR");
       } else {

@@ -39,3 +39,4 @@ void print_objs(void);
 
 void write_to_object(int obj_num);
 void read_object(int obj_num);
+int mxt_convert_hex(char *hex, unsigned char *databuf, uint8_t *count, unsigned int buf_size);

@@ -31,6 +31,7 @@ libmaxtouch_la_SOURCES =\
 	src/libmaxtouch/dmesg.c \
 	src/libmaxtouch/sysinfo.c \
 	src/libmaxtouch/log.c \
+	src/libmaxtouch/utilfuncs.c \
 	src/libmaxtouch/sysfs/sysfs_device.c \
 	src/libmaxtouch/i2c_dev/i2c_dev_device.c
 
@@ -61,5 +62,4 @@ mxt_app_LDADD = libmaxtouch.la
 mxt_app_SOURCES =\
 	src/tools/mxt_app/mxt_app.c \
 	src/tools/mxt_app/touch_app.c \
-	src/tools/mxt_app/utilfuncs.c \
 	src/tools/mxt_app/self_test.c

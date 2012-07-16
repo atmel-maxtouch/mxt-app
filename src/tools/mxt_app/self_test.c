@@ -40,9 +40,9 @@
 #include "libmaxtouch/dmesg.h"
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/info_block.h"
+#include "libmaxtouch/utilfuncs.h"
 
 #include "self_test.h"
-#include "utilfuncs.h"
 
 //******************************************************************************
 /// \brief Handle messages from the self test object
