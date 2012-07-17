@@ -37,6 +37,7 @@
 #include <getopt.h>
 
 #include "libmaxtouch/libmaxtouch.h"
+#include "libmaxtouch/i2c_dev/i2c_dev_device.h"
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/utilfuncs.h"
 #include "libmaxtouch/info_block.h"
@@ -293,22 +294,33 @@ static int mxt_menu(void)
 }
 
 //******************************************************************************
-/// \brief mxt-app main program flow
-static int mxt_init_chip(void)
+/// \brief Initialize mXT device and read the info block
+static int mxt_init_chip(uint8_t adapter, uint8_t address)
 {
   int ret;
 
-  /*! Find an mXT device and read the info block */
-  ret = mxt_scan();
-  if (ret == 0)
+  if (adapter > 0 && address > 0)
   {
-    printf("Unable to find any maXTouch devices - exiting the application\n");
-    return -1;
+    ret = i2c_dev_set_address(adapter, address);
+    if (ret < 0)
+    {
+      printf("Failed to init device - exiting the application\n");
+      return -1;
+    }
   }
-  else if (ret < 0)
+  else
   {
-    printf("Failed to init device - exiting the application\n");
-    return -1;
+    ret = mxt_scan();
+    if (ret == 0)
+    {
+      printf("Unable to find any maXTouch devices - exiting the application\n");
+      return -1;
+    }
+    else if (ret < 0)
+    {
+      printf("Failed to init device - exiting the application\n");
+      return -1;
+    }
   }
 
   if (mxt_get_info() < 0)
@@ -325,10 +337,6 @@ static int mxt_init_chip(void)
 static int mxt_app(mxt_app_cmd cmd)
 {
   int ret;
-
-  ret = mxt_init_chip();
-  if (ret < 0)
-    return ret;
 
   /*! Turn on kernel dmesg output of MSG */
   mxt_set_debug(true);
@@ -371,6 +379,10 @@ static void print_usage(char *prog_name)
                   "  -T [--type] TYPE         : select object TYPE\n"
                   "  -v [--verbose] LEVEL     : print additional debug\n"
                   "\n"
+                  "For i2c-dev mode:\n"
+                  "  -d [--i2c-adapter] ADAPTER : i2c adapter, eg \"2\"\n"
+                  "  -a [--i2c-address] ADDRESS : i2c address, eg \"4a\"\n"
+                  "\n"
                   "Examples:\n"
                   "  %s -R -n7 -r0           : Read info block\n"
                   "  %s -R -T9 --format      : Read T9 object, formatted output\n"
@@ -389,6 +401,8 @@ int main (int argc, char *argv[])
   uint16_t address = 0;
   uint16_t object_address = 0;
   uint8_t count = 0;
+  uint8_t i2c_address = 0;
+  uint8_t i2c_adapter = 0;
   uint16_t object_type = 0;
   uint8_t instance = 0;
   uint8_t verbose = 0;
@@ -405,26 +419,40 @@ int main (int argc, char *argv[])
     int option_index = 0;
 
     static struct option long_options[] = {
-      {"count",    required_argument, 0, 'n'},
-      {"format",   no_argument,       0, 'f'},
-      {"help",     no_argument,       0, 'h'},
-      {"instance", required_argument, 0, 'I'},
-      {"read",     no_argument,       0, 'R'},
-      {"register", required_argument, 0, 'r'},
-      {"test",     no_argument,       0, 't'},
-      {"type",     required_argument, 0, 'T'},
-      {"verbose",  required_argument, 0, 'v'},
-      {"write",    no_argument,       0, 'W'},
-      {0,          0,                 0,  0 }
+      {"i2c-address",  no_argument,       0, 'a'},
+      {"i2c-adapter",  no_argument,       0, 'd'},
+      {"count",        required_argument, 0, 'n'},
+      {"format",       no_argument,       0, 'f'},
+      {"help",         no_argument,       0, 'h'},
+      {"instance",     required_argument, 0, 'I'},
+      {"read",         no_argument,       0, 'R'},
+      {"register",     required_argument, 0, 'r'},
+      {"test",         no_argument,       0, 't'},
+      {"type",         required_argument, 0, 'T'},
+      {"verbose",      required_argument, 0, 'v'},
+      {"write",        no_argument,       0, 'W'},
+      {0,              0,                 0,  0 }
     };
 
-    c = getopt_long(argc, argv, "n:fhI:Rr:tT:v:W", long_options, &option_index);
+    c = getopt_long(argc, argv, "a:d:n:fhI:Rr:tT:v:W", long_options, &option_index);
 
     if (c == -1)
       break;
 
     switch (c)
     {
+      case 'a':
+        if (optarg) {
+          i2c_address = strtol(optarg, NULL, 16);
+        }
+        break;
+
+      case 'd':
+        if (optarg) {
+          i2c_adapter = strtol(optarg, NULL, 0);
+        }
+        break;
+
       case 't':
         if (cmd == CMD_NONE) {
           cmd = CMD_TEST;
@@ -499,6 +527,8 @@ int main (int argc, char *argv[])
   }
 
   LOG(LOG_DEBUG, "cmd:%u", cmd);
+  LOG(LOG_DEBUG, "i2c_address:%u", i2c_address);
+  LOG(LOG_DEBUG, "i2c_adapter:%u", i2c_adapter);
   LOG(LOG_DEBUG, "format:%s", format ? "true" : "false");
   LOG(LOG_DEBUG, "instance:%u", instance);
   LOG(LOG_DEBUG, "count:%u", count);
@@ -506,13 +536,14 @@ int main (int argc, char *argv[])
   LOG(LOG_DEBUG, "object_type:%u", object_type);
   LOG(LOG_DEBUG, "verbose:%u", verbose);
 
+  /* initialise chip */
+  ret = mxt_init_chip(i2c_adapter, i2c_address);
+  if (ret < 0)
+    return ret;
+
   switch (cmd) {
     case CMD_WRITE:
       LOG(LOG_DEBUG, "Write command");
-
-      ret = mxt_init_chip();
-      if (ret < 0)
-        break;
 
       if (object_type > 0) {
         object_address = get_object_address(object_type, instance);
@@ -553,10 +584,6 @@ int main (int argc, char *argv[])
 
     case CMD_READ:
       LOG(LOG_DEBUG, "Read command");
-
-      ret = mxt_init_chip();
-      if (ret < 0)
-        break;
 
       if (object_type > 0) {
         object_address = get_object_address(object_type, instance);
