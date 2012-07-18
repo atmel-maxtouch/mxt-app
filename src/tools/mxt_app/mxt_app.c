@@ -612,7 +612,7 @@ int main (int argc, char *argv[])
         if (format)
         {
           if (object_type > 0)
-            printf("T%u\n\n", object_type);
+            printf("%s\n\n", objname(object_type));
 
           for (i = 0; i < count; i++) {
             printf("%02d:\t0x%02X\t%3d\t" BYTETOBINARYPATTERN "\n",
