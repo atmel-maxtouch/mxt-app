@@ -239,7 +239,7 @@ static int mxt_debug_insert_data(struct mxt_debug_data *mxt_dd)
 
     /* The last page may overlap the end of the matrix */
     if (ofs >= (mxt_dd->x_size * mxt_dd->y_size))
-      return;
+      return 0;
 
     mxt_dd->data_buf[ofs] = value;
 
