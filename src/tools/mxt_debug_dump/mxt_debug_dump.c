@@ -164,6 +164,7 @@ static int mxt_debug_dump_page(struct mxt_debug_data *mxt_dd)
       if (failures > 500)
       {
         LOG(LOG_ERROR, "Timeout waiting for command to be actioned");
+        printf("Timeout\n");
         return -1;
       }
     }
