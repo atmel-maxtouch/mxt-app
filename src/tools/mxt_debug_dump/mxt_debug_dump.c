@@ -374,8 +374,9 @@ static int mxt_debug_dump(int mode, const char *csv_file,
 {
   struct mxt_debug_data mxt_dd;
   int x_size, y_size;
-  int pages_per_stripe = 0;
-  int num_stripes = 1;
+  int pages_per_stripe;
+  int num_stripes;
+  int num_debug_bytes;
   int ret;
   int page;
   time_t t1;
@@ -404,81 +405,44 @@ static int mxt_debug_dump(int mode, const char *csv_file,
     return -1;
   }
 
-  switch (info_block.id->family_id)
+  LOG(LOG_DEBUG, "t37_size: %d", mxt_dd.t37_size);
+  mxt_dd.page_size = mxt_dd.t37_size - 2;
+  LOG(LOG_DEBUG, "page_size: %d", mxt_dd.page_size);
+
+  if (info_block.id->family_id == 0xA0 && info_block.id->variant_id == 0x00)
   {
-    case 0x80:
-      /* mXT224 */
-      num_stripes = 1;
-      pages_per_stripe = 4;
-      mxt_dd.x_size = x_size;
-      break;
+    /* mXT1386 */
+    num_stripes = 3;
+    pages_per_stripe = 8;
+    mxt_dd.x_size = 27;
+  }
+  else
+  {
+    num_debug_bytes = x_size * y_size * 2;
+    LOG(LOG_DEBUG, "num_debug_bytes: %d", num_debug_bytes);
 
-    case 0xA0:
-      /* mXT1386 (Galaxy Tab) */
-      num_stripes = 3;
-      pages_per_stripe = 8;
-      mxt_dd.x_size = 27;
-      break;
-
-    case 0xA1:
-      if(info_block.id->variant_id == 0x03)
-      {
-        /* mXT540E */
-        num_stripes = 1;
-        pages_per_stripe = 9;
-        mxt_dd.x_size = x_size;
-      }
-      else
-      {
-        /* mXT768E */
-        num_stripes = 1;
-        pages_per_stripe = 12;
-        mxt_dd.x_size = x_size;
-      }
-      break;
-
-    case 0xA2:
-      if(info_block.id->variant_id == 0x00)
-      {
-        /* mXT1664 */
-        num_stripes = 1;
-        pages_per_stripe = 26;
-        mxt_dd.x_size = x_size;
-      }
-      else if(info_block.id->variant_id == 0x01)
-      {
-        /* mXT1188 */
-        num_stripes = 1;
-        pages_per_stripe = 26;
-        mxt_dd.x_size = x_size;
-      }
-      else
-      {
-        LOG(LOG_ERROR, "Unrecognized variant ID");
-      }
-      break;
-
-    default:
-      LOG(LOG_ERROR, "Unrecognized family ID");
+    num_stripes = 1;
+    pages_per_stripe = (num_debug_bytes + (mxt_dd.page_size - 1)) / mxt_dd.page_size;
+    mxt_dd.x_size = x_size;
   }
 
-  mxt_dd.page_size = mxt_dd.t37_size - 2;
   mxt_dd.num_stripes = num_stripes;
   mxt_dd.stripe_width = y_size / num_stripes;
   mxt_dd.y_size = y_size;
 
-  LOG(LOG_INFO, "Number of stripes: %d", num_stripes);
-  LOG(LOG_INFO, "Pages per stripe: %d", pages_per_stripe);
-  LOG(LOG_INFO, "Stripe width: %d", mxt_dd.stripe_width);
-  LOG(LOG_INFO, "X size: %d", mxt_dd.x_size);
-  LOG(LOG_INFO, "Y size: %d", mxt_dd.y_size);
+  LOG(LOG_DEBUG, "Number of stripes: %d", num_stripes);
+  LOG(LOG_DEBUG, "Pages per stripe: %d", pages_per_stripe);
+  LOG(LOG_DEBUG, "Stripe width: %d", mxt_dd.stripe_width);
+  LOG(LOG_DEBUG, "X size: %d", mxt_dd.x_size);
+  LOG(LOG_DEBUG, "Y size: %d", mxt_dd.y_size);
 
   /* allocate page/data buffers */
-  mxt_dd.page_buf = (uint8_t *)malloc(sizeof(uint8_t) * mxt_dd.t37_size);
+  mxt_dd.page_buf = (uint8_t *)malloc(sizeof(uint8_t) * mxt_dd.page_size);
   if (!mxt_dd.page_buf) {
     LOG(LOG_ERROR, "malloc failure");
     return -1;
   }
+
   mxt_dd.data_buf = (uint16_t *)malloc(sizeof(uint16_t)
                                      * mxt_dd.x_size * mxt_dd.y_size);
   if (!mxt_dd.data_buf) {
@@ -492,7 +456,7 @@ static int mxt_debug_dump(int mode, const char *csv_file,
   if (!mxt_dd.hawkeye) {
     printf("Failed to open file!\n");
     ret = -1;
-    goto free_page_buf;
+    goto free;
   }
 
   mxt_generate_hawkeye_header(&mxt_dd);
@@ -516,7 +480,7 @@ static int mxt_debug_dump(int mode, const char *csv_file,
       {
         mxt_dd.page = pages_per_stripe * mxt_dd.stripe + page;
 
-        LOG(LOG_INFO, "Stripe %d Page %d", mxt_dd.stripe, mxt_dd.page);
+        LOG(LOG_DEBUG, "Stripe %d Page %d", mxt_dd.stripe, mxt_dd.page);
 
         ret = mxt_debug_dump_page(&mxt_dd);
         if (ret < 0)
@@ -543,8 +507,10 @@ static int mxt_debug_dump(int mode, const char *csv_file,
 
 free:
   free(mxt_dd.data_buf);
+  mxt_dd.data_buf = NULL;
 free_page_buf:
   free(mxt_dd.page_buf);
+  mxt_dd.page_buf = NULL;
 
   return ret;
 }
