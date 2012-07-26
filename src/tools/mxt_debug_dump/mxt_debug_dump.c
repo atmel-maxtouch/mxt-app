@@ -60,7 +60,6 @@
 #define DELTAS_MODE       0x10
 #define REFS_MODE         0x11
 
-#define MAX_NUM_FRAMES          1000000000
 #define MAX_FILENAME_LENGTH     255
 
 int exit_loop;
@@ -119,7 +118,7 @@ static int get_objects_addr(struct mxt_debug_data *mxt_dd)
   if (mxt_dd->t37_addr == OBJECT_NOT_FOUND) return -1;
 
   /* Obtain Debug Diagnostic object's size */
-  mxt_dd->t37_size = get_object_size((uint8_t)DEBUG_DIAGNOSTIC_T37);
+  mxt_dd->t37_size = get_object_size(DEBUG_DIAGNOSTIC_T37);
   if (mxt_dd->t37_size == OBJECT_NOT_FOUND) return -1;
 
   return 0;
@@ -355,13 +354,13 @@ static int mxt_hawkeye_output(struct mxt_debug_data *mxt_dd)
   return 0;
 }
 
-static unsigned long get_num_frames(void)
+static uint16_t get_num_frames(void)
 {
-  unsigned long frames;
+  uint16_t frames;
 
   printf("Number of frames: ");
 
-  if (scanf("%lu", &frames) == EOF)
+  if (scanf("%hu", &frames) == EOF)
   {
     LOG(LOG_ERROR, "Could not handle the input, exiting\n");
     return -1;
@@ -370,11 +369,11 @@ static unsigned long get_num_frames(void)
   return frames;
 }
 
-static int mxt_debug_dump(int mode, const char *csv_file, unsigned long input_frames, bool cmd_line)
+static int mxt_debug_dump(int mode, const char *csv_file,
+                          uint16_t frames, bool cmd_line)
 {
   struct mxt_debug_data mxt_dd;
   int x_size, y_size;
-  unsigned long frames = 0;
   int pages_per_stripe = 0;
   int num_stripes = 1;
   int ret;
@@ -382,29 +381,16 @@ static int mxt_debug_dump(int mode, const char *csv_file, unsigned long input_fr
   time_t t1;
   time_t t2;
 
-  if (cmd_line)
-  {
-    frames = input_frames;
-  }
-  else
+  if (!cmd_line)
   {
     frames = get_num_frames();
   }
 
-  if (frames > MAX_NUM_FRAMES)
+  if (frames == 0)
   {
-    LOG(LOG_INFO, "Too many frames requested, defaulting to 1,000,000,000\n");
-    frames = MAX_NUM_FRAMES;
-  }
-  if (frames <= 0)
-  {
-     LOG(LOG_INFO, "Too few frames requested, defaulting to 1\n");
+     LOG(LOG_WARN, "Defaulting to 1\n");
      frames = 1;
   }
-
-  printf("Reading %lu frames\n", frames);
-
-  t1 = time(NULL);
 
   x_size = info_block.id->matrix_x_size;
   y_size = info_block.id->matrix_y_size;
@@ -511,6 +497,10 @@ static int mxt_debug_dump(int mode, const char *csv_file, unsigned long input_fr
 
   mxt_generate_hawkeye_header(&mxt_dd);
   
+  printf("Reading %u frames\n", frames);
+
+  t1 = time(NULL);
+
   for (mxt_dd.frame = 1; mxt_dd.frame <= frames; mxt_dd.frame++)
   {
     /* iterate through stripes */
@@ -547,7 +537,8 @@ static int mxt_debug_dump(int mode, const char *csv_file, unsigned long input_fr
   mxt_hawkeye_generate_control_file(&mxt_dd);
 
   t2 = time(NULL);
-  printf("%lu frames in %d seconds\n", frames, (int)(t2-t1));
+  printf("%u frames in %d seconds\n", frames, (int)(t2-t1));
+
   ret = 0;
 
 free:
@@ -562,7 +553,8 @@ free_page_buf:
  * @brief
  * @return Zero.
  */
-static int mxt_dd_cmd(char selection, const char *csv_file, unsigned long frames, bool cmd_line)
+static int mxt_dd_cmd(char selection, const char *csv_file,
+                      uint16_t frames, bool cmd_line)
 {
   exit_loop = 0;
   int ret = 0;
@@ -598,7 +590,7 @@ static int mxt_dd_cmd(char selection, const char *csv_file, unsigned long frames
  * @brief  Menu function for the debug dump utility.
  * @return Zero.
  */
-static int mxt_dd_menu(char option, const char *csv_file, unsigned long frames, bool cmd_line)
+static int mxt_dd_menu(char option, const char *csv_file)
 {
   char menu_input;
   int ret;
@@ -629,7 +621,7 @@ static int mxt_dd_menu(char option, const char *csv_file, unsigned long frames, 
       }
     }
 
-    ret = mxt_dd_cmd(menu_input, csv_file_in, frames, cmd_line);
+    ret = mxt_dd_cmd(menu_input, csv_file_in, 0, 0);
     if (ret < 0)
     {
       return ret;
@@ -682,7 +674,7 @@ int main (int argc, char *argv[])
   }
   else if (argc == 1)
   {
-    return mxt_dd_menu(mode, csv_file, frames, 0);
+    return mxt_dd_menu(mode, csv_file);
   }
   else
   {
