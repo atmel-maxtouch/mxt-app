@@ -119,7 +119,7 @@ int i2c_dev_read_register(unsigned char *buf, int start_register, int count)
   int ret;
   char register_buf[2];
 
-  LOG(LOG_DEBUG, "start_register:%d count:%d\n", start_register, count);
+  LOG(LOG_DEBUG, "start_register:%d count:%d", start_register, count);
 
   fd = open_and_set_slave_address();
 

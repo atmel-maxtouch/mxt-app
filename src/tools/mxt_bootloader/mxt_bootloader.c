@@ -281,7 +281,7 @@ int main (int argc, char *argv[])
     i2c_dev_release();
     i2c_dev_set_address(adapter, bootloader_address);
   } else {
-    LOG(LOG_INFO, "Could not find a device\n");
+    LOG(LOG_INFO, "Could not find a device");
     return -1;
   }
 

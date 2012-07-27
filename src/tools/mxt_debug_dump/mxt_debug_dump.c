@@ -362,7 +362,7 @@ static uint16_t get_num_frames(void)
 
   if (scanf("%hu", &frames) == EOF)
   {
-    LOG(LOG_ERROR, "Could not handle the input, exiting\n");
+    LOG(LOG_ERROR, "Could not handle the input, exiting");
     return -1;
   }
 
@@ -389,7 +389,7 @@ static int mxt_debug_dump(int mode, const char *csv_file,
 
   if (frames == 0)
   {
-     LOG(LOG_WARN, "Defaulting to 1\n");
+     LOG(LOG_WARN, "Defaulting to 1");
      frames = 1;
   }
 
@@ -573,7 +573,7 @@ static int mxt_dd_menu(char option, const char *csv_file)
 
     if (scanf("%1s", &menu_input) == EOF)
     {
-      LOG(LOG_ERROR, "Could not handle the input, exiting\n");
+      LOG(LOG_ERROR, "Could not handle the input, exiting");
       return -1;
     }
 
@@ -582,7 +582,7 @@ static int mxt_dd_menu(char option, const char *csv_file)
       printf("\nFile name: ");
       if (scanf("%255s", csv_file_in) == EOF)
       {
-        LOG(LOG_ERROR, "Could not handle the input, exiting\n");
+        LOG(LOG_ERROR, "Could not handle the input, exiting");
         return -1;
       }
     }

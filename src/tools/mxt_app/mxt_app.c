@@ -344,12 +344,12 @@ static int mxt_app(mxt_app_cmd cmd)
   /*! Run tests, otherwise display menu */
   if (cmd == CMD_TEST)
   {
-    LOG(LOG_DEBUG, "Running all tests\n");
+    LOG(LOG_DEBUG, "Running all tests");
     run_self_tests(SELF_TEST_ALL);
   }
   else
   {
-    LOG(LOG_DEBUG, "Running menu\n");
+    LOG(LOG_DEBUG, "Running menu");
     return mxt_menu();
   }
 
