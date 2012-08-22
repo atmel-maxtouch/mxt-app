@@ -43,13 +43,6 @@
 #define ENDPOINT_1_IN  0x81
 #define ENDPOINT_2_OUT 0x02
 
-/* Get debug from the libusb library unless logging is disabled */
-#if LOG_LEVEL == LOG_SILENT
-#define LIBUSB_DEBUG_LEVEL 0
-#else
-#define LIBUSB_DEBUG_LEVEL 3
-#endif
-
 #define USB_TRANSFER_TIMEOUT 5000
 
 #define REPORT_ID         0x01
@@ -266,8 +259,11 @@ int usb_scan()
   LOG(LOG_VERBOSE, "Initialised libusb");
 
   /* Set the debug level for the library */
-  libusb_set_debug(gDevice.context, LIBUSB_DEBUG_LEVEL);
-  LOG(LOG_DEBUG, "Setting libusb debug level to %d", LIBUSB_DEBUG_LEVEL);
+  if (log_level < 3)
+  {
+    LOG(LOG_DEBUG, "Enabling libusb debug");
+    libusb_set_debug(gDevice.context, 3);
+  }
 
   count = libusb_get_device_list(gDevice.context, &devs);
   if (count <= 0)
