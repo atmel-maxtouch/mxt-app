@@ -71,11 +71,6 @@ int mxt_scan()
   }
 #endif /* HAVE_LIBUSB */
 
-  if (ret != 1)
-  {
-    LOG(LOG_ERROR, "Unable to find any mXT devices");
-  }
-
   return ret;
 }
 

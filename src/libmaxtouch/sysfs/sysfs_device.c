@@ -263,7 +263,7 @@ int sysfs_scan()
 
   if (ret == 0)
   {
-     LOG(LOG_DEBUG, "Nothing found");
+    LOG(LOG_WARN, "Unable to find any sysfs devices");
   }
 
   return ret;

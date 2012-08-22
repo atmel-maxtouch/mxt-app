@@ -40,10 +40,6 @@
 
 /* USB device configuration */
 #define VENDOR_ID    0x03EB
-//#define PRODUCT_ID   0x2127
-//#define PRODUCT_ID   0x212A
-#define PRODUCT_ID   0x211C
-#define INTERFACE         1
 #define ENDPOINT_1_IN  0x81
 #define ENDPOINT_2_OUT 0x02
 
@@ -95,6 +91,7 @@ typedef struct usb_device_tag {
   bool device_connected;
   libusb_device_handle *device_handle;
   int ep1_in_max_packet_size;
+  int interface;
 } usb_device;
 
 //******************************************************************************
@@ -108,76 +105,111 @@ static int write_packet(unsigned char const *buf, int start_register, int count,
 /* The "unused" attribute is used to suppress the warning */
 __attribute__((unused)) static char * get_libusb_error_string(int libusb_error);
 
+
 //******************************************************************************
-/// \brief  Scan for devices
-/// \return 1 = device found, 0 = not found, negative for error
-int usb_scan()
+/// \brief  Try to connect device
+static void usb_scan_for_control_if(struct libusb_config_descriptor *config)
 {
-  int ret = -1;
+  int j,k,ret;
+  char buf[128];
+  const char control_if[] = "Atmel maXTouch Control";
 
-  /* Initialise flags */
-  gDevice.library_initialised = false;
-  gDevice.device_connected = false;
+  for (j = 0 ; j < config->bNumInterfaces; j++)
+  {
+    const struct libusb_interface *interface = &config->interface[j];
+    for (k = 0; k < interface->num_altsetting; k++)
+    {
+      const struct libusb_interface_descriptor *altsetting = &interface->altsetting[k];
 
-  /* Initialise library */
-  ret = libusb_init(&(gDevice.context));
+      if (altsetting->iInterface > 0)
+      {
+        ret = libusb_get_string_descriptor_ascii(gDevice.device_handle,
+                altsetting->iInterface, (unsigned char *)buf, sizeof(buf));
+        if (ret > 0)
+        {
+          if (!strncmp(buf, control_if, sizeof(control_if)))
+          {
+            LOG(LOG_DEBUG, "Found %s at interface %d altsetting %d",
+              control_if, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
 
-  /* Was the library initialised successfully */
+            gDevice.interface = altsetting->bInterfaceNumber;
+            return;
+          }
+        }
+      }
+    }
+  }
+}
+
+//******************************************************************************
+/// \brief  Scan configurations
+/// \return 0 = success, negative for error
+static void usb_scan_device_configs(libusb_device *dev, const struct libusb_device_descriptor desc)
+{
+  int i, ret;
+
+  /* Scan through interfaces */
+  for (i = 0; i < desc.bNumConfigurations; ++i)
+  {
+    struct libusb_config_descriptor *config;
+    ret = libusb_get_config_descriptor(dev, i, &config);
+    if (ret)
+    {
+      LOG(LOG_ERROR, "Couldn't get config description %d", i);
+    }
+    else
+    {
+      usb_scan_for_control_if(config);
+    }
+  }
+}
+
+//******************************************************************************
+/// \brief  Try to connect device
+/// \return 0 = success, negative for error
+static int usb_connect_device(libusb_device *dev, const struct libusb_device_descriptor desc)
+{
+  int ret;
+
+  ret = libusb_open(dev, &gDevice.device_handle);
   if (ret != LIBUSB_SUCCESS)
   {
-    LOG(LOG_ERROR, "Failed to initialise libusb");
+    LOG(LOG_ERROR, "Unable to connect to device with VID=0x%04X PID=0x%04X"
+                   " ret=%d", desc.idVendor, desc.idProduct, ret);
     return ret;
   }
 
-  gDevice.library_initialised = true;
-  LOG(LOG_DEBUG, "Initialised libusb");
+  usb_scan_device_configs(dev, desc);
 
-  /* Set the debug level for the library */
-  libusb_set_debug(gDevice.context, LIBUSB_DEBUG_LEVEL);
-  LOG(LOG_DEBUG, "Setting libusb debug level to %d", LIBUSB_DEBUG_LEVEL);
-
-  /* Warning: This function will pick the first device it finds with the same VID and PID */
-  gDevice.device_handle = libusb_open_device_with_vid_pid
-  (
-    gDevice.context, VENDOR_ID, PRODUCT_ID
-  );
-
-  /* Did we fail to find a device? */
-  if (gDevice.device_handle == NULL)
+  if (gDevice.interface < 0)
   {
-    LOG(LOG_ERROR, "Unable to find device with VID=0x%04X PID=0x%04X", VENDOR_ID, PRODUCT_ID);
-    return 0;
+    LOG(LOG_WARN, "Did not find control interface");
   }
 
-  gDevice.device_connected = true;
-  LOG(LOG_INFO, "Found USB device with VID=0x%04X PID=0x%04X", VENDOR_ID, PRODUCT_ID);
-
-  /* Disconnect the kernel driver if its active */
-  if (libusb_kernel_driver_active(gDevice.device_handle, INTERFACE) == 1)
+  /* Disconnect the kernel driver if it is active */
+  if (libusb_kernel_driver_active(gDevice.device_handle, gDevice.interface) == 1)
   {
     LOG(LOG_VERBOSE, "Kernel driver is active - must be detached before claiming the interface");
 
-    if (libusb_detach_kernel_driver(gDevice.device_handle, INTERFACE) == 0)
+    if (libusb_detach_kernel_driver(gDevice.device_handle, gDevice.interface) == 0)
     {
       LOG(LOG_VERBOSE, "Detached kernel driver");
     }
   }
 
   /* Claim the bInterfaceNumber 1 of the device */
-  ret = libusb_claim_interface(gDevice.device_handle, INTERFACE);
-
-  if (ret != LIBUSB_SUCCESS)
+  ret = libusb_claim_interface(gDevice.device_handle, gDevice.interface); if (ret != LIBUSB_SUCCESS)
   {
     LOG
     (
       LOG_ERROR,
-      "Unable to claim bInterfaceNumber 1 of the device, returned %s",
-      get_libusb_error_string(ret)
+      "Unable to claim bInterfaceNumber %d of the device, returned %s",
+      gDevice.interface, get_libusb_error_string(ret)
     );
     return -1;
   }
 
-  LOG(LOG_DEBUG, "Claimed the USB interface");
+  LOG(LOG_VERBOSE, "Claimed the USB interface");
 
   /* Get the maximum size of packets on endpoint 1 */
   ret = libusb_get_max_packet_size
@@ -199,7 +231,101 @@ int usb_scan()
   gDevice.ep1_in_max_packet_size = ret;
   LOG(LOG_VERBOSE, "Maximum packet size on endpoint 1 IN is %d bytes", gDevice.ep1_in_max_packet_size);
 
-  return 1;
+  gDevice.device_connected = true;
+  LOG(LOG_INFO, "Registered USB device with VID=0x%04X PID=0x%04X Interface=%d",
+      desc.idVendor, desc.idProduct, gDevice.interface);
+
+  return 0;
+}
+
+//******************************************************************************
+/// \brief  Scan for devices
+/// \return 1 = device found, 0 = not found, negative for error
+int usb_scan()
+{
+  int ret = -1;
+  int count, i;
+  struct libusb_device **devs;
+  bool found;
+
+  /* Initialise flags */
+  gDevice.library_initialised = false;
+  gDevice.device_connected = false;
+
+  /* Initialise library */
+  ret = libusb_init(&(gDevice.context));
+
+  /* Was the library initialised successfully */
+  if (ret != LIBUSB_SUCCESS)
+  {
+    LOG(LOG_ERROR, "Failed to initialise libusb");
+    return ret;
+  }
+
+  gDevice.library_initialised = true;
+  LOG(LOG_VERBOSE, "Initialised libusb");
+
+  /* Set the debug level for the library */
+  libusb_set_debug(gDevice.context, LIBUSB_DEBUG_LEVEL);
+  LOG(LOG_DEBUG, "Setting libusb debug level to %d", LIBUSB_DEBUG_LEVEL);
+
+  count = libusb_get_device_list(gDevice.context, &devs);
+  if (count <= 0)
+  {
+    LOG(LOG_ERROR, "Error %d enumerating devices", count);
+    return count;
+  }
+
+  found = false;
+  for (i = 0; i < count; i++)
+  {
+    struct libusb_device_descriptor desc;
+    ret = libusb_get_device_descriptor(devs[i], &desc);
+    if (ret != LIBUSB_SUCCESS)
+    {
+      LOG(LOG_WARN, "Error %d trying to retrieve descriptor", ret);
+      continue;
+    }
+
+    if (desc.idVendor == VENDOR_ID)
+    {
+      if ((desc.idProduct >= 0x2126 && desc.idProduct <= 0x212D) ||
+          (desc.idProduct >= 0x2135 && desc.idProduct <= 0x2138) ||
+          (desc.idProduct >= 0x213A && desc.idProduct <= 0x21FC) ||
+          (desc.idProduct >= 0x8000 && desc.idProduct <= 0x8FFF))
+      {
+        found = true;
+      }
+      else if (desc.idProduct == 0x6123)
+      {
+        LOG(LOG_WARN, "libmaxtouch does not yet support 5030 bridge chip");
+      }
+    }
+
+    if (found)
+    {
+      LOG(LOG_VERBOSE, "Found VID=%04X PID=%04X", desc.idVendor, desc.idProduct);
+
+      // Try to connect to device. Note this will only ever use first device
+      // enumerated
+      if (usb_connect_device(devs[i], desc) == 0)
+      {
+        break;
+      }
+    }
+  }
+
+  libusb_free_device_list(devs, 1);
+
+  if (!gDevice.device_connected)
+  {
+    LOG(LOG_WARN, "Unable to find USB device");
+    return 0;
+  }
+  else
+  {
+    return 1;
+  }
 }
 
 //******************************************************************************
@@ -209,7 +335,7 @@ void usb_release()
   /* Are we connected to a device? */
   if (gDevice.device_connected)
   {
-    libusb_release_interface(gDevice.device_handle, INTERFACE);
+    libusb_release_interface(gDevice.device_handle, gDevice.interface);
     LOG(LOG_DEBUG, "Released the USB interface");
 
     libusb_close(gDevice.device_handle);
