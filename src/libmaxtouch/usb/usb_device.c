@@ -562,7 +562,7 @@ static int read_packet(unsigned char *buf, int start_register, int count)
   /* Output the data read from the registers */
   (void)memcpy(buf, response.read_data, count);
 
-  LOG(LOG_DEBUG, "Registers read successfully");
+  LOG(LOG_VERBOSE, "Registers read successfully");
   return 0;
 }
 
@@ -662,7 +662,7 @@ static int write_packet(unsigned char const *buf, int start_register, int count,
     }
   }
 
-  LOG(LOG_DEBUG, "Registers written successfully");
+  LOG(LOG_VERBOSE, "Registers written successfully");
   return 0;
 }
 

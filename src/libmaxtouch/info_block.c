@@ -161,7 +161,7 @@ int read_information_block()
     LOG(LOG_ERROR, "Failed to allocate %d bytes for the Information Block data", no_of_bytes);
     return -1;
   }
-  LOG(LOG_DEBUG, "Allocated %d bytes to store Information Block data", no_of_bytes);
+  LOG(LOG_VERBOSE, "Allocated %d bytes to store Information Block data", no_of_bytes);
 
   /* Read the Information Block from the chip */
   ret = mxt_read_register(info_block_shadow, memory_offset, no_of_bytes);
@@ -234,7 +234,7 @@ int calc_report_ids()
     LOG(LOG_ERROR, "Failed to allocate %d bytes for the Report ID LUT", no_of_bytes);
     return -1;
   }
-  LOG(LOG_DEBUG, "Allocated %d bytes to store the Report ID LUT", no_of_bytes);
+  LOG(LOG_VERBOSE, "Allocated %d bytes to store the Report ID LUT", no_of_bytes);
 
   /* Store the object and instance for each report ID */
   for (element_index = 0; element_index < info_block.id->num_declared_objects; element_index++)

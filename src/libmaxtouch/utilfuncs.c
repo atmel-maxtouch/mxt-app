@@ -69,7 +69,7 @@ void print_info_block()
   }
 
   /* Show the CRC */
-  printf("InfoBlock CRC:\t\t 0x%X \n",
+  printf("Information Block Checksum:\t\t 0x%06X \n",
     (info_block.crc->CRC_hi<<16u) | (info_block.crc->CRC));
 }
 
