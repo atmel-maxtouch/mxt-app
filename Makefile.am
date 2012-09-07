@@ -60,4 +60,5 @@ mxt_app_LDADD = libmaxtouch.la
 mxt_app_SOURCES =\
 	src/tools/mxt_app/mxt_app.c \
 	src/tools/mxt_app/touch_app.c \
-	src/tools/mxt_app/self_test.c
+	src/tools/mxt_app/self_test.c \
+	src/tools/mxt_app/gr.c

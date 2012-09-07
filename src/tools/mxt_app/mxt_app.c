@@ -43,6 +43,7 @@
 #include "libmaxtouch/info_block.h"
 #include "touch_app.h"
 #include "self_test.h"
+#include "gr.h"
 
 #define BUF_SIZE 1024
 
@@ -64,6 +65,7 @@ typedef enum mxt_app_cmd_tag {
   CMD_TEST,
   CMD_WRITE,
   CMD_READ,
+  CMD_GOLDEN_REFERENCES,
 } mxt_app_cmd;
 
 //******************************************************************************
@@ -380,6 +382,7 @@ static void print_usage(char *prog_name)
                   "  -R [--read]              : read from object\n"
                   "  -t [--test]              : run all self tests\n"
                   "  -W [--write]             : write to object\n"
+                  "  -g                       : store golden references\n"
                   "\n"
                   "Valid options:\n"
                   "  -n [--count] COUNT       : read/write COUNT registers\n"
@@ -444,7 +447,7 @@ int main (int argc, char *argv[])
       {0,              0,                 0,  0 }
     };
 
-    c = getopt_long(argc, argv, "a:d:n:fhI:Rr:tT:v:W", long_options, &option_index);
+    c = getopt_long(argc, argv, "a:d:n:fghI:Rr:tT:v:W", long_options, &option_index);
 
     if (c == -1)
       break;
@@ -466,6 +469,15 @@ int main (int argc, char *argv[])
       case 't':
         if (cmd == CMD_NONE) {
           cmd = CMD_TEST;
+        } else {
+          print_usage(argv[0]);
+          return -1;
+        }
+        break;
+
+      case 'g':
+        if (cmd == CMD_NONE) {
+          cmd = CMD_GOLDEN_REFERENCES;
         } else {
           print_usage(argv[0]);
           return -1;
@@ -642,6 +654,10 @@ int main (int argc, char *argv[])
         }
       }
       ret = 0;
+      break;
+
+    case CMD_GOLDEN_REFERENCES:
+      ret = mxt_store_golden_refs();
       break;
 
     case CMD_NONE:
