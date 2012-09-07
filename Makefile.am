@@ -7,11 +7,9 @@ AM_CFLAGS = \
 	-ffunction-sections \
 	-fdata-sections \
   -g -Wall \
-  -Wmissing-declarations -Wmissing-prototypes \
-  -Wnested-externs -Wpointer-arith \
-  -Wsign-compare -Wchar-subscripts \
-  -Wstrict-prototypes -Wshadow \
-  -Wformat-security -Wtype-limits
+  -Wmissing-declarations -Wmissing-prototypes -Wnested-externs \
+  -Wpointer-arith -Wsign-compare -Wchar-subscripts -Wstrict-prototypes \
+  -Wshadow -Wformat-security -Wtype-limits -Werror
 
 AM_LDFLAGS = \
 	-Wl,--gc-sections \

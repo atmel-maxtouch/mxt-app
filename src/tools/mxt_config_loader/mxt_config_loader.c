@@ -55,7 +55,7 @@ int main (int argc, char *argv[])
   {
     filename = argv[1];
 
-    if (argc > 2 && strcmp(argv[2], "-f") == 0)
+    if (argc > 2 && (strcmp(argv[2], "-f") == 0))
     {
       override_checking = true;
     }

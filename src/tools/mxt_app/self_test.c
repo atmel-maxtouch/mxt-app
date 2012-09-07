@@ -32,7 +32,6 @@
 #include <stdint.h>
 #include <errno.h>
 #include <time.h>
-#include <linux/input.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -255,7 +254,11 @@ uint8_t self_test_handler()
       Enter 5 for running all the above tests\n\
       Enter 255 to get out of the self-test menu\n");
 
-      scanf("%d", &self_test);
+      if (scanf("%d", &self_test) != 1)
+      {
+        printf("Input error\n");
+        return -1;
+      }
 
       switch(self_test)
       {

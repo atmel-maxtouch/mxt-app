@@ -155,7 +155,7 @@ close:
 
 //******************************************************************************
 /// \brief  Write register to MXT chip
-int i2c_dev_write_register(unsigned char *val, int start_register, int datalength)
+int i2c_dev_write_register(unsigned char const *val, int start_register, int datalength)
 {
   int fd;
   int count;
@@ -180,6 +180,10 @@ int i2c_dev_write_register(unsigned char *val, int start_register, int datalengt
     if (write(fd, buf, count) != count) {
       LOG(LOG_ERROR, "Error %s (%d) writing to i2c", strerror(errno), errno);
       ret = -1;
+    }
+    else
+    {
+      ret = 0;
     }
   }
   else
@@ -221,7 +225,7 @@ int i2c_dev_bootloader_read(unsigned char *buf, int count)
 
 //******************************************************************************
 /// \brief  Bootloader write
-int i2c_dev_bootloader_write(unsigned char *buf, int count)
+int i2c_dev_bootloader_write(unsigned char const *buf, int count)
 {
   int fd;
   int ret;

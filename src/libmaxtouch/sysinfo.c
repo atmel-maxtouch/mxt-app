@@ -29,6 +29,7 @@
 
 #ifndef ANDROID
 #include <sys/sysinfo.h>
+#include "sysinfo.h"
 //******************************************************************************
 /// \brief  Get system uptime in seconds since boot
 int get_uptime(unsigned long *uptime)

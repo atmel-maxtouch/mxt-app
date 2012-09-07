@@ -31,7 +31,7 @@
 int sysfs_scan(void);
 void sysfs_release(void);
 int sysfs_read_register(unsigned char *buf, int start_register, int count);
-int sysfs_write_register(unsigned char *buf, int start_register, int count);
+int sysfs_write_register(unsigned char const *buf, int start_register, int count);
 int sysfs_set_debug(bool debug_state);
 bool sysfs_get_debug(void);
 int sysfs_set_pause(bool pause_state);

@@ -74,7 +74,11 @@ static void load_config(void)
 
    /* Load config file */
    printf("Give cfg file name: ");
-   scanf("%255s", cfg_file);
+   if (scanf("%255s", cfg_file) != 1) {
+     printf("Input parse error\n");
+     return;
+   }
+
    printf("Trying to open %s...\n", cfg_file);
 
    if (mxt_load_config_file(cfg_file, false) == 0)
@@ -95,7 +99,10 @@ static void save_config(void)
 
    /* Save config file */
    printf("Give cfg file name: ");
-   scanf("%255s", cfg_file);
+   if (scanf("%255s", cfg_file) != 1) {
+     printf("Input parse error\n");
+     return;
+   }
 
    if (mxt_save_config_file(cfg_file) == 0)
    {
@@ -121,7 +128,10 @@ static void read_object_command(void)
 
       printf("Enter the object number to read the object's "
              "field values; Enter 255 to return to main menu\n");
-      scanf("%d",&obj_num);
+      if (scanf("%d",&obj_num) != 1) {
+        printf("Input parse error\n");
+        return;
+      };
 
       if ((obj_num >= 0) && (obj_num < 255))
       {
@@ -152,7 +162,11 @@ static void write_object_command(void)
      print_objs();
      printf("Enter the object number to modify the object's "
        "field values; or 255 to return to main menu\n");
-     scanf("%d",&obj_num);
+     if (scanf("%d",&obj_num) != 1)
+     {
+       printf("Input parse error\n");
+       return;
+     }
 
      if((obj_num >= 0) && (obj_num < 255))
      {
@@ -173,9 +187,9 @@ static void write_object_command(void)
 
 //******************************************************************************
 /// \brief Handle command
-static int mxt_app_command(char selection)
+static bool mxt_app_command(char selection)
 {
-   int exit_loop = 0;
+   bool exit_loop = false;
 
    switch(selection)
    {
@@ -264,10 +278,9 @@ static int mxt_app_command(char selection)
 static int mxt_menu(void)
 {
    char menu_input;
-   int exit_loop;
+   bool exit_loop = false;
 
    printf("Command line tool for Atmel maXTouch chips\n");
-   exit_loop = 0;
 
    while(!exit_loop)
    {
@@ -285,9 +298,8 @@ static int mxt_menu(void)
        "Enter M:   Display raw (M)essages\n"
        "Enter Q:   (Q)uit the application\n");
 
-     scanf("%1s", &menu_input);
-
-     exit_loop = mxt_app_command(menu_input);
+     if (scanf("%1s", &menu_input) == 1)
+       exit_loop = mxt_app_command(menu_input);
    }
 
    return 0;
@@ -336,8 +348,6 @@ static int mxt_init_chip(uint8_t adapter, uint8_t address)
 /// \brief mxt-app main program flow
 static int mxt_app(mxt_app_cmd cmd)
 {
-  int ret;
-
   /*! Turn on kernel dmesg output of MSG */
   mxt_set_debug(true);
 
@@ -407,7 +417,7 @@ int main (int argc, char *argv[])
   uint8_t instance = 0;
   uint8_t verbose = 0;
   bool format = false;
-  char databuf[BUF_SIZE];
+  unsigned char databuf[BUF_SIZE];
   char hexbuf[BUF_SIZE];
   char strbuf[BUF_SIZE];
   mxt_app_cmd cmd = CMD_NONE;
@@ -625,7 +635,7 @@ int main (int argc, char *argv[])
           strbuf[0] = '\0';
           for (i = 0; i < count; i++) {
             sprintf(hexbuf, "%02X ", databuf[i]);
-            strncat(strbuf, hexbuf, BUF_SIZE);
+            strncat(strbuf, hexbuf, BUF_SIZE - 1);
           }
 
           printf("%s\n", strbuf);

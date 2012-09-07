@@ -104,7 +104,11 @@ static void handle_messages(int sockfd)
         for (i = 0; i < count; i++)
         {
             snprintf(buf, BUF_SIZE, "%s\n", (char *)mxt_retrieve_message());
-            write(sockfd, buf, strlen(buf));
+            if (write(sockfd, buf, strlen(buf)) < 0)
+            {
+              printf("write error\n");
+              return;
+            }
         }
     }
 }
@@ -112,7 +116,8 @@ static void handle_messages(int sockfd)
 static int handle_cmd(int sockfd)
 {
   int ret;
-  int address, i;
+  int i;
+  uint16_t address;
   uint8_t count;
   unsigned char databuf[BUF_SIZE];
 
@@ -132,7 +137,7 @@ static int handle_cmd(int sockfd)
       printf("Server attached\n");
   } else if (!strcmp(buf, "SDT")) {
       printf("Server detached\n");
-  } else if (sscanf(buf, "REA %d %d", &address, &count) == 2) {
+  } else if (sscanf(buf, "REA %hu %hhu", &address, &count) == 2) {
       ret = mxt_read_register(&databuf[0], address, count);
       if (ret < 0) {
         snprintf(buf, BUF_SIZE, "RRP ERR");
@@ -141,13 +146,18 @@ static int handle_cmd(int sockfd)
 
         for (i = 0; i < count; i++) {
           sprintf(hexbuf, "%02X", databuf[i]);
-          strncat(buf, hexbuf, BUF_SIZE);
+          strncat(buf, hexbuf, BUF_SIZE - 1);
         }
+        buf[BUF_SIZE - 1] = '\0';
       }
       LOG(LOG_INFO, "%s", buf);
       strncat(buf, "\n", BUF_SIZE);
-      write(sockfd, buf, strlen(buf));
-  } else if (sscanf(buf, "WRI %d %s", &address, (char *)&hexbuf) == 2) {
+      ret = write(sockfd, buf, strlen(buf));
+      if (ret < 0) {
+        printf("write error\n");
+        return -1;
+      }
+  } else if (sscanf(buf, "WRI %hd %s", &address, (char *)&hexbuf) == 2) {
       ret = mxt_convert_hex(&hexbuf[0], &databuf[0], &count, BUF_SIZE);
       if (ret < 0) {
           snprintf(buf, BUF_SIZE, "WRP ERR");
@@ -162,7 +172,11 @@ static int handle_cmd(int sockfd)
 
       LOG(LOG_INFO, "%s", buf);
       strncat(buf, "\n", BUF_SIZE);
-      write(sockfd, buf, strlen(buf));
+      ret = write(sockfd, buf, strlen(buf));
+      if (ret < 0) {
+        printf("write error\n");
+        return -1;
+      }
   } else {
       printf("Unrecognised cmd %s\n", buf);
       return -1;

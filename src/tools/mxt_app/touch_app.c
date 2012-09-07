@@ -49,6 +49,7 @@ void event_printer()
   FILE *fp;
   struct input_event event;
   char *filename = mxt_get_input_event_file();
+  size_t event_size = sizeof(struct input_event);
 
   if (filename == NULL)
   {
@@ -72,7 +73,11 @@ void event_printer()
 
   while(1)
   {
-    fread(&event, 1, sizeof(struct input_event), fp);
+    if (fread(&event, 1, event_size, fp) < event_size)
+    {
+      printf("Error reading event file\n");
+      return;
+    }
     switch(event.type)
     {
       case EV_SYN:

@@ -58,7 +58,7 @@ sysfs_device *gpDevice = NULL;
 
 /* char buffer for constructing paths */
 #define PATH_LENGTH 256
-char tempPath[PATH_LENGTH];
+char tempPath[PATH_LENGTH + 1];
 
 //******************************************************************************
 /// \brief Check sysfs device directory for correct files
@@ -368,7 +368,7 @@ close:
 
 //******************************************************************************
 /// \brief  Write register to MXT chip
-int sysfs_write_register(unsigned char *buf, int start_register, int count)
+int sysfs_write_register(unsigned char const *buf, int start_register, int count)
 {
   int fd;
   int ret;
@@ -475,7 +475,12 @@ static bool read_boolean_file(char *filename)
     return false;
   }
 
-  fread(&val, sizeof(char), 1, file);
+  ret = fread(&val, sizeof(char), 1, file);
+  if (ret < 0)
+  {
+    LOG(LOG_ERROR, "Error reading files");
+    return false;
+  }
 
   if (val == 49) // ASCII '0'
   {

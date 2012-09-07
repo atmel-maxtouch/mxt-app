@@ -57,7 +57,7 @@ void mxt_release(void);
 mxt_device_type mxt_get_device_type(void);
 char * mxt_get_input_event_file(void);
 int mxt_read_register(unsigned char *buf, int start_register, int count);
-int mxt_write_register(unsigned char *buf, int start_register, int count);
+int mxt_write_register(unsigned char const *buf, int start_register, int count);
 int mxt_set_debug(bool debug_state);
 bool mxt_get_debug(void);
 int mxt_set_pause(bool pause_state);

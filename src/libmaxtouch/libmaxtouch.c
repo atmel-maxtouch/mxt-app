@@ -213,7 +213,7 @@ int mxt_read_register(unsigned char *buf, int start_register, int count)
 //******************************************************************************
 /// \brief  Write register to MXT chip
 /// \return 0 = success, negative = fail
-int mxt_write_register(unsigned char *buf, int start_register, int count)
+int mxt_write_register(unsigned char const *buf, int start_register, int count)
 {
   int ret = -1;
 
@@ -616,7 +616,12 @@ int mxt_load_config_file(const char *cfg_file, bool override_checking)
       return -1;
     }
 
-    fscanf(fp, "%s", object);
+    if (fscanf(fp, "%s", object) != 1)
+    {
+      printf("Parse error\n");
+      return -1;
+    }
+
     /* Ignore the comments and file header sections */
     if (strncmp(object, "COMMENTS", 8) == 0 || strncmp(object, "VERSION_INFO_HEADER", 19) == 0)
     {
@@ -624,14 +629,22 @@ int mxt_load_config_file(const char *cfg_file, bool override_checking)
       continue;
     }
     ignore_line = false;
-    fscanf(fp, "%s", tmp);
+    if (fscanf(fp, "%s", tmp) != 1)
+    {
+      printf("Parse error\n");
+      return -1;
+    }
 
     if (strcmp(tmp, "INSTANCE"))
     {
       LOG(LOG_ERROR, "Parse error, expected INSTANCE");
       return(-1);
     }
-    fscanf(fp, "%d", &instance);
+    if (fscanf(fp, "%d", &instance) != 1)
+    {
+      printf("Parse error\n");
+      return -1;
+    }
 
     /* Last character is expected to be ']' */
     c = getc(fp);
@@ -651,14 +664,23 @@ int mxt_load_config_file(const char *cfg_file, bool override_checking)
       c = getc(fp);
     }
 
-    fscanf(fp, "%d", &object_address);
+    if (fscanf(fp, "%d", &object_address) != 1)
+    {
+      printf("Parse error\n");
+      return -1;
+    }
     c = getc(fp);
     while((c != '=') && (c != EOF))
     {
       c = getc(fp);
     }
 
-    fscanf(fp, "%d", &object_size);
+    if (fscanf(fp, "%d", &object_size) != 1)
+    {
+      printf("Parse error\n");
+      return -1;
+    }
+
     c = getc(fp);
 
     /* Check object parameters match those in the chip's Object Table */
@@ -725,15 +747,28 @@ int mxt_load_config_file(const char *cfg_file, bool override_checking)
       }
 
       /* Read address (discarded as we don't really need it) */
-      fscanf(fp, "%d", &i);
+      if (fscanf(fp, "%d", &i) != 1)
+      {
+        printf("Parse error\n");
+        return -1;
+      }
+
       /* Read byte count of this register (max 2) */
-      fscanf(fp, "%d", &i);
+      if (fscanf(fp, "%d", &i) != 1)
+      {
+        printf("Parse error\n");
+        return -1;
+      }
 
       while((c != '=') && (c != EOF))
       {
         c = getc(fp);
       }
-      fscanf(fp, "%d", &data);
+      if (fscanf(fp, "%d", &data) != 1)
+      {
+        printf("Parse error\n");
+        return -1;
+      }
       c = getc(fp);
 
       if (i == 1) {

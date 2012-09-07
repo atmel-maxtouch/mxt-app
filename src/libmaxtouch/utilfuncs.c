@@ -234,11 +234,19 @@ void write_to_object(int obj_num)
     {
       printf("Object element %d =\t %d\n",i, *(temp+i));
       printf("Do you want to change this value? (1 for yes/2 for no)");
-      scanf("%d", &yn);
+      if (scanf("%d", &yn) != 1)
+      {
+        printf("Input error\n");
+        return;
+      }
       if(yn == 1)
       {
         printf("Enter the value to be written to object element %d\t :", i);
-        scanf("%d", &value);
+        if (scanf("%d", &value) != 1)
+        {
+          printf("Input error\n");
+          return;
+        }
         *(temp+i) = (uint8_t) value;
         printf("wrote %d\n", (uint8_t) value);
       }
@@ -307,7 +315,7 @@ static char to_digit(char hex)
 
 int mxt_convert_hex(char *hex, unsigned char *databuf, uint8_t *count, unsigned int buf_size)
 {
-  int pos = 0;
+  unsigned int pos = 0;
   uint8_t datapos = 0;
   char highnibble;
   char lownibble;
