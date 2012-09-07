@@ -269,12 +269,24 @@ int main (int argc, char *argv[])
 
     switch (appmode_address)
     {
-      case 0x4a: bootloader_address = 0x24; break;
-      case 0x4b: bootloader_address = 0x25; break;
-      case 0x4c: bootloader_address = 0x26; break;
-      case 0x4d: bootloader_address = 0x27; break;
-      case 0x5a: bootloader_address = 0x34; break;
-      case 0x5b: bootloader_address = 0x35; break;
+      case 0x4a:
+      case 0x4b:
+        /* 1188S/1664S use different scheme */
+        if (info_block.id->family_id == 0xa2)
+        {
+          bootloader_address = appmode_address - 0x24;
+          break;
+        }
+        /* Fall through for normal case */
+      case 0x4c:
+      case 0x4d:
+      case 0x5a:
+      case 0x5b:
+        bootloader_address = appmode_address - 0x26;
+        break;
+      default:
+        printf("Bootloader address not found!\n");
+        return -1;
     }
 
     /* Change to slave address of bootloader */
