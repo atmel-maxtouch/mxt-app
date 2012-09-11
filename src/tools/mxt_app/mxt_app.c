@@ -256,7 +256,7 @@ static bool mxt_app_command(char selection)
       /* Display raw messages */
       if (mxt_get_device_type() == E_USB)
       {
-        printf("to be implemented...\n\n");
+        print_raw_messages_t44();
       }
       else
       {

@@ -29,4 +29,5 @@
 //------------------------------------------------------------------------------
 
 int print_raw_messages(void);
+int print_raw_messages_t44(void);
 void event_printer(void);

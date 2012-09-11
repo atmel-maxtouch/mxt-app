@@ -39,6 +39,8 @@
 
 #include "libmaxtouch/dmesg.h"
 #include "libmaxtouch/libmaxtouch.h"
+#include "libmaxtouch/info_block.h"
+#include "libmaxtouch/log.h"
 
 #include "touch_app.h"
 
@@ -192,6 +194,58 @@ int print_raw_messages()
   {
     /* Error reading messages */
     return -1;
+  }
+
+  return 0;
+}
+
+//******************************************************************************
+/// \brief Print messages
+int print_raw_messages_t44()
+{
+  int ret, i, byte;
+  uint16_t size;
+  uint8_t count;
+  uint16_t addr;
+  unsigned char msg_buf[10];
+
+  addr = get_object_address(SPT_MESSAGECOUNT_T44, 0);
+  if (addr == OBJECT_NOT_FOUND)
+    return -1;
+
+  /* Get T44 count */
+  ret = mxt_read_register(&count, addr, 1);
+  if (ret < 0)
+    return ret;
+
+  if (count == 0)
+  {
+    printf("(no messages)\n");
+    return 0;
+  }
+
+  addr = get_object_address(GEN_MESSAGEPROCESSOR_T5, 0);
+  if (addr == OBJECT_NOT_FOUND)
+    return -1;
+
+  size = get_object_size(GEN_MESSAGEPROCESSOR_T5);
+  if (size > sizeof(msg_buf))
+  {
+    LOG(LOG_ERROR, "buffer too small!");
+    return -1;
+  }
+
+  /* Print any new messages */
+  for (i = 0; i < count; i++)
+  {
+    mxt_read_register(&msg_buf[0], addr, size);
+
+    for (byte = 1; byte < size; byte++)
+    {
+      printf("%02X ", msg_buf[byte]);
+    }
+    printf("\n");
+    fflush(stdout);
   }
 
   return 0;
