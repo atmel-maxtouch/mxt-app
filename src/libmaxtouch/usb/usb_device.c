@@ -102,7 +102,7 @@ typedef struct usb_device_tag {
 usb_device gDevice;
 
 static int read_packet(unsigned char *buf, int start_register, int count);
-static int write_packet(unsigned char *buf, int start_register, int count, bool ignore_response);
+static int write_packet(unsigned char const *buf, int start_register, int count, bool ignore_response);
 
 /* Function is only used in the LOG() macro so GCC thinks it is not used */
 /* The "unused" attribute is used to suppress the warning */
@@ -313,7 +313,7 @@ int usb_read_register(unsigned char *buf, int start_register, int count)
 //******************************************************************************
 /// \brief  Write register to MXT chip
 /// \return zero on success, negative error
-int usb_write_register(unsigned char *buf, int start_register, int count)
+int usb_write_register(unsigned char const *buf, int start_register, int count)
 {
   int ret = 0;
 
@@ -443,7 +443,7 @@ static int read_packet(unsigned char *buf, int start_register, int count)
 //******************************************************************************
 /// \brief  Write a packet of data to the MXT chip
 /// \return zero on success, negative error
-static int write_packet(unsigned char *buf, int start_register, int count, bool ignore_response)
+static int write_packet(unsigned char const *buf, int start_register, int count, bool ignore_response)
 {
   int ret = -1;
 

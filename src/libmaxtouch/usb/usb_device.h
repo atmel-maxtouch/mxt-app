@@ -32,4 +32,4 @@ int usb_scan(void);
 void usb_release(void);
 int usb_reset_chip(bool bootloader_mode);
 int usb_read_register(unsigned char *buf, int start_register, int count);
-int usb_write_register(unsigned char *buf, int start_register, int count);
+int usb_write_register(unsigned char const *buf, int start_register, int count);
