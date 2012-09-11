@@ -94,10 +94,6 @@ usb_device gDevice;
 static int read_packet(unsigned char *buf, int start_register, int count);
 static int write_packet(unsigned char const *buf, int start_register, int count, bool ignore_response);
 
-/* Function is only used in the LOG() macro so GCC thinks it is not used */
-/* The "unused" attribute is used to suppress the warning */
-__attribute__((unused)) static char * get_libusb_error_string(int libusb_error);
-
 //*****************************************************************************
 /// \brief  Debug USB transfers
 static void debug_usb(unsigned char *data, uint8_t count, bool tx)
@@ -219,7 +215,7 @@ static int usb_connect_device(libusb_device *dev, const struct libusb_device_des
     (
       LOG_ERROR,
       "Unable to claim bInterfaceNumber %d of the device, returned %s",
-      gDevice.interface, get_libusb_error_string(ret)
+      gDevice.interface, libusb_error_name(ret)
     );
     return -1;
   }
@@ -239,7 +235,7 @@ static int usb_connect_device(libusb_device *dev, const struct libusb_device_des
     (
       LOG_ERROR,
       "Unable to get maximum packet size on endpoint 1 IN, returned %s",
-      get_libusb_error_string(ret)
+      libusb_error_name(ret)
     );
   }
 
@@ -544,7 +540,7 @@ static int read_packet(unsigned char *buf, int start_register, int count)
     (
       LOG_ERROR,
       "Read request failed - %d bytes transferred, returned %s",
-      bytes_transferred, get_libusb_error_string(ret)
+      bytes_transferred, libusb_error_name(ret)
     );
     return -1;
   }
@@ -566,7 +562,7 @@ static int read_packet(unsigned char *buf, int start_register, int count)
     (
       LOG_ERROR,
       "Read response failed - %d bytes transferred, returned %s",
-      bytes_transferred, get_libusb_error_string(ret)
+      bytes_transferred, libusb_error_name(ret)
     );
     return -1;
   }
@@ -647,7 +643,7 @@ static int write_packet(unsigned char const *buf, int start_register, int count,
     (
       LOG_ERROR,
       "Write request failed - %d bytes transferred, returned %s",
-      bytes_transferred, get_libusb_error_string(ret)
+      bytes_transferred, libusb_error_name(ret)
     );
     return -1;
   }
@@ -676,7 +672,7 @@ static int write_packet(unsigned char const *buf, int start_register, int count,
       (
         LOG_ERROR,
         "Write response failed - %d bytes transferred, returned %s",
-        bytes_transferred, get_libusb_error_string(ret)
+        bytes_transferred, libusb_error_name(ret)
       );
       return -1;
     }
@@ -701,44 +697,3 @@ static int write_packet(unsigned char const *buf, int start_register, int count,
   LOG(LOG_VERBOSE, "Registers written successfully");
   return 0;
 }
-
-//******************************************************************************
-/// \brief  Converts a libusb error code into a string
-/// \return Error string
-static char * get_libusb_error_string(int libusb_error)
-{
-  switch (libusb_error)
-  {
-    case LIBUSB_SUCCESS:
-      return "LIBUSB_SUCCESS";
-    case LIBUSB_ERROR_IO:
-      return "LIBUSB_ERROR_IO";
-    case LIBUSB_ERROR_INVALID_PARAM:
-      return "LIBUSB_ERROR_INVALID_PARAM";
-    case LIBUSB_ERROR_ACCESS:
-      return "LIBUSB_ERROR_ACCESS";
-    case LIBUSB_ERROR_NO_DEVICE:
-      return "LIBUSB_ERROR_NO_DEVICE";
-    case LIBUSB_ERROR_NOT_FOUND:
-      return "LIBUSB_ERROR_NOT_FOUND";
-    case LIBUSB_ERROR_BUSY:
-      return "LIBUSB_ERROR_BUSY";
-    case LIBUSB_ERROR_TIMEOUT:
-      return "LIBUSB_ERROR_TIMEOUT";
-    case LIBUSB_ERROR_OVERFLOW:
-      return "LIBUSB_ERROR_OVERFLOW";
-    case LIBUSB_ERROR_PIPE:
-      return "LIBUSB_ERROR_PIPE";
-    case LIBUSB_ERROR_INTERRUPTED:
-      return "LIBUSB_ERROR_INTERRUPTED";
-    case LIBUSB_ERROR_NO_MEM:
-      return "LIBUSB_ERROR_NO_MEM";
-    case LIBUSB_ERROR_NOT_SUPPORTED:
-      return "LIBUSB_ERROR_NOT_SUPPORTED";
-    case LIBUSB_ERROR_OTHER:
-      return "LIBUSB_ERROR_OTHER";
-    default:
-      return "unrecognised error code";
-  }
-}
-
