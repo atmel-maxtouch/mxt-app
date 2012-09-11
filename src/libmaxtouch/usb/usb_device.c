@@ -98,6 +98,28 @@ static int write_packet(unsigned char const *buf, int start_register, int count,
 /* The "unused" attribute is used to suppress the warning */
 __attribute__((unused)) static char * get_libusb_error_string(int libusb_error);
 
+//*****************************************************************************
+/// \brief  Debug USB transfers
+static void debug_usb(unsigned char *data, uint8_t count, bool tx)
+{
+  int i;
+  char hexbuf[5];
+  char strbuf[256];
+
+  // Reset string
+  strbuf[0] = '\0';
+
+  for (i = 0; i < count; i++) {
+    snprintf(hexbuf, sizeof(hexbuf) - 1, "%02X ", data[i]);
+    hexbuf[4] = '\0';
+    strncat(strbuf, hexbuf, sizeof(strbuf) - 1);
+  }
+
+  // zero terminate
+  strbuf[255] = '\0';
+
+  LOG(LOG_VERBOSE, "%s: %s", tx ? "TX": "RX", strbuf);
+}
 
 //******************************************************************************
 /// \brief  Try to connect device
@@ -262,6 +284,8 @@ int usb_scan()
   if (log_level < 3)
   {
     LOG(LOG_DEBUG, "Enabling libusb debug");
+    /* Level 3: informational messages are printed to stdout, warning and
+     * error messages are printed to stderr */
     libusb_set_debug(gDevice.context, 3);
   }
 
@@ -524,6 +548,10 @@ static int read_packet(unsigned char *buf, int start_register, int count)
     );
     return -1;
   }
+  else
+  {
+    debug_usb((unsigned char *)&command, bytes_transferred, true);
+  }
 
   /* Read response from read request */
   ret = libusb_interrupt_transfer
@@ -541,6 +569,10 @@ static int read_packet(unsigned char *buf, int start_register, int count)
       bytes_transferred, get_libusb_error_string(ret)
     );
     return -1;
+  }
+  else
+  {
+    debug_usb((unsigned char *)&response, bytes_transferred, false);
   }
 
   /* Check the result in the response */
@@ -619,6 +651,10 @@ static int write_packet(unsigned char const *buf, int start_register, int count,
     );
     return -1;
   }
+  else
+  {
+    debug_usb((unsigned char *)&command, bytes_transferred, true);
+  }
 
   /* Some write requests have no response e.g. chip reset */
   if (ignore_response)
@@ -643,6 +679,10 @@ static int write_packet(unsigned char const *buf, int start_register, int count,
         bytes_transferred, get_libusb_error_string(ret)
       );
       return -1;
+    }
+    else
+    {
+      debug_usb((unsigned char *)&response, bytes_transferred, false);
     }
 
     /* Check the result in the response */
