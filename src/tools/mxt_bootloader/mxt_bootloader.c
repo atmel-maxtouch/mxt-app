@@ -39,8 +39,6 @@
 #include "libmaxtouch/i2c_dev/i2c_dev_device.h"
 #include "libmaxtouch/sysfs/sysfs_device.h"
 
-#define VERSION "1.0"
-
 #define MXT_UNLOCK_CMD_MSB      0xaa
 #define MXT_UNLOCK_CMD_LSB      0xdc
 
@@ -194,7 +192,8 @@ int main (int argc, char *argv[])
 
   setbuf(stdout, NULL);
 
-  printf("Bootloader tool v. %s for Atmel maXTouch chips\n\n", VERSION);
+  printf("Bootloader tool for Atmel maXTouch chips version: %s\n\n",
+         __GIT_VERSION);
 
   /* Parse input arguments */
   if (argc == 3)

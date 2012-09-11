@@ -282,11 +282,12 @@ static int mxt_menu(void)
    char menu_input;
    bool exit_loop = false;
 
-   printf("Command line tool for Atmel maXTouch chips\n");
+   printf("Command line tool for Atmel maXTouch chips version: %s\n\n",
+          __GIT_VERSION);
 
    while(!exit_loop)
    {
-     printf("\nSelect one of the options:\n\n"
+     printf("Select one of the options:\n\n"
        "Enter L:   (L)oad config file\n"
        "Enter S:   (S)ave config file\n"
        "Enter I:   Read (I)nfo block\n"
@@ -375,7 +376,8 @@ static int mxt_app(mxt_app_cmd cmd)
 /// \brief Print usage for mxt-app
 static void print_usage(char *prog_name)
 {
-  fprintf(stderr, "\nUsage: %s [command] [args]\n\n"
+  fprintf(stderr, "Command line tool for Atmel maXTouch chips version: %s\n\n"
+                  "Usage: %s [command] [args]\n\n"
                   "When run with no options, access menu interface.\n\n"
                   "Available commands:\n"
                   "  -h [--help]              : display this help and exit\n"
@@ -401,6 +403,7 @@ static void print_usage(char *prog_name)
                   "  %s -R -T9 --format      : Read T9 object, formatted output\n"
                   "  %s -W -T38 000000       : Zero first three bytes of T38\n"
                   "  %s --test               : run self tests\n",
+                  __GIT_VERSION,
                   prog_name, prog_name, prog_name, prog_name, prog_name);
 }
 

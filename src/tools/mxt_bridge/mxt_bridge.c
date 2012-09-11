@@ -258,7 +258,8 @@ int main (int argc, char *argv[])
   struct hostent *server;
   int ret;
 
-  printf("Bridge tool for Atmel maXTouch chips\n\n");
+  printf("Bridge tool for Atmel maXTouch chips version: %s\n\n",
+         __GIT_VERSION);
 
   /* Parse input arguments */
   if (argc != 2)

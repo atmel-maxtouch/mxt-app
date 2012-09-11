@@ -34,8 +34,6 @@
 
 #include "libmaxtouch/libmaxtouch.h"
 
-#define VERSION "1.0"
-
 static void display_usage(void);
 
 /*!
@@ -48,7 +46,8 @@ int main (int argc, char *argv[])
   struct stat file_info;
   char *filename = NULL;
 
-  printf("Config loader tool v. %s for Atmel maXTouch chips\n\n", VERSION);
+  printf("Config loader tool for Atmel maXTouch chips version: %s\n\n",
+         __GIT_VERSION);
 
   /* Parse input arguments */
   if (argc > 1)

@@ -1,6 +1,8 @@
 EXTRA_DIST = autogen.sh
 AM_MAKEFLAGS = --no-print-directory
 
+GIT_VERSION := $(shell sh -c 'git describe --abbrev=4 --dirty --always --long | sed s/^v//')
+
 AM_CFLAGS = \
 	-I$(top_srcdir)/src \
 	-fvisibility=hidden \
@@ -9,7 +11,8 @@ AM_CFLAGS = \
   -g -Wall \
   -Wmissing-declarations -Wmissing-prototypes -Wnested-externs \
   -Wpointer-arith -Wsign-compare -Wchar-subscripts -Wstrict-prototypes \
-  -Wshadow -Wformat-security -Wtype-limits -Werror
+  -Wshadow -Wformat-security -Wtype-limits -Werror \
+  -D__GIT_VERSION=\"$(GIT_VERSION)\"
 
 AM_LDFLAGS = \
 	-Wl,--gc-sections \

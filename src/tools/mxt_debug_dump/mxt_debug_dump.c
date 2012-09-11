@@ -44,8 +44,6 @@
 #include "libmaxtouch/info_block.h"
 #include "libmaxtouch/log.h"
 
-#define VERSION "1.0"
-
 /* GEN_COMMANDPROCESSOR_T6 Register offsets from T6 base address */
 #define MXT_CP_T6_RESET_OFFSET      0x00
 #define MXT_CP_T6_BACKUPNV_OFFSET   0x01
@@ -626,7 +624,8 @@ int main (int argc, char *argv[])
     return -1;
   }
 
-  printf("Debug data dump utility v. %s for Atmel maXTouch chips\n\n", VERSION);
+  printf("Debug data utility for Atmel maXTouch chips version: %s\n\n",
+         __GIT_VERSION);
 
   /* Parse input arguments */
   if (argc == 4)
