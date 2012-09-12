@@ -11,6 +11,7 @@ install-sh
 libtool
 ltmain.sh
 stamp-h1
+obp-version
 Makefile
 Makefile.in
 doc/Makefile

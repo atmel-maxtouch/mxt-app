@@ -1,7 +1,11 @@
 EXTRA_DIST = autogen.sh
 AM_MAKEFLAGS = --no-print-directory
 
-GIT_VERSION := $(shell sh -c 'git describe --abbrev=4 --dirty --always --long | sed s/^v//')
+OBP_VERSION := $(shell sh -c 'build-aux/version.sh')
+
+.PHONY: force
+obp-version: force
+	echo '$(OBP_VERSION)' | cmp -s - $@ || echo '$(OBP_VERSION)' > $@
 
 AM_CFLAGS = \
 	-I$(top_srcdir)/src \
@@ -12,7 +16,7 @@ AM_CFLAGS = \
   -Wmissing-declarations -Wmissing-prototypes -Wnested-externs \
   -Wpointer-arith -Wsign-compare -Wchar-subscripts -Wstrict-prototypes \
   -Wshadow -Wformat-security -Wtype-limits -Werror \
-  -D__GIT_VERSION=\"$(GIT_VERSION)\"
+  -D__GIT_VERSION=\"$(OBP_VERSION)\"
 
 AM_LDFLAGS = \
 	-Wl,--gc-sections \
@@ -44,6 +48,7 @@ libmaxtouch_la_LDFLAGS = -lusb-1.0
 endif
 
 mxt_config_loader_LDADD = libmaxtouch.la
+EXTRA_mxt_config_loader_DEPENDENCIES = obp-version
 mxt_config_loader_SOURCES = \
 	src/tools/mxt_config_loader/mxt_config_loader.c
 
@@ -52,14 +57,17 @@ mxt_bridge_SOURCES = \
 	src/tools/mxt_bridge/mxt_bridge.c
 
 mxt_bootloader_LDADD = libmaxtouch.la
+EXTRA_mxt_bootloader_DEPENDENCIES = obp-version
 mxt_bootloader_SOURCES = \
 	src/tools/mxt_bootloader/mxt_bootloader.c
 
 mxt_debug_dump_LDADD = libmaxtouch.la
+EXTRA_mxt_debug_dump_DEPENDENCIES = obp-version
 mxt_debug_dump_SOURCES = \
 	src/tools/mxt_debug_dump/mxt_debug_dump.c
 
 mxt_app_LDADD = libmaxtouch.la
+EXTRA_mxt_app_DEPENDENCIES = obp-version
 mxt_app_SOURCES =\
 	src/tools/mxt_app/mxt_app.c \
 	src/tools/mxt_app/touch_app.c \
