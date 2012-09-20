@@ -578,7 +578,8 @@ int main (int argc, char *argv[])
         break;
 
       default:
-        LOG(LOG_DEBUG, "default case");
+        /* Output newline to create space under getopt error output */
+        printf("\n\n");
         print_usage(argv[0]);
         return -1;
     }
