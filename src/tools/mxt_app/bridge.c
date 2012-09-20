@@ -183,34 +183,21 @@ static int handle_cmd(int sockfd)
 
 //******************************************************************************
 /// \brief Main bridge function to handle a single connection
-static int bridge(struct hostent *server, uint16_t portno)
+static int bridge(int sockfd)
 {
-  int sockfd;
   int ret;
-  struct sockaddr_in serv_addr;
   fd_set readfds;
   struct timeval tv;
   int fopts = 0;
 
-  /* Open socket */
-  sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (sockfd < 0) {
-    LOG(LOG_ERROR, "ERROR opening socket");
-    return -1;
-  }
-
-  bzero((char *) &serv_addr, sizeof(serv_addr));
-  serv_addr.sin_family = AF_INET;
-  bcopy((char *)server->h_addr,
-      (char *)&serv_addr.sin_addr.s_addr,
-      server->h_length);
-  serv_addr.sin_port = htons(portno);
-  if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
-    LOG(LOG_ERROR, "ERROR connecting");
 
   /* set up select timeout */
   tv.tv_sec = 0;
   tv.tv_usec = 100000; /* 0.1 seconds */
+
+  ret = mxt_dmesg_reset();
+  if (ret)
+    LOG(LOG_ERROR, "Failure to reset dmesg timestamp");
 
   while (1)
   {
@@ -252,7 +239,9 @@ close:
 int mxt_socket_client(char *ip_address, uint16_t port)
 {
   struct hostent *server;
+  int sockfd;
   int ret;
+  struct sockaddr_in serv_addr;
 
   printf("Bridge tool for Atmel maXTouch chips version: %s\n\n",
       __GIT_VERSION);
@@ -263,13 +252,31 @@ int mxt_socket_client(char *ip_address, uint16_t port)
     return -1;
   }
 
-  ret = mxt_dmesg_reset();
-  if (ret)
-    LOG(LOG_ERROR, "Failure to reset dmesg timestamp");
+  sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  if (sockfd < 0) {
+    LOG(LOG_ERROR, "socket returned %d (%s)", errno, strerror(errno));
+    return -errno;
+  }
 
-  ret = bridge(server, port);
+  /* Set up socket options */
+  bzero((char *) &serv_addr, sizeof(serv_addr));
+  serv_addr.sin_family = AF_INET;
+  bcopy((char *)server->h_addr,
+      (char *)&serv_addr.sin_addr.s_addr,
+      server->h_length);
+  serv_addr.sin_port = htons(port);
+
+  /* Connect */
+  LOG(LOG_INFO, "Connecting to %s:%u", ip_address, port);
+  ret = connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr));
   if (ret < 0)
-    LOG(LOG_ERROR, "Failure in bridge, ret %d", ret);
+  {
+    LOG(LOG_DEBUG, "connect returned %d (%s)", errno, strerror(errno));
+    return -errno;
+  }
 
-  return 0;
+  ret = bridge(sockfd);
+
+  close(sockfd);
+  return ret;
 }
