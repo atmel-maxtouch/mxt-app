@@ -41,9 +41,11 @@
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/utilfuncs.h"
 #include "libmaxtouch/info_block.h"
+
 #include "touch_app.h"
 #include "self_test.h"
 #include "gr.h"
+#include "bridge.h"
 
 #define BUF_SIZE 1024
 
@@ -66,6 +68,7 @@ typedef enum mxt_app_cmd_tag {
   CMD_WRITE,
   CMD_READ,
   CMD_GOLDEN_REFERENCES,
+  CMD_BRIDGE_CLIENT,
 } mxt_app_cmd;
 
 //******************************************************************************
@@ -374,29 +377,33 @@ static void print_usage(char *prog_name)
                   "Usage: %s [command] [args]\n\n"
                   "When run with no options, access menu interface.\n\n"
                   "Available commands:\n"
-                  "  -h [--help]              : display this help and exit\n"
-                  "  -R [--read]              : read from object\n"
-                  "  -t [--test]              : run all self tests\n"
-                  "  -W [--write]             : write to object\n"
-                  "  -g                       : store golden references\n"
+                  "  -h [--help]                : display this help and exit\n"
+                  "  -R [--read]                : read from object\n"
+                  "  -t [--test]                : run all self tests\n"
+                  "  -W [--write]               : write to object\n"
+                  "  -g                         : store golden references\n"
                   "\n"
                   "Valid options:\n"
-                  "  -n [--count] COUNT       : read/write COUNT registers\n"
-                  "  -f [--format]            : format register output\n"
-                  "  -I [--instance] INSTANCE : select object INSTANCE\n"
-                  "  -r [--register] REGISTER : start at REGISTER\n"
-                  "  -T [--type] TYPE         : select object TYPE\n"
-                  "  -v [--verbose] LEVEL     : print additional debug\n"
+                  "  -n [--count] COUNT         : read/write COUNT registers\n"
+                  "  -f [--format]              : format register output\n"
+                  "  -I [--instance] INSTANCE   : select object INSTANCE\n"
+                  "  -r [--register] REGISTER   : start at REGISTER\n"
+                  "  -T [--type] TYPE           : select object TYPE\n"
+                  "  -v [--verbose] LEVEL       : print additional debug\n"
+                  "\n"
+                  "For TCP socket:\n"
+                  "  -C [--bridge-client] HOST  : connect over TCP to HOST\n"
+                  "  -p [--port] PORT           : TCP port (default 4000)\n"
                   "\n"
                   "For i2c-dev mode:\n"
                   "  -d [--i2c-adapter] ADAPTER : i2c adapter, eg \"2\"\n"
                   "  -a [--i2c-address] ADDRESS : i2c address, eg \"4a\"\n"
                   "\n"
                   "Examples:\n"
-                  "  %s -R -n7 -r0           : Read info block\n"
-                  "  %s -R -T9 --format      : Read T9 object, formatted output\n"
-                  "  %s -W -T38 000000       : Zero first three bytes of T38\n"
-                  "  %s --test               : run self tests\n",
+                  "  %s -R -n7 -r0              : Read info block\n"
+                  "  %s -R -T9 --format         : Read T9 object, formatted output\n"
+                  "  %s -W -T38 000000          : Zero first three bytes of T38\n"
+                  "  %s --test                  : run self tests\n",
                   __GIT_VERSION,
                   prog_name, prog_name, prog_name, prog_name, prog_name);
 }
@@ -417,6 +424,7 @@ int main (int argc, char *argv[])
   uint8_t instance = 0;
   uint8_t verbose = 0;
   bool format = false;
+  uint16_t port = 4000;
   unsigned char databuf[BUF_SIZE];
   char hexbuf[BUF_SIZE];
   char strbuf[BUF_SIZE];
@@ -432,9 +440,11 @@ int main (int argc, char *argv[])
       {"i2c-address",  no_argument,       0, 'a'},
       {"i2c-adapter",  no_argument,       0, 'd'},
       {"count",        required_argument, 0, 'n'},
+      {"bridge-client",required_argument, 0, 'C'},
       {"format",       no_argument,       0, 'f'},
       {"help",         no_argument,       0, 'h'},
       {"instance",     required_argument, 0, 'I'},
+      {"port",         required_argument, 0, 'p'},
       {"read",         no_argument,       0, 'R'},
       {"register",     required_argument, 0, 'r'},
       {"test",         no_argument,       0, 't'},
@@ -444,7 +454,7 @@ int main (int argc, char *argv[])
       {0,              0,                 0,  0 }
     };
 
-    c = getopt_long(argc, argv, "a:d:n:fghI:Rr:tT:v:W", long_options, &option_index);
+    c = getopt_long(argc, argv, "a:C:d:n:fghI:p:Rr:tT:v:W", long_options, &option_index);
 
     if (c == -1)
       break;
@@ -460,6 +470,17 @@ int main (int argc, char *argv[])
       case 'd':
         if (optarg) {
           i2c_adapter = strtol(optarg, NULL, 0);
+        }
+        break;
+
+      case 'C':
+        if (cmd == CMD_NONE) {
+          cmd = CMD_BRIDGE_CLIENT;
+          strncpy(strbuf, optarg, sizeof(strbuf));
+          strbuf[sizeof(strbuf) - 1] = '\0';
+        } else {
+          print_usage(argv[0]);
+          return -1;
         }
         break;
 
@@ -498,6 +519,12 @@ int main (int argc, char *argv[])
       case 'I':
         if (optarg) {
           instance = strtol(optarg, NULL, 0);
+        }
+        break;
+
+      case 'p':
+        if (optarg) {
+          port = strtol(optarg, NULL, 0);
         }
         break;
 
@@ -554,6 +581,7 @@ int main (int argc, char *argv[])
   LOG(LOG_DEBUG, "address:%u", address);
   LOG(LOG_DEBUG, "object_type:%u", object_type);
   LOG(LOG_DEBUG, "verbose:%u", verbose);
+  LOG(LOG_DEBUG, "port:%u", port);
 
   /* initialise chip */
   ret = mxt_init_chip(i2c_adapter, i2c_address);
@@ -658,6 +686,10 @@ int main (int argc, char *argv[])
 
     case CMD_GOLDEN_REFERENCES:
       ret = mxt_store_golden_refs();
+      break;
+
+    case CMD_BRIDGE_CLIENT:
+      ret = mxt_socket_client(strbuf, port);
       break;
 
     case CMD_NONE:

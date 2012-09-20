@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-/// \file   mxt_bridge.c
+/// \file   bridge.c
 /// \brief  Connect to the wifi bridge client
 /// \author Nick Dyer
 //------------------------------------------------------------------------------
@@ -43,22 +43,12 @@
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/utilfuncs.h"
 
+#include "bridge.h"
+
 #define BUF_SIZE 1024
 
 char buf[BUF_SIZE];
 char hexbuf[BUF_SIZE];
-
-/*!
- * @brief  Display usage information for the config_loader utility.
- */
-static void display_usage(void)
-{
-  printf
-  (
-    "Usage: mxt_bridge address\n"
-    "address  IP address or hostname to connect to.\n"
-  );
-}
 
 static int readline(int fd, char *str, int maxlen)
 {
@@ -185,11 +175,10 @@ static int handle_cmd(int sockfd)
   return 0;
 }
 
-static int bridge(struct hostent *server)
+static int bridge(struct hostent *server, uint16_t portno)
 {
     int sockfd;
     int ret;
-    int portno = 4000;
     struct sockaddr_in serv_addr;
     fd_set readfds;
     struct timeval tv;
@@ -253,7 +242,7 @@ close:
  * @brief  Entry point for the config_loader utility.
  * @return Zero on success, negative for error.
  */
-int main (int argc, char *argv[])
+int mxt_socket_client(char *ip_address, uint16_t port)
 {
   struct hostent *server;
   int ret;
@@ -261,51 +250,19 @@ int main (int argc, char *argv[])
   printf("Bridge tool for Atmel maXTouch chips version: %s\n\n",
          __GIT_VERSION);
 
-  /* Parse input arguments */
-  if (argc != 2)
-  {
-    display_usage();
-    return -1;
-  }
-
-  /* Find an mXT device and read the info block */
-  switch (mxt_scan())
-  {
-    case 1:
-      /* Device found - continue */
-      break;
-    case 0:
-      printf("Could not find a device, exiting...\n");
-      return -1;
-    default:
-      printf("Error initializing, exiting...\n");
-      return -1;
-  }
-
-  if (mxt_get_info() < 0)
-  {
-    printf("Error reading info block, exiting...\n");
-    return -1;
-  }
-
-  server = gethostbyname(argv[1]);
+  server = gethostbyname(ip_address);
   if (server == NULL) {
     printf("Error, no such host\n");
-    mxt_release();
     return -1;
   }
 
-  mxt_set_debug(true);
   ret = mxt_dmesg_reset();
   if (ret)
     LOG(LOG_ERROR, "Failure to reset dmesg timestamp");
 
-  ret = bridge(server);
+  ret = bridge(server, port);
   if (ret < 0)
     LOG(LOG_ERROR, "Failure in bridge, ret %d", ret);
-
-  mxt_set_debug(false);
-  mxt_release();
 
   return 0;
 }
