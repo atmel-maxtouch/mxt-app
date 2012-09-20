@@ -71,25 +71,29 @@ static int readline(int fd, char *str, int maxlen)
     else if (readcount == 0)
     {
       if (n == 1)
-        return (0);
+        return 0;
       else
         break;
     }
     else
-      return (-1);
+    {
+      LOG(LOG_DEBUG, "read returned %d (%s)", errno, strerror(errno));
+      return -1;
+    }
   }
 
   /* null-terminate the buffer */
   *str=0;
 
-  return (n);
+  return n;
 }
 
 //******************************************************************************
 /// \brief Read MXT messages and send them to other end
-static void handle_messages(int sockfd)
+static int handle_messages(int sockfd)
 {
   int count, i;
+  int ret;
 
   count = mxt_get_debug_messages();
 
@@ -98,13 +102,15 @@ static void handle_messages(int sockfd)
     for (i = 0; i < count; i++)
     {
       snprintf(buf, BUF_SIZE, "%s\n", (char *)mxt_retrieve_message());
-      if (write(sockfd, buf, strlen(buf)) < 0)
+      ret = write(sockfd, buf, strlen(buf));
+      if (ret < 0)
       {
-        printf("write error\n");
-        return;
+        printf("write returned %d (%s)", errno, strerror(errno));
+        return ret;
       }
     }
   }
+  return 0;
 }
 
 //******************************************************************************
@@ -118,16 +124,16 @@ static int handle_cmd(int sockfd)
   unsigned char databuf[BUF_SIZE];
 
   ret = readline(sockfd, buf, BUF_SIZE);
-  if (ret < 0) {
-    LOG(LOG_ERROR, "error reading");
-    return (ret);
+  if (ret <= 0) {
+    LOG(LOG_DEBUG, "error reading or peer closed socket");
+    return -1;
   }
 
   if (!strcmp(buf, "")) {
     return 0;
   }
 
-  LOG(LOG_INFO, "%s", buf);
+  LOG(LOG_VERBOSE, "%s", buf);
 
   if (!strcmp(buf, "SAT")) {
     printf("Server attached\n");
@@ -195,6 +201,8 @@ static int bridge(int sockfd)
   tv.tv_sec = 0;
   tv.tv_usec = 100000; /* 0.1 seconds */
 
+  LOG(LOG_INFO, "Connected");
+
   ret = mxt_dmesg_reset();
   if (ret)
     LOG(LOG_ERROR, "Failure to reset dmesg timestamp");
@@ -209,28 +217,29 @@ static int bridge(int sockfd)
       LOG(LOG_DEBUG, "interrupted");
       continue;
     } else if (ret == -1) {
-      LOG(LOG_ERROR, "select error");
-      goto close;
+      ret = -errno;
+      LOG(LOG_ERROR, "select returned %d (%s)", errno, strerror(errno));
+      goto disconnect;
     }
 
     if (fcntl(sockfd, F_GETFL, &fopts) < 0) {
-      LOG(LOG_DEBUG, "Closing");
-      goto close;
+      ret = 0;
+      goto disconnect;
     }
 
     if (FD_ISSET(sockfd, &readfds)) {
       ret = handle_cmd(sockfd);
-      if (ret < 0) {
-        LOG(LOG_DEBUG, "handle_cmd failure");
-        goto close;
-      }
+      if (ret < 0)
+        goto disconnect;
     }
 
-    handle_messages(sockfd);
+    ret = handle_messages(sockfd);
+    if (ret < 0)
+      goto disconnect;
   }
 
-close:
-  close(sockfd);
+disconnect:
+  LOG(LOG_INFO, "Disconnected");
   return ret;
 }
 
@@ -243,8 +252,6 @@ int mxt_socket_client(char *ip_address, uint16_t port)
   int ret;
   struct sockaddr_in serv_addr;
 
-  printf("Bridge tool for Atmel maXTouch chips version: %s\n\n",
-      __GIT_VERSION);
 
   server = gethostbyname(ip_address);
   if (server == NULL) {
