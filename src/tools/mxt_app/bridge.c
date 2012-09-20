@@ -62,7 +62,7 @@ static int readline(int fd, char *str, int maxlen)
     if (readcount == 1)
     {
       if ((c == '\n') || (c == '\r'))
-         break;
+        break;
       *str = c;
       str++;
     }
@@ -85,22 +85,22 @@ static int readline(int fd, char *str, int maxlen)
 
 static void handle_messages(int sockfd)
 {
-    int count, i;
+  int count, i;
 
-    count = mxt_get_debug_messages();
+  count = mxt_get_debug_messages();
 
-    if (count > 0)
+  if (count > 0)
+  {
+    for (i = 0; i < count; i++)
     {
-        for (i = 0; i < count; i++)
-        {
-            snprintf(buf, BUF_SIZE, "%s\n", (char *)mxt_retrieve_message());
-            if (write(sockfd, buf, strlen(buf)) < 0)
-            {
-              printf("write error\n");
-              return;
-            }
-        }
+      snprintf(buf, BUF_SIZE, "%s\n", (char *)mxt_retrieve_message());
+      if (write(sockfd, buf, strlen(buf)) < 0)
+      {
+        printf("write error\n");
+        return;
+      }
     }
+  }
 }
 
 static int handle_cmd(int sockfd)
@@ -113,8 +113,8 @@ static int handle_cmd(int sockfd)
 
   ret = readline(sockfd, buf, BUF_SIZE);
   if (ret < 0) {
-      LOG(LOG_ERROR, "error reading");
-      return (ret);
+    LOG(LOG_ERROR, "error reading");
+    return (ret);
   }
 
   if (!strcmp(buf, "")) {
@@ -124,52 +124,52 @@ static int handle_cmd(int sockfd)
   LOG(LOG_INFO, "%s", buf);
 
   if (!strcmp(buf, "SAT")) {
-      printf("Server attached\n");
+    printf("Server attached\n");
   } else if (!strcmp(buf, "SDT")) {
-      printf("Server detached\n");
+    printf("Server detached\n");
   } else if (sscanf(buf, "REA %hu %hhu", &address, &count) == 2) {
-      ret = mxt_read_register(&databuf[0], address, count);
-      if (ret < 0) {
-        snprintf(buf, BUF_SIZE, "RRP ERR");
-      } else {
-        snprintf(buf, BUF_SIZE, "RRP ");
+    ret = mxt_read_register(&databuf[0], address, count);
+    if (ret < 0) {
+      snprintf(buf, BUF_SIZE, "RRP ERR");
+    } else {
+      snprintf(buf, BUF_SIZE, "RRP ");
 
-        for (i = 0; i < count; i++) {
-          sprintf(hexbuf, "%02X", databuf[i]);
-          strncat(buf, hexbuf, BUF_SIZE - 1);
-        }
-        buf[BUF_SIZE - 1] = '\0';
+      for (i = 0; i < count; i++) {
+        sprintf(hexbuf, "%02X", databuf[i]);
+        strncat(buf, hexbuf, BUF_SIZE - 1);
       }
-      LOG(LOG_INFO, "%s", buf);
-      strncat(buf, "\n", BUF_SIZE);
-      ret = write(sockfd, buf, strlen(buf));
-      if (ret < 0) {
-        printf("write error\n");
-        return -1;
-      }
-  } else if (sscanf(buf, "WRI %hd %s", &address, (char *)&hexbuf) == 2) {
-      ret = mxt_convert_hex(&hexbuf[0], &databuf[0], &count, BUF_SIZE);
-      if (ret < 0) {
-          snprintf(buf, BUF_SIZE, "WRP ERR");
-      } else {
-          ret = mxt_write_register(&databuf[0], address, count);
-          if (ret < 0) {
-              snprintf(buf, BUF_SIZE, "WRP ERR");
-          } else {
-              snprintf(buf, BUF_SIZE, "WRP OK");
-          }
-      }
-
-      LOG(LOG_INFO, "%s", buf);
-      strncat(buf, "\n", BUF_SIZE);
-      ret = write(sockfd, buf, strlen(buf));
-      if (ret < 0) {
-        printf("write error\n");
-        return -1;
-      }
-  } else {
-      printf("Unrecognised cmd %s\n", buf);
+      buf[BUF_SIZE - 1] = '\0';
+    }
+    LOG(LOG_INFO, "%s", buf);
+    strncat(buf, "\n", BUF_SIZE);
+    ret = write(sockfd, buf, strlen(buf));
+    if (ret < 0) {
+      printf("write error\n");
       return -1;
+    }
+  } else if (sscanf(buf, "WRI %hd %s", &address, (char *)&hexbuf) == 2) {
+    ret = mxt_convert_hex(&hexbuf[0], &databuf[0], &count, BUF_SIZE);
+    if (ret < 0) {
+      snprintf(buf, BUF_SIZE, "WRP ERR");
+    } else {
+      ret = mxt_write_register(&databuf[0], address, count);
+      if (ret < 0) {
+        snprintf(buf, BUF_SIZE, "WRP ERR");
+      } else {
+        snprintf(buf, BUF_SIZE, "WRP OK");
+      }
+    }
+
+    LOG(LOG_INFO, "%s", buf);
+    strncat(buf, "\n", BUF_SIZE);
+    ret = write(sockfd, buf, strlen(buf));
+    if (ret < 0) {
+      printf("write error\n");
+      return -1;
+    }
+  } else {
+    printf("Unrecognised cmd %s\n", buf);
+    return -1;
   }
 
   return 0;
@@ -177,65 +177,65 @@ static int handle_cmd(int sockfd)
 
 static int bridge(struct hostent *server, uint16_t portno)
 {
-    int sockfd;
-    int ret;
-    struct sockaddr_in serv_addr;
-    fd_set readfds;
-    struct timeval tv;
-    int fopts = 0;
+  int sockfd;
+  int ret;
+  struct sockaddr_in serv_addr;
+  fd_set readfds;
+  struct timeval tv;
+  int fopts = 0;
 
-    /* Open socket */
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) {
-        LOG(LOG_ERROR, "ERROR opening socket");
-        return -1;
+  /* Open socket */
+  sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  if (sockfd < 0) {
+    LOG(LOG_ERROR, "ERROR opening socket");
+    return -1;
+  }
+
+  bzero((char *) &serv_addr, sizeof(serv_addr));
+  serv_addr.sin_family = AF_INET;
+  bcopy((char *)server->h_addr,
+      (char *)&serv_addr.sin_addr.s_addr,
+      server->h_length);
+  serv_addr.sin_port = htons(portno);
+  if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
+    LOG(LOG_ERROR, "ERROR connecting");
+
+  /* set up select timeout */
+  tv.tv_sec = 0;
+  tv.tv_usec = 100000; /* 0.1 seconds */
+
+  while (1)
+  {
+    FD_SET(sockfd, &readfds);
+
+    ret = select(sockfd + 1, &readfds, NULL, NULL, &tv);
+    if (ret == -1 && errno == EINTR) {
+      LOG(LOG_DEBUG, "interrupted");
+      continue;
+    } else if (ret == -1) {
+      LOG(LOG_ERROR, "select error");
+      goto close;
     }
 
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr,
-         (char *)&serv_addr.sin_addr.s_addr,
-         server->h_length);
-    serv_addr.sin_port = htons(portno);
-    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
-        LOG(LOG_ERROR, "ERROR connecting");
-
-    /* set up select timeout */
-    tv.tv_sec = 0;
-    tv.tv_usec = 100000; /* 0.1 seconds */
-
-    while (1)
-    {
-      FD_SET(sockfd, &readfds);
-
-      ret = select(sockfd + 1, &readfds, NULL, NULL, &tv);
-      if (ret == -1 && errno == EINTR) {
-        LOG(LOG_DEBUG, "interrupted");
-        continue;
-      } else if (ret == -1) {
-        LOG(LOG_ERROR, "select error");
-        goto close;
-      }
-
-      if (fcntl(sockfd, F_GETFL, &fopts) < 0) {
-        LOG(LOG_DEBUG, "Closing");
-        goto close;
-      }
-
-      if (FD_ISSET(sockfd, &readfds)) {
-        ret = handle_cmd(sockfd);
-        if (ret < 0) {
-          LOG(LOG_DEBUG, "handle_cmd failure");
-          goto close;
-        }
-      }
-
-      handle_messages(sockfd);
+    if (fcntl(sockfd, F_GETFL, &fopts) < 0) {
+      LOG(LOG_DEBUG, "Closing");
+      goto close;
     }
+
+    if (FD_ISSET(sockfd, &readfds)) {
+      ret = handle_cmd(sockfd);
+      if (ret < 0) {
+        LOG(LOG_DEBUG, "handle_cmd failure");
+        goto close;
+      }
+    }
+
+    handle_messages(sockfd);
+  }
 
 close:
-    close(sockfd);
-    return ret;
+  close(sockfd);
+  return ret;
 }
 
 /*!
@@ -248,7 +248,7 @@ int mxt_socket_client(char *ip_address, uint16_t port)
   int ret;
 
   printf("Bridge tool for Atmel maXTouch chips version: %s\n\n",
-         __GIT_VERSION);
+      __GIT_VERSION);
 
   server = gethostbyname(ip_address);
   if (server == NULL) {
