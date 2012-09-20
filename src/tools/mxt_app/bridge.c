@@ -214,6 +214,7 @@ static int bridge(struct hostent *server, uint16_t portno)
 
   while (1)
   {
+    FD_ZERO(&readfds);
     FD_SET(sockfd, &readfds);
 
     ret = select(sockfd + 1, &readfds, NULL, NULL, &tv);
