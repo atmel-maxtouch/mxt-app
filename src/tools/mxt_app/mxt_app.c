@@ -439,13 +439,13 @@ int main (int argc, char *argv[])
     int option_index = 0;
 
     static struct option long_options[] = {
-      {"i2c-address",  no_argument,       0, 'a'},
-      {"i2c-adapter",  no_argument,       0, 'd'},
-      {"count",        required_argument, 0, 'n'},
+      {"i2c-address",  required_argument, 0, 'a'},
       {"bridge-client",required_argument, 0, 'C'},
+      {"i2c-adapter",  required_argument, 0, 'd'},
       {"format",       no_argument,       0, 'f'},
       {"help",         no_argument,       0, 'h'},
       {"instance",     required_argument, 0, 'I'},
+      {"count",        required_argument, 0, 'n'},
       {"port",         required_argument, 0, 'p'},
       {"read",         no_argument,       0, 'R'},
       {"register",     required_argument, 0, 'r'},
@@ -457,7 +457,7 @@ int main (int argc, char *argv[])
       {0,              0,                 0,  0 }
     };
 
-    c = getopt_long(argc, argv, "a:C:d:n:fghI:p:Rr:StT:v:W", long_options, &option_index);
+    c = getopt_long(argc, argv, "a:C:d:fghI:n:p:Rr:StT:v:W", long_options, &option_index);
 
     if (c == -1)
       break;
@@ -487,15 +487,6 @@ int main (int argc, char *argv[])
         }
         break;
 
-      case 't':
-        if (cmd == CMD_NONE) {
-          cmd = CMD_TEST;
-        } else {
-          print_usage(argv[0]);
-          return -1;
-        }
-        break;
-
       case 'g':
         if (cmd == CMD_NONE) {
           cmd = CMD_GOLDEN_REFERENCES;
@@ -513,15 +504,15 @@ int main (int argc, char *argv[])
         format = true;
         break;
 
-      case 'T':
-        if (optarg) {
-          object_type = strtol(optarg, NULL, 0);
-        }
-        break;
-
       case 'I':
         if (optarg) {
           instance = strtol(optarg, NULL, 0);
+        }
+        break;
+
+      case 'n':
+        if (optarg) {
+          count = strtol(optarg, NULL, 0);
         }
         break;
 
@@ -554,9 +545,19 @@ int main (int argc, char *argv[])
           return -1;
         }
         break;
-      case 'n':
+
+      case 'T':
         if (optarg) {
-          count = strtol(optarg, NULL, 0);
+          object_type = strtol(optarg, NULL, 0);
+        }
+        break;
+
+      case 't':
+        if (cmd == CMD_NONE) {
+          cmd = CMD_TEST;
+        } else {
+          print_usage(argv[0]);
+          return -1;
         }
         break;
 
@@ -630,7 +631,6 @@ int main (int argc, char *argv[])
         printf("Must give hex input\n");
         return -1;
       }
-
 
       ret = mxt_convert_hex(argv[optind], &databuf[0], &count, sizeof(databuf));
       if (ret < 0) {
