@@ -50,6 +50,8 @@
 char buf[BUF_SIZE];
 char hexbuf[BUF_SIZE];
 
+//******************************************************************************
+/// \brief Read command on a single line
 static int readline(int fd, char *str, int maxlen)
 {
   int n;
@@ -83,6 +85,8 @@ static int readline(int fd, char *str, int maxlen)
   return (n);
 }
 
+//******************************************************************************
+/// \brief Read MXT messages and send them to other end
 static void handle_messages(int sockfd)
 {
   int count, i;
@@ -103,6 +107,8 @@ static void handle_messages(int sockfd)
   }
 }
 
+//******************************************************************************
+/// \brief Read and deal with incoming command
 static int handle_cmd(int sockfd)
 {
   int ret;
@@ -175,6 +181,8 @@ static int handle_cmd(int sockfd)
   return 0;
 }
 
+//******************************************************************************
+/// \brief Main bridge function to handle a single connection
 static int bridge(struct hostent *server, uint16_t portno)
 {
   int sockfd;
@@ -238,10 +246,8 @@ close:
   return ret;
 }
 
-/*!
- * @brief  Entry point for the config_loader utility.
- * @return Zero on success, negative for error.
- */
+//******************************************************************************
+/// \brief Bridge client
 int mxt_socket_client(char *ip_address, uint16_t port)
 {
   struct hostent *server;
