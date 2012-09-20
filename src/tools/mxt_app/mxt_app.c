@@ -69,6 +69,7 @@ typedef enum mxt_app_cmd_tag {
   CMD_READ,
   CMD_GOLDEN_REFERENCES,
   CMD_BRIDGE_CLIENT,
+  CMD_BRIDGE_SERVER,
 } mxt_app_cmd;
 
 //******************************************************************************
@@ -393,6 +394,7 @@ static void print_usage(char *prog_name)
                   "\n"
                   "For TCP socket:\n"
                   "  -C [--bridge-client] HOST  : connect over TCP to HOST\n"
+                  "  -S [--bridge-server]       : start TCP socket server\n"
                   "  -p [--port] PORT           : TCP port (default 4000)\n"
                   "\n"
                   "For i2c-dev mode:\n"
@@ -447,6 +449,7 @@ int main (int argc, char *argv[])
       {"port",         required_argument, 0, 'p'},
       {"read",         no_argument,       0, 'R'},
       {"register",     required_argument, 0, 'r'},
+      {"bridge-server",no_argument,       0, 'S'},
       {"test",         no_argument,       0, 't'},
       {"type",         required_argument, 0, 'T'},
       {"verbose",      required_argument, 0, 'v'},
@@ -454,7 +457,7 @@ int main (int argc, char *argv[])
       {0,              0,                 0,  0 }
     };
 
-    c = getopt_long(argc, argv, "a:C:d:n:fghI:p:Rr:tT:v:W", long_options, &option_index);
+    c = getopt_long(argc, argv, "a:C:d:n:fghI:p:Rr:StT:v:W", long_options, &option_index);
 
     if (c == -1)
       break;
@@ -543,6 +546,14 @@ int main (int argc, char *argv[])
         }
         break;
 
+      case 'S':
+        if (cmd == CMD_NONE) {
+          cmd = CMD_BRIDGE_SERVER;
+        } else {
+          print_usage(argv[0]);
+          return -1;
+        }
+        break;
       case 'n':
         if (optarg) {
           count = strtol(optarg, NULL, 0);
@@ -686,6 +697,10 @@ int main (int argc, char *argv[])
 
     case CMD_GOLDEN_REFERENCES:
       ret = mxt_store_golden_refs();
+      break;
+
+    case CMD_BRIDGE_SERVER:
+      ret = mxt_socket_server(port);
       break;
 
     case CMD_BRIDGE_CLIENT:

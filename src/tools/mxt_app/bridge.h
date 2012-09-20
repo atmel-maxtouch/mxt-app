@@ -28,4 +28,5 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
+int mxt_socket_server(uint16_t port);
 int mxt_socket_client(char *ip_address, uint16_t port);

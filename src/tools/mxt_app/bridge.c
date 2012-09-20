@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 /// \file   bridge.c
-/// \brief  Connect to the wifi bridge client
+/// \brief  TCP bridge functions
 /// \author Nick Dyer
 //------------------------------------------------------------------------------
 // Copyright 2011 Atmel Corporation. All rights reserved.
@@ -285,5 +285,60 @@ int mxt_socket_client(char *ip_address, uint16_t port)
   ret = bridge(sockfd);
 
   close(sockfd);
+  return ret;
+}
+
+//******************************************************************************
+/// \brief Bridge server
+int mxt_socket_server(uint16_t portno)
+{
+  int serversock;
+  int clientsock;
+  int ret;
+  struct sockaddr_in server_addr, client_addr;
+  socklen_t sin_size = sizeof(client_addr);
+
+  /* Create endpoint */
+  serversock = socket(AF_INET, SOCK_STREAM, 0);
+  if (serversock < 0)
+  {
+    LOG(LOG_ERROR, "socket returned %d (%s)", errno, strerror(errno));
+    return -errno;
+  }
+
+  /* Set up socket options */
+  bzero((char *) &server_addr, sizeof(server_addr));
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  server_addr.sin_port = htons(portno);
+
+  /* Bind name to socket */
+  ret = bind(serversock, (struct sockaddr *) &server_addr, sizeof(server_addr));
+  if (ret < 0)
+  {
+    LOG(LOG_ERROR, "bind returned %d (%s)", errno, strerror(errno));
+    return -errno;
+  }
+
+  /* Start listening */
+  ret = listen(serversock, BUF_SIZE);
+  if (ret < 0)
+  {
+    LOG(LOG_DEBUG, "listen returned %d (%s)", errno, strerror(errno));
+    return -errno;
+  }
+
+  /* Wait for connection */
+  LOG(LOG_INFO, "Waiting for connection");
+  clientsock = accept(serversock, (struct sockaddr *) &client_addr, &sin_size);
+  if (clientsock < 0)
+  {
+    LOG(LOG_DEBUG, "accept returned %d (%s)", errno, strerror(errno));
+    return -errno;
+  }
+
+  ret = bridge(clientsock);
+
+  close(serversock);
   return ret;
 }
