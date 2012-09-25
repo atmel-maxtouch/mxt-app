@@ -69,4 +69,5 @@ mxt_app_SOURCES =\
 	src/tools/mxt_app/touch_app.c \
 	src/tools/mxt_app/self_test.c \
 	src/tools/mxt_app/bridge.c \
-	src/tools/mxt_app/gr.c
+	src/tools/mxt_app/gr.c \
+	src/tools/mxt_app/serial_data.c

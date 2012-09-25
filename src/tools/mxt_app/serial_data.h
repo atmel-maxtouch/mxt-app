@@ -1,10 +1,10 @@
 #pragma once
 //------------------------------------------------------------------------------
-/// \file   touch_app.h
-/// \brief  Utility functions for mxt-app
-/// \author Iiro Valkonen
+/// \file   serial_data.h
+/// \brief  T68 Serial Data Command header
+/// \author Nick Dyer
 //------------------------------------------------------------------------------
-// Copyright 2011 Atmel Corporation. All rights reserved.
+// Copyright 2012 Atmel Corporation. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -28,12 +28,4 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-#define MIN(a,b) \
-   ({ __typeof__ (a) _a = (a); \
-       __typeof__ (b) _b = (b); \
-           _a < _b ? _a : _b; })
-
-int print_raw_messages(void);
-int print_raw_messages_t44(void);
-void event_printer(void);
-void print_t6_state(uint8_t state);
+int mxt_serial_data_upload(const char *filename, uint16_t datatype);

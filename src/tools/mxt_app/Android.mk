@@ -8,7 +8,8 @@ LOCAL_SRC_FILES := \
   touch_app.c \
   self_test.c \
   bridge.c \
-  gr.c
+  gr.c \
+  serial_data.c
 LOCAL_LDLIBS := -llog
 LOCAL_STATIC_LIBRARIES := maxtouch
 LOCAL_MODULE := mxt-app

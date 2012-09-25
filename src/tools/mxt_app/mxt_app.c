@@ -46,6 +46,7 @@
 #include "self_test.h"
 #include "gr.h"
 #include "bridge.h"
+#include "serial_data.h"
 
 #define BUF_SIZE 1024
 
@@ -70,6 +71,7 @@ typedef enum mxt_app_cmd_tag {
   CMD_GOLDEN_REFERENCES,
   CMD_BRIDGE_CLIENT,
   CMD_BRIDGE_SERVER,
+  CMD_SERIAL_DATA,
 } mxt_app_cmd;
 
 //******************************************************************************
@@ -394,6 +396,10 @@ static void print_usage(char *prog_name)
                   "  -d [--i2c-adapter] ADAPTER : i2c adapter, eg \"2\"\n"
                   "  -a [--i2c-address] ADDRESS : i2c address, eg \"4a\"\n"
                   "\n"
+                  "For T68 serial data:\n"
+                  "  --t68-file FILE            : Upload FILE\n"
+                  "  --t68-datatype DATATYPE    : Select DATATYPE\n"
+                  "\n"
                   "Examples:\n"
                   "  %s -R -n7 -r0              : Read info block\n"
                   "  %s -R -T9 --format         : Read T9 object, formatted output\n"
@@ -420,6 +426,7 @@ int main (int argc, char *argv[])
   uint8_t verbose = 0;
   bool format = false;
   uint16_t port = 4000;
+  uint8_t t68_datatype = 1;
   unsigned char databuf[BUF_SIZE];
   char hexbuf[BUF_SIZE];
   char strbuf[BUF_SIZE];
@@ -435,6 +442,8 @@ int main (int argc, char *argv[])
       {"i2c-address",  required_argument, 0, 'a'},
       {"bridge-client",required_argument, 0, 'C'},
       {"i2c-adapter",  required_argument, 0, 'd'},
+      {"t68-file",     required_argument, 0, 0},
+      {"t68-datatype", required_argument, 0, 0},
       {"format",       no_argument,       0, 'f'},
       {"help",         no_argument,       0, 'h'},
       {"instance",     required_argument, 0, 'I'},
@@ -450,13 +459,35 @@ int main (int argc, char *argv[])
       {0,              0,                 0,  0 }
     };
 
-    c = getopt_long(argc, argv, "a:C:d:fghI:n:p:Rr:StT:v:W", long_options, &option_index);
+    c = getopt_long(argc, argv, "a:C:d:D:fghI:n:p:Rr:StT:v:W", long_options, &option_index);
 
     if (c == -1)
       break;
 
     switch (c)
     {
+      case 0:
+        if (!strcmp(long_options[option_index].name, "t68-file"))
+        {
+          if (cmd == CMD_NONE) {
+            cmd = CMD_SERIAL_DATA;
+            strncpy(strbuf, optarg, sizeof(strbuf));
+            strbuf[sizeof(strbuf) - 1] = '\0';
+          } else {
+            print_usage(argv[0]);
+            return -1;
+          }
+        }
+        else if (!strcmp(long_options[option_index].name, "t68-datatype"))
+        {
+          t68_datatype = strtol(optarg, NULL, 0);
+        }
+        else
+        {
+          printf("Unknown option %s\n", long_options[option_index].name);
+        }
+        break;
+
       case 'a':
         if (optarg) {
           i2c_address = strtol(optarg, NULL, 16);
@@ -588,6 +619,7 @@ int main (int argc, char *argv[])
   LOG(LOG_DEBUG, "object_type:%u", object_type);
   LOG(LOG_DEBUG, "verbose:%u", verbose);
   LOG(LOG_DEBUG, "port:%u", port);
+  LOG(LOG_DEBUG, "t68_datatype:%u", t68_datatype);
 
   /* initialise chip */
   ret = mxt_init_chip(i2c_adapter, i2c_address);
@@ -699,6 +731,10 @@ int main (int argc, char *argv[])
 
     case CMD_BRIDGE_CLIENT:
       ret = mxt_socket_client(strbuf, port);
+      break;
+
+    case CMD_SERIAL_DATA:
+      ret = mxt_serial_data_upload(strbuf, t68_datatype);
       break;
 
     case CMD_NONE:
