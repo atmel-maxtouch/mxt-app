@@ -38,7 +38,7 @@
 #include <stdio.h>
 
 #include "libmaxtouch/log.h"
-#include "libmaxtouch/dmesg.h"
+#include "dmesg.h"
 #include "sysfs_device.h"
 
 #define SYSFS_I2C_ROOT "/sys/bus/i2c/drivers/"

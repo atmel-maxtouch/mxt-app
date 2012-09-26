@@ -39,7 +39,6 @@
 #include <netdb.h>
 
 #include "libmaxtouch/libmaxtouch.h"
-#include "libmaxtouch/dmesg.h"
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/utilfuncs.h"
 
@@ -95,13 +94,13 @@ static int handle_messages(int sockfd)
   int count, i;
   int ret;
 
-  count = mxt_get_debug_messages();
+  count = mxt_get_msg_count();
 
   if (count > 0)
   {
     for (i = 0; i < count; i++)
     {
-      snprintf(buf, BUF_SIZE, "%s\n", (char *)mxt_retrieve_message());
+      snprintf(buf, BUF_SIZE, "%s\n", mxt_get_msg_string());
       ret = write(sockfd, buf, strlen(buf));
       if (ret < 0)
       {
@@ -203,7 +202,7 @@ static int bridge(int sockfd)
 
   LOG(LOG_INFO, "Connected");
 
-  ret = mxt_dmesg_reset();
+  ret = mxt_msg_reset();
   if (ret)
     LOG(LOG_ERROR, "Failure to reset dmesg timestamp");
 

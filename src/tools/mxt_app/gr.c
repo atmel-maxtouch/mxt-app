@@ -36,7 +36,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "libmaxtouch/dmesg.h"
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/info_block.h"
 #include "libmaxtouch/utilfuncs.h"
@@ -118,13 +117,13 @@ static int mxt_gr_get_status(uint8_t *state, int timeout_seconds)
       return -1;
     }
 
-    count = mxt_get_debug_messages();
+    count = mxt_get_msg_count();
 
     if (count > 0)
     {
       for (i = 0; i < count; i++)
       {
-        len = mxt_retrieve_message_bytes(buf, sizeof(buf));
+        len = mxt_get_msg_bytes(buf, sizeof(buf));
 
         if (len > 0)
         {
@@ -194,7 +193,9 @@ int mxt_store_golden_refs()
   uint16_t addr;
   int ret;
 
-  mxt_dmesg_reset();
+  ret = mxt_msg_reset();
+  if (ret < 0)
+    return ret;
 
   addr = get_object_address(SPT_GOLDENREFERENCES_T66, 0);
   if (addr == OBJECT_NOT_FOUND)

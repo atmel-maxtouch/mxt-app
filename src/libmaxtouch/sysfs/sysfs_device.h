@@ -39,3 +39,7 @@ bool sysfs_get_pause(void);
 int sysfs_get_i2c_adapter(void);
 int sysfs_get_i2c_address(void);
 char *sysfs_get_directory(void);
+int sysfs_get_msg_count(void);
+char *sysfs_get_msg_string(void);
+int sysfs_get_msg_bytes(unsigned char *buf, size_t buflen);
+int sysfs_msg_reset(void);

@@ -36,7 +36,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "libmaxtouch/dmesg.h"
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/info_block.h"
 #include "libmaxtouch/utilfuncs.h"
@@ -65,13 +64,13 @@ static void self_test_handle_messages(void)
          return;
       }
 
-      count = mxt_get_debug_messages();
+      count = mxt_get_msg_count();
 
       if (count > 0)
       {
          for (i = 0; i < count; i++)
          {
-            len = mxt_retrieve_message_bytes(buf, sizeof(buf));
+            len = mxt_get_msg_bytes(buf, sizeof(buf));
 
             if (len > 0)
             {
@@ -217,7 +216,7 @@ void run_self_tests(uint8_t cmd)
    uint16_t t25_addr;
    uint8_t enable = 3;
 
-   mxt_dmesg_reset();
+   mxt_msg_reset();
 
    // Enable self test object & reporting
    t25_addr = get_object_address(SPT_SELFTEST_T25, 0);

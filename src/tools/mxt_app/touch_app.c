@@ -37,7 +37,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 
-#include "libmaxtouch/dmesg.h"
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/info_block.h"
 #include "libmaxtouch/log.h"
@@ -175,7 +174,7 @@ int print_raw_messages()
   int count, i;
 
   /* Get the number of new messages */
-  count = mxt_get_debug_messages();
+  count = mxt_get_msg_count();
 
   /* Print any new messages */
   if (count == 0)
@@ -186,7 +185,7 @@ int print_raw_messages()
   {
     for (i = 0; i < count; i++)
     {
-      printf("%s\n", (char *)mxt_retrieve_message());
+      printf("%s\n", mxt_get_msg_string());
       fflush(stdout);
     }
   }

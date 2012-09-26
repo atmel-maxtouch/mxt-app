@@ -27,6 +27,7 @@
 //------------------------------------------------------------------------------
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -36,10 +37,11 @@
 #define KLOG_READ_ALL 3
 #endif
 
-#include "dmesg.h"
-#include "libmaxtouch.h"
-#include "log.h"
+#include "libmaxtouch/log.h"
 #include "sysinfo.h"
+#include "sysfs_device.h"
+
+#include "dmesg.h"
 
 int dmesg_count = 0;
 void *dmesg_list = (void *) 0;
@@ -107,7 +109,7 @@ static void dmesg_list_empty(void)
 //******************************************************************************
 /// \brief  Get debug messages
 /// \return Number of messages
-int mxt_get_debug_messages()
+int sysfs_get_msg_count(void)
 {
   char buffer[KLOG_BUF_LEN + 1];
   char line[BUFFERSIZE*2];
@@ -191,7 +193,7 @@ int mxt_get_debug_messages()
 //******************************************************************************
 /// \brief  Get the next debug message
 /// \return Message string
-char *mxt_retrieve_message()
+char *sysfs_get_msg_string()
 {
   char *msg_string;
 
@@ -211,14 +213,14 @@ char *mxt_retrieve_message()
 /// \param  buf  Pointer to buffer
 /// \param  buflen  Length of buffer
 /// \return number of bytes read
-int mxt_retrieve_message_bytes(unsigned char *buf, size_t buflen)
+int sysfs_get_msg_bytes(unsigned char *buf, size_t buflen)
 {
    unsigned int bufidx = 0;
    int offset;
    char *message;
    const char MSG_PREFIX[] = "MXT MSG:";
 
-   message = mxt_retrieve_message();
+   message = sysfs_get_msg_string();
 
    /* Check message begins with prefix */
    if (strncmp(MSG_PREFIX, message, strlen(MSG_PREFIX)))
@@ -244,7 +246,7 @@ int mxt_retrieve_message_bytes(unsigned char *buf, size_t buflen)
 
 //******************************************************************************
 /// \brief  Reset the timestamp counter
-int mxt_dmesg_reset()
+int sysfs_msg_reset()
 {
   int ret;
 

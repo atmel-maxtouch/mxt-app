@@ -32,10 +32,9 @@
 #include <string.h>
 #include <libusb-1.0/libusb.h>
 
-#include "../log.h"
-#include "../dmesg.h"
-#include "../info_block.h"
-#include "../libmaxtouch.h"
+#include "libmaxtouch/log.h"
+#include "libmaxtouch/libmaxtouch.h"
+#include "libmaxtouch/info_block.h"
 #include "usb_device.h"
 
 /* USB device configuration */

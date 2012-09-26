@@ -225,7 +225,7 @@ JNIEXPORT jobjectArray JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetDebugMessa
   jclass stringClass;
   char *szMessage;
 
-  count = mxt_get_debug_messages();
+  count = mxt_get_msg_count();
 
   // Create JNI array of strings to return
   stringClass = NULL;
@@ -236,7 +236,7 @@ JNIEXPORT jobjectArray JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetDebugMessa
   {
     for (i = 0; i < count; i++)
     {
-      szMessage = (char *)mxt_retrieve_message();
+      szMessage = mxt_get_msg_string();
       (*env)->SetObjectArrayElement(env, stringarray, i, (*env)->NewStringUTF(env, szMessage));
     }
   }

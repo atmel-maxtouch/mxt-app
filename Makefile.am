@@ -32,11 +32,11 @@ noinst_LTLIBRARIES = libmaxtouch.la
 libmaxtouch_la_SOURCES =\
 	src/libmaxtouch/libmaxtouch.c \
 	src/libmaxtouch/info_block.c \
-	src/libmaxtouch/dmesg.c \
-	src/libmaxtouch/sysinfo.c \
 	src/libmaxtouch/log.c \
 	src/libmaxtouch/utilfuncs.c \
 	src/libmaxtouch/sysfs/sysfs_device.c \
+	src/libmaxtouch/sysfs/sysinfo.c \
+	src/libmaxtouch/sysfs/dmesg.c \
 	src/libmaxtouch/i2c_dev/i2c_dev_device.c
 
 if HAVE_LIBUSB

@@ -33,7 +33,6 @@
 #include <string.h>
 
 #include "log.h"
-#include "dmesg.h"
 #include "libmaxtouch.h"
 #include "info_block.h"
 #include "sysfs/sysfs_device.h"
@@ -787,4 +786,102 @@ int mxt_load_config_file(const char *cfg_file, bool override_checking)
     }
   }
   return 0;
+}
+
+//******************************************************************************
+/// \brief  Get debug messages
+/// \return Number of messages, negative error
+int mxt_get_msg_count(void)
+{
+  int ret = -1;
+
+  switch (gDeviceType)
+  {
+    case E_UNCONNECTED:
+      LOG(LOG_ERROR, "Device uninitialised");
+      break;
+
+    case E_SYSFS:
+      ret = sysfs_get_msg_count();
+      break;
+
+    default:
+      LOG(LOG_ERROR, "Device type not supported");
+  }
+
+  return ret;
+}
+
+//******************************************************************************
+/// \brief  Get T5 message as string
+/// \return Message string (null for no message)
+char *mxt_get_msg_string(void)
+{
+  char *msg_string = NULL;
+
+  switch (gDeviceType)
+  {
+    case E_UNCONNECTED:
+      LOG(LOG_ERROR, "Device uninitialised");
+      break;
+
+    case E_SYSFS:
+      msg_string = mxt_get_msg_string();
+      break;
+
+    default:
+      LOG(LOG_ERROR, "Device type not supported");
+  }
+
+  return msg_string;
+}
+
+//******************************************************************************
+/// \brief  Get T5 message as byte array
+/// \param  buf  Pointer to buffer
+/// \param  buflen  Length of buffer
+/// \return number of bytes read, negative for error
+int mxt_get_msg_bytes(unsigned char *buf, size_t buflen)
+{
+  int count = -1;
+
+  switch (gDeviceType)
+  {
+    case E_UNCONNECTED:
+      LOG(LOG_ERROR, "Device uninitialised");
+      break;
+
+    case E_SYSFS:
+      count = sysfs_get_msg_bytes(buf, buflen);
+      break;
+
+    default:
+      LOG(LOG_ERROR, "Device type not supported");
+  }
+
+  return count;
+}
+
+//******************************************************************************
+/// \brief  Discard all previous messages
+/// \return Number of messages, negative error
+int mxt_msg_reset(void)
+{
+  int ret = -1;
+
+  switch (gDeviceType)
+  {
+    case E_UNCONNECTED:
+      LOG(LOG_ERROR, "Device uninitialised");
+      break;
+
+    case E_SYSFS:
+      ret = sysfs_msg_reset();
+      break;
+
+    default:
+      LOG(LOG_ERROR, "Device type not supported");
+  }
+
+  return ret;
 }

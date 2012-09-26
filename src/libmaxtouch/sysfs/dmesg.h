@@ -1,7 +1,7 @@
 #pragma once
 //------------------------------------------------------------------------------
 /// \file   dmesg.h
-/// \brief  Functions to read kernel message buffer
+/// \brief  Header for dmesg handling
 //------------------------------------------------------------------------------
 // Copyright 2011 Atmel Corporation. All rights reserved.
 //
@@ -42,8 +42,3 @@ typedef struct dmesg_item_tag {
   char msg[BUFFERSIZE*2];
   void *next;
 } dmesg_item;
-
-int mxt_get_debug_messages(void);
-char *mxt_retrieve_message(void);
-int mxt_retrieve_message_bytes(unsigned char *buf, size_t buflen);
-int mxt_dmesg_reset(void);
