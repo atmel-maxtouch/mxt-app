@@ -586,7 +586,6 @@ static int read_packet(unsigned char *buf, int start_register, int count)
   /* Output the data read from the registers */
   (void)memcpy(buf, response.read_data, count);
 
-  LOG(LOG_VERBOSE, "Registers read successfully");
   return 0;
 }
 
@@ -620,7 +619,7 @@ static int write_packet(unsigned char const *buf, int start_register, int count,
     return -1;
   }
 
-  LOG(LOG_VERBOSE, "Writing %d bytes from address 0x%04X", count, start_register);
+  LOG(LOG_VERBOSE, "Writing %d bytes to address 0x%04X", count, start_register);
 
   /* Command packet */
   command.usb_report_id = REPORT_ID;
@@ -694,6 +693,5 @@ static int write_packet(unsigned char const *buf, int start_register, int count,
     }
   }
 
-  LOG(LOG_VERBOSE, "Registers written successfully");
   return 0;
 }
