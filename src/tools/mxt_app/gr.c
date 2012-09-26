@@ -41,6 +41,7 @@
 #include "libmaxtouch/utilfuncs.h"
 #include "libmaxtouch/log.h"
 
+#include "touch_app.h"
 #include "gr.h"
 
 #define GR_CTRL              0
@@ -66,19 +67,6 @@
 #define GR_STATE_FCALFAIL         (1 << 7)
 
 #define GR_TIMEOUT            30
-
-//******************************************************************************
-/// \brief Handle status messages from the T6 command processor object
-static void mxt_gr_print_t6_state(uint8_t state)
-{
-  printf("T6 status: %s%s%s%s%s%s\n",
-         (state & 0x04) ? "COMSERR ":"",
-         (state & 0x08) ? "CFGERR ":"",
-         (state & 0x10) ? "CAL ":"",
-         (state & 0x20) ? "SIGERR ":"",
-         (state & 0x40) ? "OFL ":"",
-         (state & 0x80) ? "RESET ":"");
-}
 
 //******************************************************************************
 /// \brief Handle status messages from the T66 golden references object
@@ -139,7 +127,7 @@ static int mxt_gr_get_status(uint8_t *state, int timeout_seconds)
           }
           else if (object_type == GEN_COMMANDPROCESSOR_T6)
           {
-            mxt_gr_print_t6_state(buf[1]);
+            print_t6_state(buf[1]);
           }
         }
       }

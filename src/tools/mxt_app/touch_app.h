@@ -31,3 +31,4 @@
 int print_raw_messages(void);
 int print_raw_messages_t44(void);
 void event_printer(void);
+void print_t6_state(uint8_t state);

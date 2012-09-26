@@ -197,3 +197,16 @@ int print_raw_messages()
 
   return 0;
 }
+
+//******************************************************************************
+/// \brief Handle status messages from the T6 command processor object
+void print_t6_state(uint8_t state)
+{
+  printf("T6 status: %s%s%s%s%s%s\n",
+         (state & 0x04) ? "COMSERR ":"",
+         (state & 0x08) ? "CFGERR ":"",
+         (state & 0x10) ? "CAL ":"",
+         (state & 0x20) ? "SIGERR ":"",
+         (state & 0x40) ? "OFL ":"",
+         (state & 0x80) ? "RESET ":"");
+}
