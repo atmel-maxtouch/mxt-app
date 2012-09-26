@@ -5,6 +5,7 @@ LOCAL_C_INCLUDES := $(SRC_PATH)
 LOCAL_SRC_FILES := \
   libmaxtouch.c \
   log.c \
+  msg.c \
   utilfuncs.c \
   info_block.c \
   sysfs/sysfs_device.c \

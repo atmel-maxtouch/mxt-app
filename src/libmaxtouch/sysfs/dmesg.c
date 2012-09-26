@@ -38,6 +38,7 @@
 #endif
 
 #include "libmaxtouch/log.h"
+#include "libmaxtouch/libmaxtouch.h"
 #include "sysinfo.h"
 #include "sysfs_device.h"
 
@@ -218,7 +219,6 @@ int sysfs_get_msg_bytes(unsigned char *buf, size_t buflen)
    unsigned int bufidx = 0;
    int offset;
    char *message;
-   const char MSG_PREFIX[] = "MXT MSG:";
 
    message = sysfs_get_msg_string();
 
@@ -232,8 +232,6 @@ int sysfs_get_msg_bytes(unsigned char *buf, size_t buflen)
 
    while (1 == sscanf(message, "%hhx%n", buf + bufidx, &offset))
    {
-      LOG(LOG_VERBOSE, "byte %d: %d", bufidx, buf[bufidx]);
-
       message += offset;
       bufidx++;
 

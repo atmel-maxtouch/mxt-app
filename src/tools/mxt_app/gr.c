@@ -101,7 +101,7 @@ static void mxt_gr_print_state(uint8_t state)
 /// \brief Handle status messages from the T66 golden references object
 static int mxt_gr_get_status(uint8_t *state, int timeout_seconds)
 {
-  uint16_t count, i, byte;
+  uint16_t count, i;
   time_t now;
   time_t start_time = time(NULL);
   uint8_t buf[10];
@@ -133,12 +133,6 @@ static int mxt_gr_get_status(uint8_t *state, int timeout_seconds)
 
           if (object_type == SPT_GOLDENREFERENCES_T66)
           {
-            for (byte = 1; byte < len; byte++)
-            {
-              printf("%02X ", buf[byte]);
-            }
-            printf("\n");
-
             *state = buf[1];
             mxt_gr_print_state(*state);
             return 0;

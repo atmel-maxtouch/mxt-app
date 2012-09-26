@@ -35,6 +35,7 @@
 #include "log.h"
 #include "libmaxtouch.h"
 #include "info_block.h"
+#include "msg.h"
 #include "sysfs/sysfs_device.h"
 #include "i2c_dev/i2c_dev_device.h"
 #include "usb/usb_device.h"
@@ -259,11 +260,11 @@ int mxt_set_debug(bool debug_state)
 
 #ifdef HAVE_LIBUSB
     case E_USB:
-      LOG(LOG_WARN, "Kernel debug not supported for USB devices");
-      break;
 #endif
-
     case E_I2C_DEV:
+      /* No need to enable MSG output */
+      break;
+
     default:
       LOG(LOG_ERROR, "Device type not supported");
   }
@@ -801,7 +802,7 @@ int mxt_load_config_file(const char *cfg_file, bool override_checking)
 /// \return Number of messages, negative error
 int mxt_get_msg_count(void)
 {
-  int ret = -1;
+  int count = -1;
 
   switch (gDeviceType)
   {
@@ -810,14 +811,21 @@ int mxt_get_msg_count(void)
       break;
 
     case E_SYSFS:
-      ret = sysfs_get_msg_count();
+      count = sysfs_get_msg_count();
+      break;
+
+#ifdef HAVE_LIBUSB
+    case E_USB:
+#endif /* HAVE_LIBUSB */
+    case E_I2C_DEV:
+      count = t44_get_msg_count();
       break;
 
     default:
       LOG(LOG_ERROR, "Device type not supported");
   }
 
-  return ret;
+  return count;
 }
 
 //******************************************************************************
@@ -834,13 +842,20 @@ char *mxt_get_msg_string(void)
       break;
 
     case E_SYSFS:
-      msg_string = mxt_get_msg_string();
+      msg_string = sysfs_get_msg_string();
       break;
 
+#ifdef HAVE_LIBUSB
+    case E_USB:
+#endif /* HAVE_LIBUSB */
+    case E_I2C_DEV:
+      msg_string = t44_get_msg_string();
+      break;
     default:
       LOG(LOG_ERROR, "Device type not supported");
   }
 
+  LOG(LOG_INFO, "%s", msg_string);
   return msg_string;
 }
 
@@ -852,6 +867,8 @@ char *mxt_get_msg_string(void)
 int mxt_get_msg_bytes(unsigned char *buf, size_t buflen)
 {
   int count = -1;
+  int byte, length;
+  char msg_string[50];
 
   switch (gDeviceType)
   {
@@ -863,10 +880,29 @@ int mxt_get_msg_bytes(unsigned char *buf, size_t buflen)
       count = sysfs_get_msg_bytes(buf, buflen);
       break;
 
+#ifdef HAVE_LIBUSB
+    case E_USB:
+#endif /* HAVE_LIBUSB */
+    case E_I2C_DEV:
+      count = t44_get_msg_bytes(buf, buflen);
+      break;
     default:
       LOG(LOG_ERROR, "Device type not supported");
   }
 
+  if (count > 0)
+  {
+    length = snprintf(msg_string, sizeof(msg_string), MSG_PREFIX);
+
+    /* Dump message to debug */
+    for (byte = 0; byte < count; byte++)
+    {
+      length += snprintf(msg_string + length, sizeof(msg_string) - length,
+                         "%02X ", buf[byte]);
+    }
+
+    LOG(LOG_INFO, "%s", msg_string);
+  }
   return count;
 }
 
@@ -885,6 +921,13 @@ int mxt_msg_reset(void)
 
     case E_SYSFS:
       ret = sysfs_msg_reset();
+      break;
+
+#ifdef HAVE_LIBUSB
+    case E_USB:
+#endif /* HAVE_LIBUSB */
+    case E_I2C_DEV:
+      ret = t44_msg_reset();
       break;
 
     default:

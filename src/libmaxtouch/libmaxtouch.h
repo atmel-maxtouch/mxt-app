@@ -41,6 +41,9 @@
 #define BACKUPNV_COMMAND    0x55
 #define CALIBRATE_COMMAND   0x01
 
+/* Prefix for T5 messages */
+#define MSG_PREFIX "MXT MSG:"
+
 //******************************************************************************
 /// \brief Device connection type
 typedef enum mxt_device_type_tag {
