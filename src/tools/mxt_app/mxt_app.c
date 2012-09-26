@@ -257,12 +257,14 @@ static bool mxt_app_command(char selection)
       event_printer();
       break;
     case 'm':
+#ifdef HAVE_LIBUSB
       /* Display raw messages */
       if (mxt_get_device_type() == E_USB)
       {
         print_raw_messages_t44();
       }
       else
+#endif
       {
         print_raw_messages();
       }

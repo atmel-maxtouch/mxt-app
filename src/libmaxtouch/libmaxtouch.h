@@ -46,7 +46,9 @@
 typedef enum mxt_device_type_tag {
   E_UNCONNECTED,
   E_SYSFS,
+#ifdef HAVE_LIBUSB
   E_USB,
+#endif
   E_I2C_DEV,
 } mxt_device_type;
 

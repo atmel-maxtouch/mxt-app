@@ -159,8 +159,10 @@ char * mxt_get_input_event_file()
       /* This must be adjusted depending on which sysfs device the code is running on */
       return "/dev/input/event2";
 
+#ifdef HAVE_LIBUSB
     case E_USB:
       return "/dev/input/by-id/usb-Atmel_Atmel_maXTouch_Digitizer-event-mouse";
+#endif /* HAVE_LIBUSB */
 
     case E_I2C_DEV:
     default:
@@ -255,9 +257,11 @@ int mxt_set_debug(bool debug_state)
       ret = sysfs_set_debug(debug_state);
       break;
 
+#ifdef HAVE_LIBUSB
     case E_USB:
       LOG(LOG_WARN, "Kernel debug not supported for USB devices");
       break;
+#endif
 
     case E_I2C_DEV:
     default:
@@ -316,9 +320,11 @@ int mxt_set_pause(bool pause_state)
       ret = sysfs_set_pause(pause_state);
       break;
 
+#ifdef HAVE_LIBUSB
     case E_USB:
       LOG(LOG_WARN, "Pause state not supported for USB devices");
       break;
+#endif /* HAVE_LIBUSB */
 
     case E_I2C_DEV:
     default:
@@ -345,9 +351,11 @@ bool mxt_get_pause()
       ret = sysfs_get_pause();
       break;
 
+#ifdef HAVE_LIBUSB
     case E_USB:
       LOG(LOG_WARN, "Pause state not supported for USB devices");
       break;
+#endif /* HAVE_LIBUSB */
 
     case E_I2C_DEV:
     default:
