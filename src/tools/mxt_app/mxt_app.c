@@ -351,9 +351,6 @@ static int mxt_init_chip(uint8_t adapter, uint8_t address)
 /// \brief mxt-app main program flow
 static int mxt_app(mxt_app_cmd cmd)
 {
-  /*! Turn on kernel dmesg output of MSG */
-  mxt_set_debug(true);
-
   /*! Run tests, otherwise display menu */
   if (cmd == CMD_TEST)
   {
@@ -365,9 +362,6 @@ static int mxt_app(mxt_app_cmd cmd)
     LOG(LOG_DEBUG, "Running menu");
     return mxt_menu();
   }
-
-  mxt_set_debug(false);
-  mxt_release();
 
   return 0;
 }
@@ -566,6 +560,9 @@ int main (int argc, char *argv[])
   if (ret < 0)
     return ret;
 
+  /*! Turn on kernel dmesg output of MSG */
+  mxt_set_debug(true);
+
   switch (cmd) {
     case CMD_WRITE:
       LOG(LOG_DEBUG, "Write command");
@@ -669,6 +666,9 @@ int main (int argc, char *argv[])
       ret = mxt_app(cmd);
       break;
   }
+
+  mxt_set_debug(false);
+  mxt_release();
 
   return ret;
 }
