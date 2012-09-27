@@ -101,6 +101,11 @@
 #define SPT_GOLDENREFERENCES_T66                  66u
 #define PROCI_CUSTOMGESTUREPROCESSOR_T67          67u
 #define SERIAL_DATA_COMMAND_T68                   68u
+#define PROCI_PALMGESTUREPROCESSOR_T69            69u
+#define SPT_DYNAMICCONFIGURATIONCONTROLLER_T70    70u
+#define SPT_DYNAMICCONFIGURATIONCONTAINER_T71     71u
+#define PROCG_NOISESUPPRESSION_T72                72u
+#define PROCI_ZONEINDICATION_T73                  73u
 #define RESERVED_T255                             255u
 
 /*! Returned by get_object_address() if object is not found. */
