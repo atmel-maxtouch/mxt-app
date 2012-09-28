@@ -85,7 +85,8 @@ static void mxt_gr_print_t6_state(uint8_t state)
 /// \brief Handle status messages from the T66 golden references object
 static void mxt_gr_print_state(uint8_t state)
 {
-  printf("T66 state: %s%s%s%s%s%s%s%s%s\n",
+  printf("T66 state: %02X %s%s%s%s%s%s%s%s%s\n",
+      state,
       (state & GR_STATE_FCALFAIL) ? "FCALFAIL " : "",
       (state & GR_STATE_FCALPASS) ? "FCALPASS " : "",
       (state & GR_STATE_FCALSEQDONE) ? "FCALSEQDONE " : "",
