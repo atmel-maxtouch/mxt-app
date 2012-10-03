@@ -49,8 +49,9 @@ void print_info_block()
   /* Show the Version Info */
   printf("Family ID:         0x%02X\n", info_block.id->family_id);
   printf("Variant ID:        0x%02X\n", info_block.id->variant_id);
-  printf("Version:           %d.%d\n", (info_block.id->version & 0xF0) >> 4, (info_block.id->version & 0x0F));
-  printf("Build:             %d\n", info_block.id->build);
+  printf("Version:           %d.%d\n",
+         (info_block.id->version & 0xF0) >> 4, (info_block.id->version & 0x0F));
+  printf("Build:             0x%02X\n", info_block.id->build);
   printf("Matrix X Size:     %d\n", info_block.id->matrix_x_size);
   printf("Matrix Y Size:     %d\n", info_block.id->matrix_y_size);
   printf("Number of objects: %d\n", info_block.id->num_declared_objects);
