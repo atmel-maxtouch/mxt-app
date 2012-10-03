@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/klog.h>
 
 #ifndef KLOG_READ_ALL
@@ -122,10 +123,11 @@ int sysfs_get_msg_count(void)
   // Read entire kernel log buffer
   op = KLOG_READ_ALL;
   op = klogctl(op, buffer, KLOG_BUF_LEN);
-
   // Return if no bytes read
-  if (op < 0)
+  if (op < 0) {
+    LOG(LOG_INFO, "klogctl error %d (%s)", errno, strerror(errno));
     return -1;
+  }
 
   buffer[op] = 0;
 

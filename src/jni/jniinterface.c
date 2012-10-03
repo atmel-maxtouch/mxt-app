@@ -226,6 +226,9 @@ JNIEXPORT jobjectArray JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetDebugMessa
   char *szMessage;
 
   count = mxt_get_msg_count();
+  /* suppress error and return empty array */
+  if (count < 0)
+    count = 0;
 
   // Create JNI array of strings to return
   stringClass = NULL;
