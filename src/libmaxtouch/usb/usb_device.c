@@ -305,7 +305,7 @@ int usb_scan()
     if (desc.idVendor == VENDOR_ID)
     {
       if ((desc.idProduct >= 0x2126 && desc.idProduct <= 0x212D) ||
-          (desc.idProduct >= 0x2135 && desc.idProduct <= 0x2138) ||
+          (desc.idProduct >= 0x2135 && desc.idProduct <= 0x2139) ||
           (desc.idProduct >= 0x213A && desc.idProduct <= 0x21FC) ||
           (desc.idProduct >= 0x8000 && desc.idProduct <= 0x8FFF))
       {
