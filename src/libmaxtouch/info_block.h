@@ -68,7 +68,7 @@
 #define TOUCH_XSLIDERSET_T32                      32u
 #define RESERVED_T33                              33u
 #define GEN_MESSAGEBLOCK_T34                      34u
-#define SPT_GENERICDATA_T35                       35u
+#define SPT_PROTOTYPE_T35                         35u
 #define RESERVED_T36                              36u
 #define DEBUG_DIAGNOSTIC_T37                      37u
 #define SPT_USERDATA_T38                          38u

@@ -140,8 +140,8 @@ char *objname(uint8_t objtype)
       return("TOUCH_XSLIDERSET_T32");
     case GEN_MESSAGEBLOCK_T34:
       return("GEN_MESSAGEBLOCK_T34");
-    case SPT_GENERICDATA_T35:
-      return("SPT_GENERICDATA_T35");
+    case SPT_PROTOTYPE_T35:
+      return("SPT_PROTOTYPE_T35");
     case DEBUG_DIAGNOSTIC_T37:
       return("DEBUG_DIAGNOSTIC_T37");
     case SPT_USERDATA_T38:
