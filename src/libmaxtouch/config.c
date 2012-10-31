@@ -105,7 +105,6 @@ close:
 
 //******************************************************************************
 /// \brief  Load configuration file
-/// \note   Ignores the COMMENTS and VERSION_INFO_HEADER sections
 /// \return 0 = success, negative = fail
 int mxt_load_config_file(const char *cfg_file, bool override_checking)
 {
@@ -175,9 +174,12 @@ int mxt_load_config_file(const char *cfg_file, bool override_checking)
     }
 
     /* Ignore the comments and file header sections */
-    if (strncmp(object, "COMMENTS", 8) == 0 || strncmp(object, "VERSION_INFO_HEADER", 19) == 0)
+    if (strncmp(object, "COMMENTS", 8) == 0
+        || strncmp(object, "VERSION_INFO_HEADER", 19) == 0
+        || strncmp(object, "APPLICATION_INFO_HEADER", 23) == 0)
     {
       ignore_line = true;
+      LOG(LOG_INFO, "Skipping %s", object);
       continue;
     }
     ignore_line = false;
