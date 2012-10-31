@@ -6,6 +6,7 @@ LOCAL_SRC_FILES := \
   libmaxtouch.c \
   log.c \
   msg.c \
+  config.c \
   utilfuncs.c \
   info_block.c \
   sysfs/sysfs_device.c \
