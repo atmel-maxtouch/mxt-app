@@ -31,7 +31,10 @@
 #include <stdint.h>
 
 #define DEBUG 1
+
+#ifndef LOG_TAG
 #define LOG_TAG "libmaxtouch"
+#endif
 
 /* Log levels - designed to match Android's log levels */
 typedef enum mxt_log_level {
