@@ -89,7 +89,7 @@ static void load_config(void)
 
    printf("Trying to open %s...\n", cfg_file);
 
-   if (mxt_load_config_file(cfg_file, false) == 0)
+   if (mxt_load_config_file(cfg_file) == 0)
    {
       printf("Successfully uploaded the configuration file\n");
    }

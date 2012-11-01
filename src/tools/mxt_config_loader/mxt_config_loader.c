@@ -42,7 +42,6 @@ static void display_usage(void);
  */
 int main (int argc, char *argv[])
 {
-  bool override_checking = false;
   struct stat file_info;
   char *filename = NULL;
 
@@ -50,14 +49,9 @@ int main (int argc, char *argv[])
          __GIT_VERSION);
 
   /* Parse input arguments */
-  if (argc > 1)
+  if (argc == 2)
   {
     filename = argv[1];
-
-    if (argc > 2 && (strcmp(argv[2], "-f") == 0))
-    {
-      override_checking = true;
-    }
   }
   else
   {
@@ -94,7 +88,7 @@ int main (int argc, char *argv[])
   }
 
   /* Load and back-up the configuration file */
-  if (mxt_load_config_file(filename, override_checking) < 0)
+  if (mxt_load_config_file(filename) < 0)
   {
     printf("Error loading the configuration, exiting...\n");
     mxt_release();

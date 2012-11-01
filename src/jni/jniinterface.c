@@ -192,7 +192,7 @@ JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_LoadConfigFile
   const char *szFilename = (*env)->GetStringUTFChars(env, filename, 0);
   int ret;
 
-  ret = mxt_load_config_file(szFilename, false);
+  ret = mxt_load_config_file(szFilename);
 
   (*env)->ReleaseStringUTFChars(env, filename, szFilename);
 

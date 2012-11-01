@@ -106,7 +106,7 @@ close:
 //******************************************************************************
 /// \brief  Load configuration file
 /// \return 0 = success, negative = fail
-int mxt_load_config_file(const char *cfg_file, bool override_checking)
+int mxt_load_config_file(const char *cfg_file)
 {
   FILE *fp;
   uint8_t *mem;
@@ -237,46 +237,40 @@ int mxt_load_config_file(const char *cfg_file, bool override_checking)
 
     c = getc(fp);
 
-    /* Check object parameters match those in the chip's Object Table */
-    if (!override_checking)
+    /* Get object type ID number at end of object string (1 or 2 digits) */
+    if (sscanf(object + strlen(object) - 2, "%d", &object_id) != 1)
     {
-      /* Get object type ID number at end of object string (1 or 2 digits) */
-      if (sscanf(object + strlen(object) - 2, "%d", &object_id) != 1)
+      if (sscanf(object + strlen(object) - 1, "%d", &object_id) != 1)
       {
-        if (sscanf(object + strlen(object) - 1, "%d", &object_id) != 1)
-        {
-          LOG(LOG_ERROR, "Unable to get object type ID for %s", object);
-          return -1;
-        }
-      }
-
-      LOG(LOG_INFO, "Reading object T%d", object_id);
-
-      /* Check the address of the object */
-      expected_address = get_object_address((uint8_t)object_id, (uint8_t)instance);
-      if (object_address != (int)expected_address)
-      {
-        LOG
-        (
-          LOG_ERROR,
-          "Address of %s in config file (0x%04X) does not match chip (0x%04X)",
-          object, object_address, expected_address
-        );
+        LOG(LOG_ERROR, "Unable to get object type ID for %s", object);
         return -1;
       }
+    }
 
-      /* Check the size of the object */
-      expected_size = get_object_size((uint8_t)object_id);
-      if (object_size != (int)expected_size)
-      {
-        LOG
-        (
-          LOG_ERROR,
-          "Size of %s in config file (%d bytes) does not match chip (%d bytes)",
-          object, object_size, expected_size
-        );
-        return -1;
-      }
+    /* Check the address of the object */
+    expected_address = get_object_address((uint8_t)object_id, (uint8_t)instance);
+    if (object_address != (int)expected_address)
+    {
+      LOG
+      (
+        LOG_WARN,
+        "Address of %s in config file (0x%04X) does not match chip (0x%04X)",
+        object, object_address, expected_address
+      );
+
+      object_address = expected_address;
+    }
+
+    /* Check the size of the object */
+    expected_size = get_object_size((uint8_t)object_id);
+    if (object_size != (int)expected_size)
+    {
+      LOG
+      (
+        LOG_WARN,
+        "Size of %s in config file (%d bytes) does not match chip (%d bytes)",
+        object, object_size, expected_size
+      );
     }
 
     LOG(LOG_VERBOSE, "Writing object of size %d at address %d...", object_size,

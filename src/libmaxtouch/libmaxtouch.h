@@ -70,7 +70,7 @@ bool mxt_get_pause(void);
 int mxt_reset_chip(bool bootloader_mode);
 int mxt_calibrate_chip(void);
 int mxt_backup_config(void);
-int mxt_load_config_file(const char *cfg_file, bool override_checking);
+int mxt_load_config_file(const char *cfg_file);
 int mxt_save_config_file(const char *cfg_file);
 int mxt_get_msg_count(void);
 char *mxt_get_msg_string(void);
