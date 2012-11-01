@@ -74,7 +74,7 @@ void print_info_block()
     (info_block.crc->CRC_hi<<16u) | (info_block.crc->CRC));
 }
 
-char *objname(uint8_t objtype)
+const char *objname(uint8_t objtype)
 {
   switch(objtype)
   {

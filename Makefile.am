@@ -15,6 +15,7 @@ AM_CFLAGS = \
   -g -Wall \
   -Wmissing-declarations -Wmissing-prototypes -Wnested-externs \
   -Wpointer-arith -Wsign-compare -Wchar-subscripts -Wstrict-prototypes \
+  -Wwrite-strings \
   -Wshadow -Wformat-security -Wtype-limits -Werror \
   -D__GIT_VERSION=\"$(OBP_VERSION)\"
 

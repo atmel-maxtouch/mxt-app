@@ -49,7 +49,7 @@ void event_printer()
 {
   FILE *fp;
   struct input_event event;
-  char *filename = mxt_get_input_event_file();
+  const char *filename = mxt_get_input_event_file();
   size_t event_size = sizeof(struct input_event);
 
   if (filename == NULL)

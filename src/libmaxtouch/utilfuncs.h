@@ -32,7 +32,7 @@
 /*! \brief Prints the whole info block read from the chip */
 void print_info_block(void);
 
-char *objname(uint8_t objtype);
+const char *objname(uint8_t objtype);
 
 /*! \brief Prints the elements of the object */
 void print_objs(void);

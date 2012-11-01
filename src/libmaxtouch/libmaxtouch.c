@@ -148,7 +148,7 @@ mxt_device_type mxt_get_device_type()
 /// \return Filename as a string, or NULL if unsuccessful
 /// \todo   Get the filename for sysfs devices from sysfs so the code does not
 ///         need to be edited to run on different sysfs devices
-char * mxt_get_input_event_file()
+const char* mxt_get_input_event_file()
 {
   switch (gDeviceType)
   {
