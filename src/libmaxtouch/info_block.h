@@ -106,6 +106,9 @@
 #define SPT_DYNAMICCONFIGURATIONCONTAINER_T71     71u
 #define PROCG_NOISESUPPRESSION_T72                72u
 #define PROCI_ZONEINDICATION_T73                  73u
+#define PROCG_SIMPLEGESTUREPROCESSOR_T74          74u
+#define MOTION_SENSING_OBJECT_T75                 75u
+#define PROCI_MOTION_GESTURES_T76                 76u
 #define RESERVED_T255                             255u
 
 /*! Returned by get_object_address() if object is not found. */

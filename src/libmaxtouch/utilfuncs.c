@@ -210,6 +210,12 @@ const char *objname(uint8_t objtype)
       return("PROCG_NOISESUPPRESSION_T72");
     case PROCI_ZONEINDICATION_T73:
       return("PROCI_ZONEINDICATION_T73");
+    case PROCG_SIMPLEGESTUREPROCESSOR_T74:
+      return("PROCG_SIMPLEGESTUREPROCESSOR_T74");
+    case MOTION_SENSING_OBJECT_T75:
+      return("MOTION_SENSING_OBJECT_T75");
+    case PROCI_MOTION_GESTURES_T76:
+      return("PROCI_MOTION_GESTURES_T76");
     default:
       return("UNKNOWN");
   }
