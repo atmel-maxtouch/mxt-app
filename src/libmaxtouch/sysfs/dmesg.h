@@ -39,6 +39,6 @@
 typedef struct dmesg_item_tag {
   unsigned long sec;
   unsigned long msec;
-  char msg[BUFFERSIZE*2];
-  void *next;
+  char msg[BUFFERSIZE];
+  struct dmesg_item_tag *next;
 } dmesg_item;

@@ -46,37 +46,38 @@
 #include "dmesg.h"
 
 int dmesg_count = 0;
-void *dmesg_list = (void *) 0;
-dmesg_item* dmesg_ptr = (void *) 0;
+dmesg_item *dmesg_head = NULL;
+dmesg_item *dmesg_ptr = NULL;
+dmesg_item *dmesg_tail = NULL;
+
 unsigned long timestamp = 0;
 unsigned long mtimestamp = 0;
 
 //******************************************************************************
 /// \brief  Add new node to linked list of dmesg items
-static void dmesg_list_add(dmesg_item *new_dmesg)
+static void dmesg_list_add(unsigned long sec, unsigned long msec, char *msg)
 {
   // create new node
   dmesg_item* new_node = (dmesg_item *) malloc(sizeof(dmesg_item));
 
   if (!new_node) return;
 
-  strncpy(new_node->msg, new_dmesg->msg, BUFFERSIZE*2);
-  new_node->sec = new_dmesg->sec;
-  new_node->sec = new_dmesg->msec;
-  new_node->next = (void *) 0;
+  strncpy(new_node->msg, msg, sizeof(new_node->msg));
+  new_node->msg[sizeof(new_node->msg) - 1] = '\0';
+  new_node->sec = sec;
+  new_node->msec = msec;
+  new_node->next = NULL;
 
   // find node
-  if(dmesg_list != (void *) 0)
+  if(dmesg_head != NULL)
   {
-    dmesg_item *end = dmesg_list;
-    while(end->next != (void *) 0)
-      end = end->next;
-
-    end->next = new_node;
+    dmesg_tail->next = new_node;
+    dmesg_tail = new_node;
   }
   else
   {
-    dmesg_list = new_node;
+    dmesg_head = new_node;
+    dmesg_tail = new_node;
   }
 
   dmesg_count++;
@@ -86,19 +87,20 @@ static void dmesg_list_add(dmesg_item *new_dmesg)
 /// \brief  Remove all items from the linked list
 static void dmesg_list_empty(void)
 {
-  if(dmesg_list == (void *) 0)
+  if (dmesg_head == NULL)
     return;
 
   // reset
-  dmesg_item *old_node = (dmesg_item *) dmesg_list;
-  dmesg_list = (void *) 0;
+  dmesg_item *old_node = dmesg_head;
+  dmesg_head = NULL;
+  dmesg_tail = NULL;
   dmesg_count = 0;
 
   // release memory
-  dmesg_item *next_node = (void *) 0;
-  while(old_node->next != (void *) 0)
+  dmesg_item *next_node = NULL;
+  while (old_node->next != NULL)
   {
-    next_node = (dmesg_item *) old_node->next;
+    next_node = old_node->next;
     free(old_node);
 
     old_node = next_node;
@@ -114,11 +116,11 @@ static void dmesg_list_empty(void)
 int sysfs_get_msg_count(void)
 {
   char buffer[KLOG_BUF_LEN + 1];
-  char line[BUFFERSIZE*2];
+  char msg[BUFFERSIZE];
+  char *msgptr;
   char *lineptr;
-  int n, op, sp, ep;
-
-  dmesg_item cur_dmesg;
+  int op, sp, ep;
+  unsigned long sec, msec;
 
   // Read entire kernel log buffer
   op = KLOG_READ_ALL;
@@ -130,46 +132,35 @@ int sysfs_get_msg_count(void)
   }
 
   buffer[op] = 0;
-
-  sp = ep = 0;
+  sp = 0;
 
   dmesg_list_empty();
 
   // Search for next new line character
   while((lineptr = strstr(buffer+sp, "\n" )) != NULL)
   {
+    // Set up start point for next line
     ep = lineptr - buffer - sp;
 
-    // Check for end of buffer
     if(ep > BUFFERSIZE)
       ep = BUFFERSIZE;
 
-    // Copy line into line buffer
-    strncpy(line, buffer+sp, ep);
-    line[ep] = '\0';
-
-    // Set up start point for next line
     sp = sp + ep + 1;
 
-    cur_dmesg.sec = 0;
-    cur_dmesg.msec = 0;
-    n = 0;
-
-    // Try to parse the line format
-    n = sscanf(line, "<%*c>[%lu.%06lu] %[^\n]", &cur_dmesg.sec, &cur_dmesg.msec, cur_dmesg.msg);
-
-    // If successful in parsing
-    if(n > 0)
+    // Try to parse dmesg line
+    if (sscanf(buffer+sp, "<%*c>[%lu.%06lu] %255[^\n]",
+        &sec, &msec, (char*)&msg) == 3)
     {
       // Timestamp must be greater than previous messages, slightly complicated by
       // seconds and microseconds
-      if ((cur_dmesg.sec > timestamp)
-          || ((cur_dmesg.sec == timestamp) && (cur_dmesg.msec > mtimestamp)))
+      if ((sec > timestamp) || ((sec == timestamp) && (msec > mtimestamp)))
       {
-        // We are only interested in new messages with the "MXT" string in them
-        if (strstr(cur_dmesg.msg, "MXT") != 0)
+        msg[sizeof(msg) - 1] = '\0';
+        msgptr = strstr(msg, "MXT MSG");
+
+        if (msgptr)
         {
-            dmesg_list_add(&cur_dmesg);
+            dmesg_list_add(sec, msec, msgptr);
         }
       }
     }
@@ -184,11 +175,11 @@ int sysfs_get_msg_count(void)
   }
 
   // Set the timestamp to the last message
-  timestamp = cur_dmesg.sec;
-  mtimestamp = cur_dmesg.msec;
+  timestamp = sec;
+  mtimestamp = msec;
 
   // Reset pointer to first record
-  dmesg_ptr = dmesg_list;
+  dmesg_ptr = dmesg_head;
 
   return dmesg_count;
 }
@@ -202,10 +193,10 @@ char *sysfs_get_msg_string()
 
   msg_string = dmesg_ptr->msg;
 
-  if(dmesg_ptr != (void *) 0)
+  if (dmesg_ptr != NULL)
   {
     // Get next record in linked list
-    dmesg_ptr = ((dmesg_item *)dmesg_ptr)->next;
+    dmesg_ptr = dmesg_ptr->next;
   }
 
   return msg_string;
