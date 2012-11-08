@@ -36,4 +36,4 @@
 #define SELF_TEST_INVALID      0xFD
 
 uint8_t self_test_handler(void);
-void run_self_tests(uint8_t cmd);
+int run_self_tests(uint8_t cmd);

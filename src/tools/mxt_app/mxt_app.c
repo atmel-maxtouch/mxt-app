@@ -347,25 +347,6 @@ static int mxt_init_chip(uint8_t adapter, uint8_t address)
 }
 
 //******************************************************************************
-/// \brief mxt-app main program flow
-static int mxt_app(mxt_app_cmd cmd)
-{
-  /*! Run tests, otherwise display menu */
-  if (cmd == CMD_TEST)
-  {
-    LOG(LOG_DEBUG, "Running all tests");
-    run_self_tests(SELF_TEST_ALL);
-  }
-  else
-  {
-    LOG(LOG_DEBUG, "Running menu");
-    return mxt_menu();
-  }
-
-  return 0;
-}
-
-//******************************************************************************
 /// \brief Print usage for mxt-app
 static void print_usage(char *prog_name)
 {
@@ -737,10 +718,14 @@ int main (int argc, char *argv[])
       ret = mxt_serial_data_upload(strbuf, t68_datatype);
       break;
 
-    case CMD_NONE:
     case CMD_TEST:
+      LOG(LOG_DEBUG, "Running all tests");
+      ret = run_self_tests(SELF_TEST_ALL);
+      break;
+
+    case CMD_NONE:
     default:
-      ret = mxt_app(cmd);
+      ret = mxt_menu();
       break;
   }
 

@@ -44,7 +44,7 @@
 
 //******************************************************************************
 /// \brief Handle messages from the self test object
-static void self_test_handle_messages(void)
+static int self_test_handle_messages(void)
 {
    bool done = false;
    uint16_t count, i, byte;
@@ -54,6 +54,7 @@ static void self_test_handle_messages(void)
    uint8_t buf[10];
    size_t len;
    unsigned int object_type;
+   int ret = -1;
 
    while (!done)
    {
@@ -61,7 +62,7 @@ static void self_test_handle_messages(void)
       if ((now - start_time) > TIMEOUT)
       {
          printf("Timeout\n");
-         return;
+         return -2;
       }
 
       count = mxt_get_msg_count();
@@ -90,24 +91,31 @@ static void self_test_handle_messages(void)
                   {
                   case SELF_TEST_ALL:
                      printf("PASS: All tests passed\n");
+                     ret = 0;
                      break;
                   case SELF_TEST_INVALID:
                      printf("FAIL: Invalid test command\n");
+                     ret = -2;
                      break;
                   case SELF_TEST_ANALOG:
                      printf("FAIL: AVdd is not present\n");
+                     ret = -3;
                      break;
                   case SELF_TEST_PIN_FAULT:
                      printf("FAIL: Pin fault\n");
+                     ret = -4;
                      break;
                   case SELF_TEST_SIGNAL_LIMIT:
                      printf("FAIL: Signal limit fault\n");
+                     ret = -5;
                      break;
                   case SELF_TEST_GAIN:
                      printf("FAIL: Gain error\n");
+                     ret = -6;
                      break;
                   default:
                      printf("FAIL: Unrecognised error\n");
+                     ret = -7;
                      break;
                   }
 
@@ -119,6 +127,8 @@ static void self_test_handle_messages(void)
 
       sleep(1);
    }
+
+   return ret;
 }
 
 //******************************************************************************
@@ -211,7 +221,7 @@ static void disable_noise_suppression(void)
 
 //******************************************************************************
 /// \brief Run self test
-void run_self_tests(uint8_t cmd)
+int run_self_tests(uint8_t cmd)
 {
    uint16_t t25_addr;
    uint8_t enable = 3;
@@ -231,7 +241,7 @@ void run_self_tests(uint8_t cmd)
    printf("Running tests\n");
    mxt_write_register(&cmd, t25_addr + 1, 1);
 
-   self_test_handle_messages();
+   return self_test_handle_messages();
 }
 
 //******************************************************************************
