@@ -63,7 +63,8 @@ char tempPath[PATH_LENGTH + 1];
 //******************************************************************************
 /// \brief Check sysfs device directory for correct files
 /// \return 1 = device found, 0 = not found, negative for error
-static int scan_sysfs_directory(struct dirent *i2c_dir, char *dirname, int adapter, int address)
+static int scan_sysfs_directory(struct dirent *i2c_dir,
+                                const char *dirname, int adapter, int address)
 {
   char *pszDirname;
   size_t length;
@@ -148,7 +149,7 @@ free:
 //******************************************************************************
 /// \brief  Process a driver directory in sysfs looking for MXT devices
 /// \return 1 = device found, 0 = not found, negative for error
-static int scan_driver_directory(char *path, struct dirent *dir)
+static int scan_driver_directory(const char *path, struct dirent *dir)
 {
   char *pszDirname;
   size_t length;
@@ -218,7 +219,7 @@ free:
 //******************************************************************************
 /// \brief  Scan for devices
 /// \return 1 = device found, 0 = not found, negative for error
-static int sysfs_scan_tree(char *root)
+static int sysfs_scan_tree(const char *root)
 {
   struct dirent *pEntry;
   DIR *pDirectory;
@@ -411,7 +412,7 @@ close:
 
 //******************************************************************************
 /// \brief Construct filename of path
-static char *make_path(char *filename)
+static char *make_path(const char *filename)
 {
   strncpy(tempPath, gpDevice->path, PATH_LENGTH);
   strncat(tempPath, "/", PATH_LENGTH);
@@ -422,7 +423,7 @@ static char *make_path(char *filename)
 
 //******************************************************************************
 /// \brief  Write boolean to file as ASCII 0/1
-static int write_boolean_file(char *filename, bool value)
+static int write_boolean_file(const char *filename, bool value)
 {
   FILE *file;
 

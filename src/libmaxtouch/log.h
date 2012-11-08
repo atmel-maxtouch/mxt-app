@@ -58,7 +58,7 @@ void mxt_set_verbose(uint8_t verbose);
 
 #include <stdio.h>
 
-char * get_log_level_string(mxt_log_level level);
+const char* get_log_level_string(mxt_log_level level);
 
 #if ANDROID
 /* Log using Android API */

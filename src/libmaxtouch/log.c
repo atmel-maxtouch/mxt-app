@@ -35,7 +35,7 @@ mxt_log_level log_level = LOG_SILENT;
 //******************************************************************************
 /// \brief  Returns the input log level as a human-readable string.
 /// \return Log level string
-char * get_log_level_string(mxt_log_level level)
+const char* get_log_level_string(mxt_log_level level)
 {
   switch (level)
   {
