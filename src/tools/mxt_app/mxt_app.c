@@ -590,6 +590,7 @@ int main (int argc, char *argv[])
     }
   }
 
+  LOG(LOG_DEBUG, "Version:%s", __GIT_VERSION);
   LOG(LOG_DEBUG, "cmd:%u", cmd);
   LOG(LOG_DEBUG, "i2c_address:%u", i2c_address);
   LOG(LOG_DEBUG, "i2c_adapter:%u", i2c_adapter);
