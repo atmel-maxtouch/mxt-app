@@ -45,6 +45,8 @@
 void print_info_block()
 {
   int i;
+  int report_id = 1;
+  int report_id_end;
 
   /* Show the Version Info */
   printf("Family ID:         0x%02X\n", info_block.id->family_id);
@@ -63,9 +65,16 @@ void print_info_block()
   {
     printf("Object Type:\t\t %s\n", objname(info_block.objects[i].object_type));
     printf("Address:\t\t %d\n", get_start_position(info_block.objects[i]));
-    printf("Size:\t\t\t %d\n", info_block.objects[i].size);
-    printf("Instances:\t\t %d\n", info_block.objects[i].instances);
-    printf("ReportIDs:\t\t %d\n", info_block.objects[i].num_report_ids);
+    printf("Size:\t\t\t %d\n", info_block.objects[i].size + 1);
+    printf("Instances:\t\t %d\n", info_block.objects[i].instances + 1);
+
+    if (info_block.objects[i].num_report_ids > 0)
+    {
+      report_id_end = report_id + info_block.objects[i].num_report_ids - 1;
+      printf("Report IDs:\t\t %d-%d\n", report_id, report_id_end);
+      report_id = report_id_end + 1;
+    }
+
     printf("\n");
   }
 
