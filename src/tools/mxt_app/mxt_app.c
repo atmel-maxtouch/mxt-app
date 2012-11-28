@@ -309,11 +309,11 @@ static int mxt_menu(void)
 
 //******************************************************************************
 /// \brief Initialize mXT device and read the info block
-static int mxt_init_chip(uint8_t adapter, uint8_t address)
+static int mxt_init_chip(int adapter, int address)
 {
   int ret;
 
-  if (adapter > 0 && address > 0)
+  if (adapter >= 0 && address > 0)
   {
     ret = i2c_dev_set_address(adapter, address);
     if (ret < 0)
@@ -400,8 +400,8 @@ int main (int argc, char *argv[])
   uint16_t address = 0;
   uint16_t object_address = 0;
   uint8_t count = 0;
-  uint8_t i2c_address = 0;
-  uint8_t i2c_adapter = 0;
+  int i2c_address = -1;
+  int i2c_adapter = -1;
   uint16_t object_type = 0;
   uint8_t instance = 0;
   uint8_t verbose = 0;
