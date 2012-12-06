@@ -177,7 +177,7 @@ static int get_hex_value(FILE *fp, unsigned char *ptr)
 int main (int argc, char *argv[])
 {
   int ret;
-  int frame_size;
+  int frame_size = 0;
   int frame;
   int frame_retry = 0;
   unsigned char buffer[FIRMWARE_BUFFER_SIZE];
