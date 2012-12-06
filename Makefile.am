@@ -16,8 +16,10 @@ AM_CFLAGS = \
   -Wmissing-declarations -Wmissing-prototypes -Wnested-externs \
   -Wpointer-arith -Wsign-compare -Wchar-subscripts -Wstrict-prototypes \
   -Wwrite-strings \
-  -Wshadow -Wformat-security -Wtype-limits -Werror \
-  -D__GIT_VERSION=\"$(OBP_VERSION)\"
+  -Wshadow -Wformat-security -Wtype-limits \
+  -Werror \
+  -D__GIT_VERSION=\"$(OBP_VERSION)\" \
+  -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
 AM_LDFLAGS = \
 	-Wl,--gc-sections \
