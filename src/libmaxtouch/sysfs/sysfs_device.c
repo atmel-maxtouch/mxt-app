@@ -71,7 +71,6 @@ static int scan_sysfs_directory(struct dirent *i2c_dir,
   DIR *pDirectory;
   struct dirent *pEntry;
   bool mem_access_found = false;
-  bool pause_found = false;
   bool debug_found = false;
   int ret = 0;
 
@@ -101,12 +100,6 @@ static int scan_sysfs_directory(struct dirent *i2c_dir,
       mem_access_found = true;
     }
 
-    if (!strcmp(pEntry->d_name, "pause_driver"))
-    {
-      LOG(LOG_DEBUG, "Found pause_driver interface at %s/pause_driver", pszDirname);
-      pause_found = true;
-    }
-
     if (!strcmp(pEntry->d_name, "debug_enable"))
     {
       LOG(LOG_DEBUG, "Found debug_enable interface at %s/debug_enable", pszDirname);
@@ -115,7 +108,7 @@ static int scan_sysfs_directory(struct dirent *i2c_dir,
   }
 
   /* If device found, store it and return success */
-  if (mem_access_found && pause_found && debug_found)
+  if (mem_access_found && debug_found)
   {
     gpDevice = (sysfs_device *)malloc(sizeof(sysfs_device));
     gpDevice->path = (char *)malloc(strlen(pszDirname) + 1);
