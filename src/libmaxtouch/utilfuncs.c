@@ -70,7 +70,9 @@ void print_info_block()
 
     if (info_block.objects[i].num_report_ids > 0)
     {
-      report_id_end = report_id + info_block.objects[i].num_report_ids - 1;
+      report_id_end = report_id +
+                      info_block.objects[i].num_report_ids * (info_block.objects[i].instances + 1)
+                      - 1;
       printf("Report IDs:\t\t %d-%d\n", report_id, report_id_end);
       report_id = report_id_end + 1;
     }
