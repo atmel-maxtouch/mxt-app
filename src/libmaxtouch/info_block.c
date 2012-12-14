@@ -257,12 +257,17 @@ int calc_report_ids()
   return 0;
 }
 
-int get_firmware_build()
+int mxt_get_firmware_version(char *version_str)
 {
   if (info_block.id == NULL)
     return -1;
 
-  return info_block.id->build;
+  snprintf(version_str, MXT_FW_VER_LEN, "%u.%u.%02X",
+           (info_block.id->version & 0xF0) >> 4,
+           (info_block.id->version & 0x0F),
+           info_block.id->build);
+
+  return 0;
 }
 
 /*!
@@ -273,12 +278,14 @@ void display_chip_info()
   object_t element;
   int element_index;
   int no_of_touch_instances = 0;
+  char firmware_version[MXT_FW_VER_LEN];
+
+  mxt_get_firmware_version((char *)&firmware_version);
 
   /* Display ID information */
   LOG(LOG_INFO, "Family ID = 0x%02X", info_block.id->family_id);
   LOG(LOG_INFO, "Variant ID = 0x%02X", info_block.id->variant_id);
-  LOG(LOG_INFO, "Version = %d.%d", (info_block.id->version & 0xF0) >> 4, (info_block.id->version & 0x0F));
-  LOG(LOG_INFO, "Build = 0x%02X", info_block.id->build);
+  LOG(LOG_INFO, "Firmware Version = %s", firmware_version);
   LOG(LOG_INFO, "Matrix X Size = %d", info_block.id->matrix_x_size);
   LOG(LOG_INFO, "Matrix Y Size = %d", info_block.id->matrix_y_size);
   LOG(LOG_INFO, "Number of elements in the Object Table = %d", info_block.id->num_declared_objects);

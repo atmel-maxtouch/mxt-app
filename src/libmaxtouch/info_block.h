@@ -114,6 +114,8 @@
 /*! Returned by get_object_address() if object is not found. */
 #define OBJECT_NOT_FOUND   0u
 
+#define MXT_FW_VER_LEN     10u
+
 /* Function prototypes */
 int read_information_block(void);
 int calc_report_ids(void);
@@ -122,7 +124,7 @@ uint16_t get_object_address(uint8_t object_type, uint8_t instance);
 uint8_t get_object_size(uint8_t object_type);
 uint8_t get_object_table_num(uint8_t object_type);
 uint16_t get_start_position(object_t element);
-int get_firmware_build(void);
+int mxt_get_firmware_version(char *version_str);
 uint32_t info_block_crc(crc_t *);
 uint16_t report_id_to_type(int report_id);
 

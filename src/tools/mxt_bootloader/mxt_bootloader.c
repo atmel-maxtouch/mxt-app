@@ -182,13 +182,15 @@ int main (int argc, char *argv[])
   int frame_retry = 0;
   unsigned char buffer[FIRMWARE_BUFFER_SIZE];
   int i;
-  char *filename = NULL;
+  char *filename;
   FILE *fp;
   int adapter;
   int appmode_address = 0;
   int bootloader_address = 0;
-  int build;
-  int old_build;
+  char *build;
+  char curr_version[MXT_FW_VER_LEN];
+
+  mxt_set_verbose(5);
 
   setbuf(stdout, NULL);
 
@@ -201,12 +203,8 @@ int main (int argc, char *argv[])
     filename = argv[1];
     LOG(LOG_INFO, "Filename %s", filename);
 
-    if (sscanf(argv[2], "%x", &build) != 1)
-    {
-      LOG(LOG_INFO, "Firmware build %X", build);
-      display_usage();
-      return -1;
-    }
+    build = argv[2];
+    LOG(LOG_INFO, "Firmware build %s", build);
   }
   else
   {
@@ -241,10 +239,10 @@ int main (int argc, char *argv[])
     if (ret) {
       printf("ERROR: could not read info block!\n");
     } else {
-      old_build = get_firmware_build();
-      LOG(LOG_INFO, "Old firmware build number: %02X", old_build);
-      if (old_build == build) {
-        printf("Firmware already correct version %02X, exiting\n", build);
+      mxt_get_firmware_version((char *)&curr_version);
+      LOG(LOG_INFO, "Old firmware version: %s", curr_version);
+      if (!strcmp((char *)&curr_version, build)) {
+        printf("Firmware already correct version %s, exiting\n", build);
         return -1;
       }
 
@@ -399,14 +397,15 @@ int main (int argc, char *argv[])
 
   if (ret == 0)
   {
-    if (get_firmware_build() == build)
+    mxt_get_firmware_version((char *)&curr_version);
+    if (!strcmp(curr_version, build))
     {
-       printf("SUCCESS - build number verified\n");
+       printf("SUCCESS - version verified\n");
        return 0;
     }
     else
     {
-       printf("FAILURE - detected build is %d\n", get_firmware_build());
+       printf("FAILURE - detected version is %s\n", curr_version);
        return -1;
     }
   }
