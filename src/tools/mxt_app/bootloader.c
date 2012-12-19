@@ -124,6 +124,9 @@ recheck:
         if (val == MXT_APP_CRC_FAIL) {
             LOG(LOG_INFO, "CRC check for the currently stored application code failed");
             goto recheck;
+        } else if (val == MXT_WAITING_FRAME_DATA) {
+            LOG(LOG_INFO, "Bootloader already unlocked");
+            return -3;
         }
 
         break;
@@ -193,23 +196,31 @@ static int send_frames(struct mxt_bootloader_context *ctx)
   ctx->have_bootloader_version = false;
   ctx->extended_id_mode = false;
 
-  if (mxt_check_bootloader(ctx, MXT_WAITING_BOOTLOAD_CMD)< 0) {
+  ret = mxt_check_bootloader(ctx, MXT_WAITING_BOOTLOAD_CMD);
+  if (ret == 0)
+  {
+    printf("Unlocking bootloader\n");
+
+    if (unlock_bootloader() < 0) {
+      LOG(LOG_ERROR, "Failure to unlock bootloader");
+      printf("ERROR: Bootloader not unlocked!\n");
+      return -1;
+    }
+
+    printf("Bootloader unlocked\n");
+  }
+  else if (ret == -3)
+  {
+    printf("Bootloader found\n");
+  }
+  else
+  {
     LOG(LOG_ERROR, "Bootloader not found");
     printf("ERROR: Bootloader not found!\n");
     return -1;
   }
 
-  printf("Bootloader found\n");
-
-  LOG(LOG_INFO, "Unlocking bootloader");
-
-  if (unlock_bootloader() < 0) {
-    LOG(LOG_ERROR, "Failure to unlock bootloader");
-    printf("ERROR: Bootloader not unlocked!\n");
-    return -1;
-  }
-
-  printf("Bootloader unlocked, flashing...\n");
+  printf("Flashing...\n");
 
   frame = 1;
 
