@@ -73,7 +73,10 @@ typedef enum mxt_app_cmd_tag {
   CMD_BRIDGE_CLIENT,
   CMD_BRIDGE_SERVER,
   CMD_SERIAL_DATA,
-  CMD_FLASH
+  CMD_FLASH,
+  CMD_RESET,
+  CMD_RESET_BOOTLOADER,
+  CMD_BACKUP
 } mxt_app_cmd;
 
 //******************************************************************************
@@ -361,6 +364,9 @@ static void print_usage(char *prog_name)
                   "  -t [--test]                : run all self tests\n"
                   "  -W [--write]               : write to object\n"
                   "  --flash                    : send firmware to bootloader\n"
+                  "  --reset                    : reset device\n"
+                  "  --reset-bootloader         : reset device in bootloader mode\n"
+                  "  --backup                   : backup configuration to NVRAM\n"
                   "  -g                         : store golden references\n"
                   "\n"
                   "Valid options:\n"
@@ -430,6 +436,7 @@ int main (int argc, char *argv[])
 
     static struct option long_options[] = {
       {"i2c-address",  required_argument, 0, 'a'},
+      {"backup",        no_argument,      0, 0},
       {"bridge-client",required_argument, 0, 'C'},
       {"i2c-adapter",  required_argument, 0, 'd'},
       {"t68-file",     required_argument, 0, 0},
@@ -442,6 +449,8 @@ int main (int argc, char *argv[])
       {"count",        required_argument, 0, 'n'},
       {"port",         required_argument, 0, 'p'},
       {"read",         no_argument,       0, 'R'},
+      {"reset",        no_argument,       0, 0},
+      {"reset-bootloader", no_argument,       0, 0},
       {"register",     required_argument, 0, 'r'},
       {"bridge-server",no_argument,       0, 'S'},
       {"test",         no_argument,       0, 't'},
@@ -480,6 +489,33 @@ int main (int argc, char *argv[])
             cmd = CMD_FLASH;
             strncpy(strbuf, optarg, sizeof(strbuf));
             strbuf[sizeof(strbuf) - 1] = '\0';
+          } else {
+            print_usage(argv[0]);
+            return -1;
+          }
+        }
+        else if (!strcmp(long_options[option_index].name, "backup"))
+        {
+          if (cmd == CMD_NONE) {
+            cmd = CMD_BACKUP;
+          } else {
+            print_usage(argv[0]);
+            return -1;
+          }
+        }
+        else if (!strcmp(long_options[option_index].name, "reset"))
+        {
+          if (cmd == CMD_NONE) {
+            cmd = CMD_RESET;
+          } else {
+            print_usage(argv[0]);
+            return -1;
+          }
+        }
+        else if (!strcmp(long_options[option_index].name, "reset-bootloader"))
+        {
+          if (cmd == CMD_NONE) {
+            cmd = CMD_RESET_BOOTLOADER;
           } else {
             print_usage(argv[0]);
             return -1;
@@ -755,6 +791,18 @@ int main (int argc, char *argv[])
 
     case CMD_FLASH:
       ret = mxt_flash_firmware(strbuf, strbuf2, i2c_adapter, i2c_address);
+      break;
+
+    case CMD_RESET:
+      ret = mxt_reset_chip(false);
+      break;
+
+    case CMD_RESET_BOOTLOADER:
+      ret = mxt_reset_chip(true);
+      break;
+
+    case CMD_BACKUP:
+      ret = mxt_backup_config();
       break;
 
     case CMD_NONE:
