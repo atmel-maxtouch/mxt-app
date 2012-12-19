@@ -4,8 +4,8 @@ use File::Basename;
 
 my $firmware_file;
 my $firmware_version;
-my $android_dir = "/data/maxtouch-flash";
-my $bootloader = "mxt_bootloader";
+my $android_dir = "/data/local/tmp/";
+my $bootloader = "mxt-app";
 my $bootloader_location = "libs/armeabi/$bootloader";
 
 ################################################################################
@@ -142,7 +142,6 @@ sub flash_device
   adb_shell("ls -l \"/dev/i2c*\" > $logdir/i2c.txt");
   adb_shell("ls -lR /sys/bus/i2c/drivers > $logdir/sysfs.txt");
 
-  adb_shell("su -c mkdir -p /data/maxtouch-flash");
   print "Uploading flash tool: ";
   system("adb push $bootloader_location $android_dir");
 
@@ -154,7 +153,7 @@ sub flash_device
   print "Running flash tool\n";
   system("adb logcat -c");
   adb_shell("su -c chmod 775 $android_dir/$bootloader");
-  my $bootloader_output = adb_shell("su -c $android_dir/$bootloader \"$android_dir/$firmware_basename\" $firmware_version");
+  my $bootloader_output = adb_shell("su -c $android_dir/$bootloader --flash \"$android_dir/$firmware_basename\" --firmware-version $firmware_version");
 
   print LOGFILE $bootloader_output;
 

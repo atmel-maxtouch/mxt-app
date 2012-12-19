@@ -5,6 +5,7 @@ LOCAL_CFLAGS += -D__GIT_VERSION=\"$(GIT_VERSION)\"
 LOCAL_C_INCLUDES := $(SRC_PATH)
 LOCAL_SRC_FILES := \
   mxt_app.c \
+  bootloader.c \
   touch_app.c \
   self_test.c \
   bridge.c \

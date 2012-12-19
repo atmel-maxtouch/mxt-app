@@ -9,7 +9,6 @@ subdirs := $(addprefix $(SRC_PATH)/,$(addsuffix /Android.mk, \
     jni \
     tools/mxt_app \
     tools/mxt_config_loader \
-    tools/mxt_bootloader \
     tools/mxt_debug_dump \
   ))
 

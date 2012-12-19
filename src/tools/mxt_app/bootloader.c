@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
-/// \file   mxt_bootloader.c
-/// \brief  Bootloader tool for maxtouch chips
+/// \file   bootloader.c
+/// \brief  Bootloader functions
 /// \author Nick Dyer
 //------------------------------------------------------------------------------
 // Copyright 2011 Atmel Corporation. All rights reserved.
@@ -39,6 +39,8 @@
 #include "libmaxtouch/i2c_dev/i2c_dev_device.h"
 #include "libmaxtouch/sysfs/sysfs_device.h"
 
+#include "bootloader.h"
+
 #define MXT_UNLOCK_CMD_MSB      0xaa
 #define MXT_UNLOCK_CMD_LSB      0xdc
 
@@ -56,10 +58,18 @@
 #define MXT_RESET_TIME           2
 #define MXT_BOOTLOADER_DELAY     20000
 
-bool have_bootloader_version = false;
-bool extended_id_mode = false;
-
-static void display_usage(void);
+struct mxt_bootloader_context
+{
+  bool have_bootloader_version;
+  bool extended_id_mode;
+  FILE *fp;
+  char curr_version[MXT_FW_VER_LEN];
+  int i2c_adapter;
+  int bootloader_address;
+  int appmode_address;
+  bool check_version;
+  const char *new_version;
+};
 
 static int unlock_bootloader(void)
 {
@@ -72,7 +82,7 @@ static int unlock_bootloader(void)
   return i2c_dev_bootloader_write(buf, sizeof(buf));
 }
 
-static int mxt_check_bootloader(unsigned int state)
+static int mxt_check_bootloader(struct mxt_bootloader_context *ctx, unsigned int state)
 {
     unsigned char buf[3];
     unsigned char val;
@@ -82,7 +92,8 @@ static int mxt_check_bootloader(unsigned int state)
 recheck:
     usleep(MXT_BOOTLOADER_DELAY);
 
-    if ((!have_bootloader_version) && extended_id_mode && (state == MXT_WAITING_FRAME_DATA))
+    if ((!ctx->have_bootloader_version) && ctx->extended_id_mode
+        && (state == MXT_WAITING_FRAME_DATA))
     {
        LOG(LOG_INFO, "Attempting to retrieve bootloader version");
        if (i2c_dev_bootloader_read(&buf[0], 3) != 0) {
@@ -96,7 +107,7 @@ recheck:
        LOG(LOG_INFO, "Bootloader ID:%d Version:%d",
          bootloader_id, bootloader_version);
 
-       have_bootloader_version = true;
+       ctx->have_bootloader_version = true;
     }
     else
     {
@@ -133,35 +144,35 @@ recheck:
         return -2;
     }
 
-    if (!have_bootloader_version
+    if (!ctx->have_bootloader_version
         && state == MXT_WAITING_BOOTLOAD_CMD)
     {
       if (bootloader_id | 0x20)
       {
         LOG(LOG_INFO, "Bootloader using extended ID mode");
-        extended_id_mode = true;
+        ctx->extended_id_mode = true;
       }
       else
       {
         bootloader_id &= 0x1f;
         LOG(LOG_INFO, "Bootloader ID:%d", bootloader_id);
-        have_bootloader_version = true;
+        ctx->have_bootloader_version = true;
       }
     }
 
     return 0;
 }
 
-static int get_hex_value(FILE *fp, unsigned char *ptr)
+static int get_hex_value(struct mxt_bootloader_context *ctx, unsigned char *ptr)
 {
   char str[] = "00\0";
   int val;
   int ret;
 
-  str[0] = fgetc(fp);
-  str[1] = fgetc(fp);
+  str[0] = fgetc(ctx->fp);
+  str[1] = fgetc(ctx->fp);
 
-  if (feof(fp)) return EOF;
+  if (feof(ctx->fp)) return EOF;
 
   ret = sscanf(str, "%x", &val);
 
@@ -170,7 +181,7 @@ static int get_hex_value(FILE *fp, unsigned char *ptr)
   return ret;
 }
 
-static int send_frames(FILE *fp)
+static int send_frames(struct mxt_bootloader_context *ctx)
 {
   unsigned char buffer[FIRMWARE_BUFFER_SIZE];
   int ret;
@@ -179,7 +190,10 @@ static int send_frames(FILE *fp)
   int frame;
   int frame_retry = 0;
 
-  if (mxt_check_bootloader(MXT_WAITING_BOOTLOAD_CMD)< 0) {
+  ctx->have_bootloader_version = false;
+  ctx->extended_id_mode = false;
+
+  if (mxt_check_bootloader(ctx, MXT_WAITING_BOOTLOAD_CMD)< 0) {
     LOG(LOG_ERROR, "Bootloader not found");
     printf("ERROR: Bootloader not found!\n");
     return -1;
@@ -199,14 +213,14 @@ static int send_frames(FILE *fp)
 
   frame = 1;
 
-  while (!feof(fp)) {
+  while (!feof(ctx->fp)) {
     if (frame_retry == 0) {
-        if (get_hex_value(fp, &buffer[0]) == EOF) {
+        if (get_hex_value(ctx, &buffer[0]) == EOF) {
             LOG(LOG_INFO, "End of file");
             break;
         }
 
-        if (get_hex_value(fp, &buffer[1]) == EOF) {
+        if (get_hex_value(ctx, &buffer[1]) == EOF) {
             LOG(LOG_ERROR, "Unexpected end of firmware file");
             printf("ERROR: Unexpected end of firmware file!\n");
             return -1;
@@ -229,7 +243,7 @@ static int send_frames(FILE *fp)
 
         for (i = 2; i < frame_size; i++)
         {
-            ret = get_hex_value(fp, &buffer[i]);
+            ret = get_hex_value(ctx, &buffer[i]);
 
             if (ret == EOF)
             {
@@ -240,7 +254,7 @@ static int send_frames(FILE *fp)
         }
     }
 
-    if (mxt_check_bootloader(MXT_WAITING_FRAME_DATA) < 0) {
+    if (mxt_check_bootloader(ctx, MXT_WAITING_FRAME_DATA) < 0) {
         LOG(LOG_ERROR, "Unexpected bootloader state");
         return -1;
     }
@@ -251,7 +265,7 @@ static int send_frames(FILE *fp)
 
     // Check CRC
     LOG(LOG_DEBUG, "Checking CRC");
-    ret = mxt_check_bootloader(MXT_FRAME_CRC_PASS);
+    ret = mxt_check_bootloader(ctx, MXT_FRAME_CRC_PASS);
     if (ret) {
         if (frame_retry > 0) {
           LOG(LOG_ERROR, "Frame %d: CRC fail, aborting", frame);
@@ -263,7 +277,7 @@ static int send_frames(FILE *fp)
           printf("  Frame %d retry\n", frame);
         }
     } else {
-        LOG(LOG_INFO, "Frame %d: Uploaded %d bytes, CRC pass", frame, frame_size);
+        LOG(LOG_INFO, "Frame %d: Sent %d bytes, CRC pass", frame, frame_size);
         frame++;
         if (frame % 20 == 0) {
           printf("  Frame %d\n", frame);
@@ -271,7 +285,7 @@ static int send_frames(FILE *fp)
     }
   }
 
-  fclose(fp);
+  fclose(ctx->fp);
 
   printf("Done\n");
 
@@ -280,169 +294,192 @@ static int send_frames(FILE *fp)
   return 0;
 }
 
-static int flash_firmware(const char *filename, const char *new_version)
+static int lookup_bootloader_addr(int addr)
+{
+  switch (addr)
+  {
+    case 0x4a:
+    case 0x4b:
+      /* 1188S/1664S use different scheme */
+      if (info_block.id->family_id == 0xa2)
+      {
+        return (addr - 0x24);
+      }
+      /* Fall through for normal case */
+    case 0x4c:
+    case 0x4d:
+    case 0x5a:
+    case 0x5b:
+      return (addr - 0x26);
+      break;
+    default:
+      return -1;
+  }
+}
+
+static int mxt_bootloader_init_chip(struct mxt_bootloader_context *ctx,
+                                    int i2c_adapter, int i2c_address)
 {
   int ret;
-  FILE *fp;
-  int appmode_address = 0;
-  int bootloader_address = 0;
-  char curr_version[MXT_FW_VER_LEN];
-  int adapter;
 
-  LOG(LOG_INFO, "Opening firmware file %s...", filename);
+  if (i2c_adapter >= 0 && i2c_address > 0)
+  {
+    ctx->i2c_adapter = i2c_adapter;
 
-  fp = fopen(filename, "r");
+    if (lookup_bootloader_addr(i2c_address) == -1)
+    {
+      LOG(LOG_INFO, "Trying bootloader");
 
-  if (fp == NULL)
+      ctx->bootloader_address = i2c_address;
+      ctx->appmode_address = -1;
+      return 0;
+    }
+
+    ctx->appmode_address = i2c_address;
+  }
+  else
+  {
+    /* Try to discover a maxtouch device under sysfs */
+    ret = mxt_scan();
+
+    if (ret < 1)
+    {
+      LOG(LOG_INFO, "Could not find a device");
+      return -1;
+    }
+
+    printf("Chip detected\n");
+    LOG(LOG_INFO, "Switching to i2c-dev mode");
+    ctx->i2c_adapter = sysfs_get_i2c_adapter();
+    ctx->appmode_address = sysfs_get_i2c_address();
+  }
+
+  i2c_dev_set_address(ctx->i2c_adapter, ctx->appmode_address);
+
+  ret = mxt_get_info();
+  if (ret)
+  {
+    printf("ERROR: could not read info block!\n");
+    return -1;
+  }
+
+  mxt_get_firmware_version((char *)&ctx->curr_version);
+  LOG(LOG_INFO, "Current firmware version: %s", ctx->curr_version);
+
+  if (ctx->check_version && !strcmp((char *)&ctx->curr_version, ctx->new_version))
+  {
+    printf("Firmware already requested version %s, exiting\n", ctx->curr_version);
+    return -1;
+  }
+  else
+  {
+    LOG(LOG_INFO, "Skipping version check");
+  }
+
+  /* Change to the bootloader mode */
+  printf("Resetting chip\n");
+  LOG(LOG_INFO, "Attempting to reset chip");
+
+  ret = mxt_reset_chip(true);
+  if (ret < 0)
+  {
+    LOG(LOG_ERROR, "Reset failure - aborting");
+    printf("ERROR: could not reset chip\n");
+    return -1;
+  }
+  else
+  {
+    sleep(MXT_RESET_TIME);
+  }
+
+  ctx->bootloader_address = lookup_bootloader_addr(ctx->appmode_address);
+
+  i2c_dev_release();
+
+  return 0;
+}
+
+int mxt_flash_firmware(const char *filename, const char *version,
+                       int i2c_adapter, int i2c_address)
+{
+  struct mxt_bootloader_context ctx;
+  int ret;
+
+  LOG(LOG_INFO, "Opening firmware file %s", filename);
+
+  ctx.fp = fopen(filename, "r");
+  if (ctx.fp == NULL)
   {
     LOG(LOG_ERROR, "Error opening %s!", filename);
     printf("ERROR: cannot open firmware file\n");
     return -1;
   }
 
-  /* Try to discover a maxtouch device under sysfs */
-  ret = mxt_scan();
-
-  if (ret == 1)
+  if (strlen(version) > 0)
   {
-    printf("Chip detected\n");
-    LOG(LOG_INFO, "Switching to i2c-dev mode");
+    ctx.check_version = true;
+    ctx.new_version = version;
+    LOG(LOG_DEBUG, "New firmware version is:%s", ctx.new_version);
+  }
+  else
+  {
+    ctx.check_version = false;
+    LOG(LOG_DEBUG, "check_version:%d", ctx.check_version);
+  }
 
-    adapter = sysfs_get_i2c_adapter();
-    appmode_address = sysfs_get_i2c_address();
-    i2c_dev_set_address(adapter, appmode_address);
+  ret = mxt_bootloader_init_chip(&ctx, i2c_adapter, i2c_address);
+  if (ret)
+    return ret;
 
-    ret = mxt_get_info();
-    if (ret) {
-      printf("ERROR: could not read info block!\n");
-    } else {
-      mxt_get_firmware_version((char *)&curr_version);
-      LOG(LOG_INFO, "Old firmware version: %s", curr_version);
-      if (!strcmp((char *)&curr_version, new_version)) {
-        printf("Firmware already correct version %s, exiting\n", curr_version);
-        return -1;
-      }
-
-      printf("Resetting chip\n");
-      LOG(LOG_INFO, "Attempting to reset chip");
-
-      /* Change to the bootloader mode */
-      ret = mxt_reset_chip(true);
-
-      if (ret < 0)
-      {
-        LOG(LOG_ERROR, "Reset failure - aborting");
-        printf("ERROR: could not reset chip\n");
-        return -1;
-      }
-      else
-      {
-        sleep(MXT_RESET_TIME);
-      }
-    }
-
-    switch (appmode_address)
-    {
-      case 0x4a:
-      case 0x4b:
-        /* 1188S/1664S use different scheme */
-        if (info_block.id->family_id == 0xa2)
-        {
-          bootloader_address = appmode_address - 0x24;
-          break;
-        }
-        /* Fall through for normal case */
-      case 0x4c:
-      case 0x4d:
-      case 0x5a:
-      case 0x5b:
-        bootloader_address = appmode_address - 0x26;
-        break;
-      default:
-        printf("Bootloader address not found!\n");
-        return -1;
-    }
-
-    /* Change to slave address of bootloader */
-    i2c_dev_release();
-    i2c_dev_set_address(adapter, bootloader_address);
-  } else {
-    LOG(LOG_INFO, "Could not find a device");
+  if (ctx.bootloader_address == -1)
+  {
+    printf("No bootloader address!\n");
     return -1;
   }
 
-  ret = send_frames(fp);
+  LOG(LOG_DEBUG, "i2c_adapter:%d", ctx.i2c_adapter);
+  LOG(LOG_DEBUG, "appmode_address:%d", ctx.appmode_address);
+  LOG(LOG_DEBUG, "bootloader_address:%d", ctx.bootloader_address);
+
+  /* Change to slave address of bootloader */
+  i2c_dev_set_address(ctx.i2c_adapter, ctx.bootloader_address);
+
+  ret = send_frames(&ctx);
   if (ret != 0)
     return ret;
 
-  i2c_dev_release();
-  i2c_dev_set_address(adapter, appmode_address);
+  if (ctx.appmode_address < 0)
+  {
+    printf("Sent all firmware frames\n");
+    return 0;
+  }
+
+  mxt_release();
+
+  i2c_dev_set_address(ctx.i2c_adapter, ctx.appmode_address);
   ret = mxt_get_info();
-
-  if (ret == 0)
+  if (ret != 0)
   {
-    mxt_get_firmware_version((char *)&curr_version);
-    if (!strcmp(curr_version, new_version))
-    {
-       printf("SUCCESS - version verified\n");
-       return 0;
-    }
-    else
-    {
-       printf("FAILURE - detected version is %s\n", curr_version);
-       return -1;
-    }
-  }
-  else
-  {
-       printf("FAILURE - chip did not reset\n");
-       return -1;
-  }
-}
-
-/*!
- * @brief  Entry point for the bootloader utility.
- * @return Zero on success, negative for error.
- */
-int main (int argc, char *argv[])
-{
-  char *filename;
-  char *version;
-
-  mxt_set_verbose(5);
-
-  setbuf(stdout, NULL);
-
-  printf("Bootloader tool for Atmel maXTouch chips version: %s\n\n",
-         __GIT_VERSION);
-
-  /* Parse input arguments */
-  if (argc == 3)
-  {
-    filename = argv[1];
-    LOG(LOG_INFO, "Filename %s", filename);
-
-    version = argv[2];
-    LOG(LOG_INFO, "Firmware version %s", version);
-  }
-  else
-  {
-    display_usage();
+    printf("FAILURE - chip did not reset\n");
     return -1;
   }
 
-  return flash_firmware(filename, version);
-}
+  mxt_get_firmware_version((char *)&ctx.curr_version);
 
-/*!
- * @brief  Display usage information.
- */
-static void display_usage()
-{
-  printf
-  (
-    "Usage: ./bootloader filename build\n"
-    "filename  Filename of firmware to be uploaded to the mXT chip.\n"
-  );
-}
+  if (!ctx.check_version)
+  {
+    printf("SUCCESS - version is %s\n", ctx.curr_version);
+    return 0;
+  }
 
+  if (!strcmp(ctx.curr_version, ctx.new_version))
+  {
+    printf("SUCCESS - version %s verified\n", ctx.curr_version);
+    return 0;
+  }
+  else
+  {
+    printf("FAILURE - detected version is %s\n", ctx.curr_version);
+    return -1;
+  }
+}

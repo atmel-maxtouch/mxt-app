@@ -47,6 +47,7 @@
 #include "gr.h"
 #include "bridge.h"
 #include "serial_data.h"
+#include "bootloader.h"
 
 #define BUF_SIZE 1024
 
@@ -72,6 +73,7 @@ typedef enum mxt_app_cmd_tag {
   CMD_BRIDGE_CLIENT,
   CMD_BRIDGE_SERVER,
   CMD_SERIAL_DATA,
+  CMD_FLASH
 } mxt_app_cmd;
 
 //******************************************************************************
@@ -358,6 +360,7 @@ static void print_usage(char *prog_name)
                   "  -R [--read]                : read from object\n"
                   "  -t [--test]                : run all self tests\n"
                   "  -W [--write]               : write to object\n"
+                  "  --flash                    : send firmware to bootloader\n"
                   "  -g                         : store golden references\n"
                   "\n"
                   "Valid options:\n"
@@ -373,7 +376,11 @@ static void print_usage(char *prog_name)
                   "  -S [--bridge-server]       : start TCP socket server\n"
                   "  -p [--port] PORT           : TCP port (default 4000)\n"
                   "\n"
-                  "For i2c-dev mode:\n"
+                  "For bootloader mode:\n"
+                  "  --firmware-version VERSION : Check firmware VERSION "
+                                                 "before and after flash\n"
+                  "\n"
+                  "For i2c-dev and bootloader mode:\n"
                   "  -d [--i2c-adapter] ADAPTER : i2c adapter, eg \"2\"\n"
                   "  -a [--i2c-address] ADDRESS : i2c address, eg \"4a\"\n"
                   "\n"
@@ -409,8 +416,10 @@ int main (int argc, char *argv[])
   uint16_t port = 4000;
   uint8_t t68_datatype = 1;
   unsigned char databuf[BUF_SIZE];
-  char hexbuf[BUF_SIZE];
+  char strbuf2[BUF_SIZE];
   char strbuf[BUF_SIZE];
+  strbuf[0] = '\0';
+  strbuf2[0] = '\0';
   mxt_app_cmd cmd = CMD_NONE;
 
   LOG(LOG_DEBUG, "Decoding cmd arguments");
@@ -426,6 +435,8 @@ int main (int argc, char *argv[])
       {"t68-file",     required_argument, 0, 0},
       {"t68-datatype", required_argument, 0, 0},
       {"format",       no_argument,       0, 'f'},
+      {"flash",        required_argument, 0, 0},
+      {"firmware-version", required_argument, 0, 0},
       {"help",         no_argument,       0, 'h'},
       {"instance",     required_argument, 0, 'I'},
       {"count",        required_argument, 0, 'n'},
@@ -462,6 +473,21 @@ int main (int argc, char *argv[])
         else if (!strcmp(long_options[option_index].name, "t68-datatype"))
         {
           t68_datatype = strtol(optarg, NULL, 0);
+        }
+        else if (!strcmp(long_options[option_index].name, "flash"))
+        {
+          if (cmd == CMD_NONE) {
+            cmd = CMD_FLASH;
+            strncpy(strbuf, optarg, sizeof(strbuf));
+            strbuf[sizeof(strbuf) - 1] = '\0';
+          } else {
+            print_usage(argv[0]);
+            return -1;
+          }
+        }
+        else if (!strcmp(long_options[option_index].name, "firmware-version"))
+        {
+          strncpy(strbuf2, optarg, sizeof(strbuf2));
         }
         else
         {
@@ -603,13 +629,16 @@ int main (int argc, char *argv[])
   LOG(LOG_DEBUG, "port:%u", port);
   LOG(LOG_DEBUG, "t68_datatype:%u", t68_datatype);
 
-  /* initialise chip */
-  ret = mxt_init_chip(i2c_adapter, i2c_address);
-  if (ret < 0)
-    return ret;
+  /* initialise chip, bootloader mode handles this itself */
+  if (cmd != CMD_FLASH)
+  {
+    ret = mxt_init_chip(i2c_adapter, i2c_address);
+    if (ret < 0)
+      return ret;
 
-  /*! Turn on kernel dmesg output of MSG */
-  mxt_set_debug(true);
+    /*! Turn on kernel dmesg output of MSG */
+    mxt_set_debug(true);
+  }
 
   switch (cmd) {
     case CMD_WRITE:
@@ -693,8 +722,8 @@ int main (int argc, char *argv[])
         } else {
           strbuf[0] = '\0';
           for (i = 0; i < count; i++) {
-            sprintf(hexbuf, "%02X ", databuf[i]);
-            strncat(strbuf, hexbuf, BUF_SIZE - 1);
+            sprintf(strbuf2, "%02X ", databuf[i]);
+            strncat(strbuf, strbuf2, BUF_SIZE - 1);
           }
 
           printf("%s\n", strbuf);
@@ -722,6 +751,10 @@ int main (int argc, char *argv[])
     case CMD_TEST:
       LOG(LOG_DEBUG, "Running all tests");
       ret = run_self_tests(SELF_TEST_ALL);
+      break;
+
+    case CMD_FLASH:
+      ret = mxt_flash_firmware(strbuf, strbuf2, i2c_adapter, i2c_address);
       break;
 
     case CMD_NONE:
