@@ -74,17 +74,15 @@ static int scan_sysfs_directory(struct dirent *i2c_dir,
   bool debug_found = false;
   int ret = 0;
 
-  length = strlen(dirname) + strlen(i2c_dir->d_name) + 1;
+  length = strlen(dirname) + strlen(i2c_dir->d_name) + 2;
 
-  if ((pszDirname = (char *)malloc(length+1)) == NULL)
+  if ((pszDirname = (char *)malloc(length)) == NULL)
   {
     ret = -1;
     goto free;
   }
 
-  strncpy(pszDirname, dirname, length);
-  strncat(pszDirname, "/", length);
-  strncat(pszDirname, i2c_dir->d_name, length);
+  snprintf(pszDirname, length, "%s/%s", dirname, i2c_dir->d_name);
 
   LOG(LOG_DEBUG, "Checking %s", pszDirname);
 
@@ -118,11 +116,11 @@ static int scan_sysfs_directory(struct dirent *i2c_dir,
     gpDevice->address = address;
 
     gpDevice->path[0] = '\0';
-    strcpy(gpDevice->path, pszDirname);
+    memcpy(gpDevice->path, pszDirname, strlen(pszDirname) + 1);
 
     // Cache memory access path for fast access
-    strcpy(gpDevice->mem_access_path, pszDirname);
-    strncat(gpDevice->mem_access_path, "/mem_access", strlen(pszDirname) + 20);
+    snprintf(gpDevice->mem_access_path, strlen(pszDirname) + 20,
+             "%s/mem_access", pszDirname);
 
     LOG(LOG_INFO, "Registered sysfs adapter:%d address:%x path:%s",
           gpDevice->adapter, gpDevice->address, gpDevice->path);
@@ -163,16 +161,15 @@ static int scan_driver_directory(const char *path, struct dirent *dir)
       && (strcmp(dir->d_name, "maXTouch") != 0))
     return 0;
 
-  length = strlen(path) + strlen(dir->d_name);
+  length = strlen(path) + strlen(dir->d_name) + 1;
 
-  if ((pszDirname = (char *)malloc(length+1)) == NULL)
+  if ((pszDirname = (char *)malloc(length)) == NULL)
   {
     LOG(LOG_DEBUG, "malloc failure");
     return -1;
   }
 
-  strncpy(pszDirname, path, length);
-  strncat(pszDirname, dir->d_name, length);
+  snprintf(pszDirname, length, "%s%s", path, dir->d_name);
 
   pDirectory = opendir(pszDirname);
 
@@ -407,9 +404,7 @@ close:
 /// \brief Construct filename of path
 static char *make_path(const char *filename)
 {
-  strncpy(tempPath, gpDevice->path, PATH_LENGTH);
-  strncat(tempPath, "/", PATH_LENGTH);
-  strncat(tempPath, filename, PATH_LENGTH);
+  snprintf(tempPath, PATH_LENGTH, "%s/%s", gpDevice->path, filename);
 
   return &tempPath[0];
 }
