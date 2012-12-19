@@ -36,11 +36,22 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "libmaxtouch/libmaxtouch.h"
-#include "libmaxtouch/info_block.h"
-#include "libmaxtouch/info_block_driver.h"
+#include "libmaxtouch.h"
+#include "info_block.h"
+#include "info_block_driver.h"
+#include "log.h"
 #include "utilfuncs.h"
 
+#define BYTETOBINARYPATTERN "%d%d%d%d %d%d%d%d"
+#define BYTETOBINARY(byte)  \
+  (byte & 0x80 ? 1 : 0), \
+  (byte & 0x40 ? 1 : 0), \
+  (byte & 0x20 ? 1 : 0), \
+  (byte & 0x10 ? 1 : 0), \
+  (byte & 0x08 ? 1 : 0), \
+  (byte & 0x04 ? 1 : 0), \
+  (byte & 0x02 ? 1 : 0), \
+  (byte & 0x01 ? 1 : 0)
 
 void print_info_block()
 {
@@ -284,36 +295,73 @@ void write_to_object(int obj_num)
   }
 }
 
-
-void read_object(int obj_num)
+int read_object(uint16_t object_type, uint8_t instance, uint16_t address, size_t count, bool format)
 {
-  uint8_t obj_tbl_num;
-  uint8_t *temp;
-  int i;
+  uint8_t *databuf;
+  uint16_t object_address = 0;
+  uint16_t i;
+  int ret;
 
-  obj_tbl_num = get_object_table_num(obj_num);
-
-  temp = (uint8_t *)malloc(sizeof(char)*(info_block.objects[obj_tbl_num].size+1));
-  if (temp == NULL)
+  if (object_type > 0)
   {
-    fputs ("Memory error\n",stderr);
-    exit (2);
-  }
+    object_address = get_object_address(object_type, instance);
+    if (object_address == OBJECT_NOT_FOUND) {
+      printf("No such object\n");
+      return -1;
+    }
 
-  if(obj_tbl_num == 255)
-  {
-    printf("Object not found\n");
-  }
-  else
-  {
-    printf("%s:\n", objname(info_block.objects[obj_tbl_num].object_type));
-    mxt_read_register(temp, get_start_position(info_block.objects[obj_tbl_num]), info_block.objects[obj_tbl_num].size+1);
+    LOG(LOG_DEBUG, "T%u address:%u offset:%u", object_type,
+        object_address, address);
+    address = object_address + address;
 
-    for(i=0; i<(info_block.objects[obj_tbl_num].size+1); i++)
-    {
-      printf("Object element %d =\t %d\n",i, *(temp+i));
+    if (count == 0) {
+      count = get_object_size(object_type);
     }
   }
+  else if (count == 0)
+  {
+    LOG(LOG_ERROR, "No length information");
+    return -1;
+  }
+
+  databuf = (uint8_t *)malloc(sizeof(uint8_t)*count);
+  if (databuf == NULL)
+  {
+    LOG(LOG_ERROR, "Memory allocation failure");
+    return -1;
+  }
+
+  ret = mxt_read_register(databuf, address, count);
+  if (ret < 0) {
+    printf("Read error\n");
+    goto free;
+  }
+
+  if (format)
+  {
+    if (object_type > 0)
+      printf("%s\n\n", objname(object_type));
+
+    for (i = 0; i < count; i++) {
+      printf("%02d:\t0x%02X\t%3d\t" BYTETOBINARYPATTERN "\n",
+          address - object_address + i,
+          databuf[i],
+          databuf[i],
+          BYTETOBINARY(databuf[i]));
+    }
+  } else {
+    for (i = 0; i < count; i++) {
+      printf("%02X ", databuf[i]);
+    }
+
+    printf("\n");
+  }
+
+  ret = 0;
+
+free:
+  free(databuf);
+  return ret;
 }
 
 void print_objs()

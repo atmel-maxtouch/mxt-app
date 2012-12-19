@@ -51,17 +51,6 @@
 
 #define BUF_SIZE 1024
 
-#define BYTETOBINARYPATTERN "%d%d%d%d %d%d%d%d"
-#define BYTETOBINARY(byte)  \
-  (byte & 0x80 ? 1 : 0), \
-  (byte & 0x40 ? 1 : 0), \
-  (byte & 0x20 ? 1 : 0), \
-  (byte & 0x10 ? 1 : 0), \
-  (byte & 0x08 ? 1 : 0), \
-  (byte & 0x04 ? 1 : 0), \
-  (byte & 0x02 ? 1 : 0), \
-  (byte & 0x01 ? 1 : 0)
-
 //******************************************************************************
 /// \brief Commands for mxt-app
 typedef enum mxt_app_cmd_tag {
@@ -148,7 +137,7 @@ static void read_object_command(void)
 
       if ((obj_num >= 0) && (obj_num < 255))
       {
-         read_object(obj_num);
+         read_object(obj_num, 0, 0, 0, true);
       }
       else if (obj_num == 255)
       {
@@ -409,7 +398,6 @@ int main (int argc, char *argv[])
 {
   int ret;
   int c;
-  int i;
   uint16_t address = 0;
   uint16_t object_address = 0;
   uint8_t count = 0;
@@ -718,54 +706,7 @@ int main (int argc, char *argv[])
 
     case CMD_READ:
       LOG(LOG_DEBUG, "Read command");
-
-      if (object_type > 0) {
-        object_address = get_object_address(object_type, instance);
-        if (object_address == OBJECT_NOT_FOUND) {
-          printf("No such object\n");
-          ret = -1;
-          break;
-        }
-
-        LOG(LOG_DEBUG, "T%u address:%u offset:%u", object_type,
-            object_address, address);
-        address = object_address + address;
-
-        if (count == 0) {
-          count = get_object_size(object_type);
-        }
-      } else if (count == 0) {
-        printf("Not enough arguments!\n");
-        return -1;
-      }
-
-      ret = mxt_read_register(&databuf[0], address, count);
-      if (ret < 0) {
-        printf("Error in read\n");
-      } else {
-        if (format)
-        {
-          if (object_type > 0)
-            printf("%s\n\n", objname(object_type));
-
-          for (i = 0; i < count; i++) {
-            printf("%02d:\t0x%02X\t%3d\t" BYTETOBINARYPATTERN "\n",
-                   address - object_address + i,
-                   databuf[i],
-                   databuf[i],
-                   BYTETOBINARY(databuf[i]));
-          }
-        } else {
-          strbuf[0] = '\0';
-          for (i = 0; i < count; i++) {
-            sprintf(strbuf2, "%02X ", databuf[i]);
-            strncat(strbuf, strbuf2, BUF_SIZE - 1);
-          }
-
-          printf("%s\n", strbuf);
-        }
-      }
-      ret = 0;
+      ret = read_object(object_type, instance, address, count, format);
       break;
 
     case CMD_GOLDEN_REFERENCES:
