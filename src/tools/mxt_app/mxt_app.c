@@ -357,6 +357,7 @@ static void print_usage(char *prog_name)
                   "  --reset-bootloader         : reset device in bootloader mode\n"
                   "  --backup                   : backup configuration to NVRAM\n"
                   "  -g                         : store golden references\n"
+                  "  --version                  : print version\n"
                   "\n"
                   "Valid options:\n"
                   "  -n [--count] COUNT         : read/write COUNT registers\n"
@@ -444,6 +445,7 @@ int main (int argc, char *argv[])
       {"test",         no_argument,       0, 't'},
       {"type",         required_argument, 0, 'T'},
       {"verbose",      required_argument, 0, 'v'},
+      {"version",      no_argument,       0, 0},
       {"write",        no_argument,       0, 'W'},
       {0,              0,                 0,  0 }
     };
@@ -512,6 +514,11 @@ int main (int argc, char *argv[])
         else if (!strcmp(long_options[option_index].name, "firmware-version"))
         {
           strncpy(strbuf2, optarg, sizeof(strbuf2));
+        }
+        else if (!strcmp(long_options[option_index].name, "version"))
+        {
+          printf("mxt-app %s\n", __GIT_VERSION);
+          return 0;
         }
         else
         {
