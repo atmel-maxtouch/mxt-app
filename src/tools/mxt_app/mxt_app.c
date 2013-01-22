@@ -352,7 +352,7 @@ static void print_usage(char *prog_name)
                   "  -R [--read]                : read from object\n"
                   "  -t [--test]                : run all self tests\n"
                   "  -W [--write]               : write to object\n"
-                  "  --flash                    : send firmware to bootloader\n"
+                  "  --flash FIRMWARE           : send FIRMWARE to bootloader\n"
                   "  --reset                    : reset device\n"
                   "  --reset-bootloader         : reset device in bootloader mode\n"
                   "  --backup                   : backup configuration to NVRAM\n"
