@@ -385,10 +385,10 @@ static void print_usage(char *prog_name)
                   "  --t68-datatype DATATYPE    : Select DATATYPE\n"
                   "\n"
                   "Examples:\n"
-                  "  %s -R -n7 -r0              : Read info block\n"
-                  "  %s -R -T9 --format         : Read T9 object, formatted output\n"
-                  "  %s -W -T38 000000          : Zero first three bytes of T38\n"
-                  "  %s --test                  : run self tests\n",
+                  "  %s -R -n7 -r0      : Read info block\n"
+                  "  %s -R -T9 --format : Read T9 object, formatted output\n"
+                  "  %s -W -T7 0000     : Zero first two bytes of T7\n"
+                  "  %s --test          : run self tests\n",
                   __GIT_VERSION,
                   prog_name, prog_name, prog_name, prog_name, prog_name);
 }
