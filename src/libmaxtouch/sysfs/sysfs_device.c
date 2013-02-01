@@ -152,10 +152,7 @@ static int scan_driver_directory(const char *path, struct dirent *dir)
 
   /* Driver name must match otherwise return zero devices found */
   if ((strcmp(dir->d_name, "qt602240_ts") != 0)
-      && (strcmp(dir->d_name, "Atmel MXT224") != 0)
-      && (strcmp(dir->d_name, "Atmel MXT540E") != 0)
-      && (strcmp(dir->d_name, "Atmel MXT540S") != 0)
-      && (strcmp(dir->d_name, "Atmel MXT768E") != 0)
+      && (strncmp(dir->d_name, "Atmel MXT", 9) != 0)
       && (strcmp(dir->d_name, "atmel_mxt_ts") != 0)
       && (strcmp(dir->d_name, "sec_touch") != 0)
       && (strcmp(dir->d_name, "maXTouch") != 0))
