@@ -109,6 +109,11 @@
 #define PROCG_SIMPLEGESTUREPROCESSOR_T74          74u
 #define MOTION_SENSING_OBJECT_T75                 75u
 #define PROCI_MOTION_GESTURES_T76                 76u
+#define SPT_CTESCANCONFIG_T77                     77u
+#define TOUCH_MULTITOUCHSCREEN_T100               100u
+#define SPT_TOUCHSCREENHOVER_T101                 101u
+#define SPT_SELFCAPHOVERCTECONFIG_T102            102u
+#define PROCI_SCHNOISESUPPRESSION_T103            103u
 #define RESERVED_T255                             255u
 
 /*! Returned by get_object_address() if object is not found. */
