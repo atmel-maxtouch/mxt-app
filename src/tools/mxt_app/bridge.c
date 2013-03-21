@@ -327,8 +327,8 @@ int mxt_socket_server(uint16_t portno)
     return -errno;
   }
 
-  /* Wait for connection */
-  LOG(LOG_INFO, "Waiting for connection");
+  /* This string is used by ADB bridge client to signal it can connect */
+  printf("AWAITING_CONNECTION\n");
   clientsock = accept(serversock, (struct sockaddr *) &client_addr, &sin_size);
   if (clientsock < 0)
   {
