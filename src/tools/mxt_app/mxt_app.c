@@ -309,6 +309,8 @@ static int mxt_init_chip(int adapter, int address)
 
   if (adapter >= 0 && address > 0)
   {
+    LOG(LOG_DEBUG, "i2c_address:%u", address);
+    LOG(LOG_DEBUG, "i2c_adapter:%u", adapter);
     ret = i2c_dev_set_address(adapter, address);
     if (ret < 0)
     {
@@ -416,8 +418,6 @@ int main (int argc, char *argv[])
   strbuf[0] = '\0';
   strbuf2[0] = '\0';
   mxt_app_cmd cmd = CMD_NONE;
-
-  LOG(LOG_DEBUG, "Decoding cmd arguments");
 
   while (1)
   {
@@ -627,6 +627,7 @@ int main (int argc, char *argv[])
         if (optarg) {
           verbose = strtol(optarg, NULL, 0);
           mxt_set_verbose(verbose);
+          LOG(LOG_DEBUG, "verbose:%u", verbose);
         }
         break;
 
@@ -647,18 +648,17 @@ int main (int argc, char *argv[])
     }
   }
 
+  /* Debug does not work until mxt_set_verbose() is called */
   LOG(LOG_DEBUG, "Version:%s", __GIT_VERSION);
-  LOG(LOG_DEBUG, "cmd:%u", cmd);
-  LOG(LOG_DEBUG, "i2c_address:%u", i2c_address);
-  LOG(LOG_DEBUG, "i2c_adapter:%u", i2c_adapter);
-  LOG(LOG_DEBUG, "format:%s", format ? "true" : "false");
-  LOG(LOG_DEBUG, "instance:%u", instance);
-  LOG(LOG_DEBUG, "count:%u", count);
-  LOG(LOG_DEBUG, "address:%u", address);
-  LOG(LOG_DEBUG, "object_type:%u", object_type);
-  LOG(LOG_DEBUG, "verbose:%u", verbose);
-  LOG(LOG_DEBUG, "port:%u", port);
-  LOG(LOG_DEBUG, "t68_datatype:%u", t68_datatype);
+
+  if (cmd == CMD_WRITE || cmd == CMD_READ)
+  {
+    LOG(LOG_DEBUG, "instance:%u", instance);
+    LOG(LOG_DEBUG, "count:%u", count);
+    LOG(LOG_DEBUG, "address:%u", address);
+    LOG(LOG_DEBUG, "object_type:%u", object_type);
+    LOG(LOG_DEBUG, "format:%s", format ? "true" : "false");
+  }
 
   /* initialise chip, bootloader mode handles this itself */
   if (cmd != CMD_FLASH)
@@ -717,44 +717,55 @@ int main (int argc, char *argv[])
       break;
 
     case CMD_GOLDEN_REFERENCES:
+      LOG(LOG_DEBUG, "CMD_GOLDEN_REFERENCES");
       ret = mxt_store_golden_refs();
       break;
 
     case CMD_BRIDGE_SERVER:
+      LOG(LOG_DEBUG, "CMD_BRIDGE_SERVER");
+      LOG(LOG_DEBUG, "port:%u", port);
       ret = mxt_socket_server(port);
       break;
 
     case CMD_BRIDGE_CLIENT:
+      LOG(LOG_DEBUG, "CMD_BRIDGE_CLIENT");
       ret = mxt_socket_client(strbuf, port);
       break;
 
     case CMD_SERIAL_DATA:
+      LOG(LOG_DEBUG, "CMD_SERIAL_DATA");
+      LOG(LOG_DEBUG, "t68_datatype:%u", t68_datatype);
       ret = mxt_serial_data_upload(strbuf, t68_datatype);
       break;
 
     case CMD_TEST:
-      LOG(LOG_DEBUG, "Running all tests");
+      LOG(LOG_DEBUG, "CMD_TEST");
       ret = run_self_tests(SELF_TEST_ALL);
       break;
 
     case CMD_FLASH:
+      LOG(LOG_DEBUG, "CMD_FLASH");
       ret = mxt_flash_firmware(strbuf, strbuf2, i2c_adapter, i2c_address);
       break;
 
     case CMD_RESET:
+      LOG(LOG_DEBUG, "CMD_RESET");
       ret = mxt_reset_chip(false);
       break;
 
     case CMD_RESET_BOOTLOADER:
+      LOG(LOG_DEBUG, "CMD_RESET_BOOTLOADER");
       ret = mxt_reset_chip(true);
       break;
 
     case CMD_BACKUP:
+      LOG(LOG_DEBUG, "CMD_BACKUP");
       ret = mxt_backup_config();
       break;
 
     case CMD_NONE:
     default:
+      LOG(LOG_DEBUG, "cmd: %d", cmd);
       ret = mxt_menu();
       break;
   }
