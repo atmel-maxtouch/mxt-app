@@ -1,4 +1,4 @@
-obp-utils
+obp-utils {#mainpage}
 =========
 
 Command line utilities for Atmel maXTouch chips which use the Object Based Protocol (OBP).
