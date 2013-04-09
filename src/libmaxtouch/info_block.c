@@ -147,8 +147,6 @@ int read_information_block()
     return -1;
   }
 
-  LOG(LOG_VERBOSE, "Successfully read and stored the ID Information");
-
   /* Determine the number of data bytes in Information Block for checksum calculation */
   crc_area_size = NUM_ID_BYTES + num_declared_objects * sizeof(object_t);
 
@@ -170,8 +168,6 @@ int read_information_block()
     LOG(LOG_ERROR, "Failed to read the Information Block");
     return -1;
   }
-
-  LOG(LOG_VERBOSE, "Successfully read and stored the Information Block data");
 
   /*
    * id, objects, and crc pointers should be pointing
@@ -196,7 +192,7 @@ int read_information_block()
     return -1;
   }
 
-  LOG(LOG_VERBOSE, "Successfully matched and stored the Information Block Checksum");
+  LOG(LOG_VERBOSE, "Information Block read successfully");
 
   return 0;
 
