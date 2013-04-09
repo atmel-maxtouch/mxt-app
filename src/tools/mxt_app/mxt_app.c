@@ -65,7 +65,8 @@ typedef enum mxt_app_cmd_tag {
   CMD_FLASH,
   CMD_RESET,
   CMD_RESET_BOOTLOADER,
-  CMD_BACKUP
+  CMD_BACKUP,
+  CMD_CALIBRATE,
 } mxt_app_cmd;
 
 //******************************************************************************
@@ -358,6 +359,7 @@ static void print_usage(char *prog_name)
                   "  --reset                    : reset device\n"
                   "  --reset-bootloader         : reset device in bootloader mode\n"
                   "  --backup                   : backup configuration to NVRAM\n"
+                  "  --calibrate                : send calibrate command\n"
                   "  -g                         : store golden references\n"
                   "  --version                  : print version\n"
                   "\n"
@@ -424,30 +426,31 @@ int main (int argc, char *argv[])
     int option_index = 0;
 
     static struct option long_options[] = {
-      {"i2c-address",  required_argument, 0, 'a'},
-      {"backup",        no_argument,      0, 0},
-      {"bridge-client",required_argument, 0, 'C'},
-      {"i2c-adapter",  required_argument, 0, 'd'},
-      {"t68-file",     required_argument, 0, 0},
-      {"t68-datatype", required_argument, 0, 0},
-      {"format",       no_argument,       0, 'f'},
-      {"flash",        required_argument, 0, 0},
+      {"i2c-address",      required_argument, 0, 'a'},
+      {"backup",           no_argument,       0, 0},
+      {"bridge-client",    required_argument, 0, 'C'},
+      {"calibrate",        no_argument,       0, 0},
+      {"i2c-adapter",      required_argument, 0, 'd'},
+      {"t68-file",         required_argument, 0, 0},
+      {"t68-datatype",     required_argument, 0, 0},
+      {"format",           no_argument,       0, 'f'},
+      {"flash",            required_argument, 0, 0},
       {"firmware-version", required_argument, 0, 0},
-      {"help",         no_argument,       0, 'h'},
-      {"instance",     required_argument, 0, 'I'},
-      {"count",        required_argument, 0, 'n'},
-      {"port",         required_argument, 0, 'p'},
-      {"read",         no_argument,       0, 'R'},
-      {"reset",        no_argument,       0, 0},
+      {"help",             no_argument,       0, 'h'},
+      {"instance",         required_argument, 0, 'I'},
+      {"count",            required_argument, 0, 'n'},
+      {"port",             required_argument, 0, 'p'},
+      {"read",             no_argument,       0, 'R'},
+      {"reset",            no_argument,       0, 0},
       {"reset-bootloader", no_argument,       0, 0},
-      {"register",     required_argument, 0, 'r'},
-      {"bridge-server",no_argument,       0, 'S'},
-      {"test",         no_argument,       0, 't'},
-      {"type",         required_argument, 0, 'T'},
-      {"verbose",      required_argument, 0, 'v'},
-      {"version",      no_argument,       0, 0},
-      {"write",        no_argument,       0, 'W'},
-      {0,              0,                 0,  0 }
+      {"register",         required_argument, 0, 'r'},
+      {"bridge-server",    no_argument,       0, 'S'},
+      {"test",             no_argument,       0, 't'},
+      {"type",             required_argument, 0, 'T'},
+      {"verbose",          required_argument, 0, 'v'},
+      {"version",          no_argument,       0, 0},
+      {"write",            no_argument,       0, 'W'},
+      {0,                  0,                 0,  0 }
     };
 
     c = getopt_long(argc, argv, "a:C:d:D:fghI:n:p:Rr:StT:v:W", long_options, &option_index);
@@ -488,6 +491,15 @@ int main (int argc, char *argv[])
         {
           if (cmd == CMD_NONE) {
             cmd = CMD_BACKUP;
+          } else {
+            print_usage(argv[0]);
+            return -1;
+          }
+        }
+        else if (!strcmp(long_options[option_index].name, "calibrate"))
+        {
+          if (cmd == CMD_NONE) {
+            cmd = CMD_CALIBRATE;
           } else {
             print_usage(argv[0]);
             return -1;
@@ -761,6 +773,11 @@ int main (int argc, char *argv[])
     case CMD_BACKUP:
       LOG(LOG_DEBUG, "CMD_BACKUP");
       ret = mxt_backup_config();
+      break;
+
+    case CMD_CALIBRATE:
+      LOG(LOG_DEBUG, "CMD_CALIBRATE");
+      ret = mxt_calibrate_chip();
       break;
 
     case CMD_NONE:
