@@ -67,6 +67,7 @@ When run with no options, access menu interface.
     --reset                    : reset device
     --reset-bootloader         : reset device in bootloader mode
     --backup                   : backup configuration to NVRAM
+    --calibrate                : send calibrate command
     -g                         : store golden references
     --version                  : print version
 
