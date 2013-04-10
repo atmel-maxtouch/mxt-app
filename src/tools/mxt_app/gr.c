@@ -41,8 +41,7 @@
 #include "libmaxtouch/utilfuncs.h"
 #include "libmaxtouch/log.h"
 
-#include "touch_app.h"
-#include "gr.h"
+#include "mxt_app.h"
 
 #define GR_CTRL              0
 

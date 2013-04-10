@@ -44,7 +44,7 @@
 #include "libmaxtouch/info_block.h"
 #include "libmaxtouch/log.h"
 
-#include "diagnostic_data.h"
+#include "mxt_app.h"
 
 /* GEN_COMMANDPROCESSOR_T6 Register offsets from T6 base address */
 #define MXT_CP_T6_RESET_OFFSET      0x00

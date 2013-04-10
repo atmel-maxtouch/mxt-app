@@ -41,7 +41,7 @@
 #include "libmaxtouch/info_block.h"
 #include "libmaxtouch/log.h"
 
-#include "touch_app.h"
+#include "mxt_app.h"
 
 //******************************************************************************
 /// \brief Print input events

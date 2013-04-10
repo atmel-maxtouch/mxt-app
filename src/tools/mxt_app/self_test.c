@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 /// \file   self_test.c
-/// \brief  Self test functions
+/// \brief  T25 Self Test functions
 /// \author Nick Dyer
 //------------------------------------------------------------------------------
 // Copyright 2012 Atmel Corporation. All rights reserved.
@@ -40,7 +40,7 @@
 #include "libmaxtouch/info_block.h"
 #include "libmaxtouch/utilfuncs.h"
 
-#include "self_test.h"
+#include "mxt_app.h"
 
 //******************************************************************************
 /// \brief Handle messages from the self test object

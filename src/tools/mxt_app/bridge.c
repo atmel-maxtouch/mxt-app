@@ -42,7 +42,7 @@
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/utilfuncs.h"
 
-#include "bridge.h"
+#include "mxt_app.h"
 
 #define BUF_SIZE 1024
 

@@ -39,7 +39,7 @@
 #include "libmaxtouch/i2c_dev/i2c_dev_device.h"
 #include "libmaxtouch/sysfs/sysfs_device.h"
 
-#include "bootloader.h"
+#include "mxt_app.h"
 
 #define MXT_UNLOCK_CMD_MSB      0xaa
 #define MXT_UNLOCK_CMD_LSB      0xdc

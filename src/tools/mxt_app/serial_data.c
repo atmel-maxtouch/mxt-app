@@ -42,8 +42,7 @@
 #include "libmaxtouch/utilfuncs.h"
 #include "libmaxtouch/log.h"
 
-#include "touch_app.h"
-#include "serial_data.h"
+#include "mxt_app.h"
 
 #define T68_CTRL                   0
 #define T68_CTRL_ENABLE            (1 << 0)

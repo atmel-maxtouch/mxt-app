@@ -51,6 +51,7 @@ mxt_app_LDADD = libmaxtouch.la
 EXTRA_mxt_app_DEPENDENCIES = obp-version
 mxt_app_SOURCES =\
 	src/tools/mxt_app/mxt_app.c \
+	src/tools/mxt_app/menu.c \
 	src/tools/mxt_app/bootloader.c \
 	src/tools/mxt_app/diagnostic_data.c \
 	src/tools/mxt_app/touch_app.c \
