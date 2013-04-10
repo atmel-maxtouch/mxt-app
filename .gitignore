@@ -18,7 +18,6 @@ doc/Makefile
 doc/Makefile.in
 missing
 mxt-app
-mxt-bootloader
 mxt-config-loader
 mxt-debug-dump
 autom4te.cache/
