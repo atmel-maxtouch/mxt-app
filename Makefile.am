@@ -27,8 +27,7 @@ AM_LDFLAGS = \
 
 bin_PROGRAMS = \
   mxt-app \
-  mxt-config-loader \
-  mxt-debug-dump
+  mxt-config-loader
 noinst_LTLIBRARIES = libmaxtouch.la
 
 libmaxtouch_la_SOURCES =\
@@ -55,16 +54,12 @@ EXTRA_mxt_config_loader_DEPENDENCIES = obp-version
 mxt_config_loader_SOURCES = \
 	src/tools/mxt_config_loader/mxt_config_loader.c
 
-mxt_debug_dump_LDADD = libmaxtouch.la
-EXTRA_mxt_debug_dump_DEPENDENCIES = obp-version
-mxt_debug_dump_SOURCES = \
-	src/tools/mxt_debug_dump/mxt_debug_dump.c
-
 mxt_app_LDADD = libmaxtouch.la
 EXTRA_mxt_app_DEPENDENCIES = obp-version
 mxt_app_SOURCES =\
 	src/tools/mxt_app/mxt_app.c \
 	src/tools/mxt_app/bootloader.c \
+	src/tools/mxt_app/diagnostic_data.c \
 	src/tools/mxt_app/touch_app.c \
 	src/tools/mxt_app/self_test.c \
 	src/tools/mxt_app/bridge.c \

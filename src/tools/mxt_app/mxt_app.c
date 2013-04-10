@@ -48,6 +48,7 @@
 #include "bridge.h"
 #include "serial_data.h"
 #include "bootloader.h"
+#include "diagnostic_data.h"
 
 #define BUF_SIZE 1024
 
@@ -67,6 +68,7 @@ typedef enum mxt_app_cmd_tag {
   CMD_RESET_BOOTLOADER,
   CMD_BACKUP,
   CMD_CALIBRATE,
+  CMD_DEBUG_DUMP,
 } mxt_app_cmd;
 
 //******************************************************************************
@@ -257,6 +259,9 @@ static bool mxt_app_command(char selection)
       /* Display raw messages */
       print_raw_messages();
       break;
+    case 'u':
+      mxt_dd_menu();
+      break;
     case 'q':
       printf("Quitting the maxtouch application\n");
       exit_loop = 1;
@@ -293,6 +298,7 @@ static int mxt_menu(void)
        "Enter A:   C(A)librate the maxtouch device\n"
        "Enter E:   Display the input (E)vents from the device\n"
        "Enter M:   Display raw (M)essages\n"
+       "Enter U:   D(U)mp Diagnostic data\n"
        "Enter Q:   (Q)uit the application\n");
 
      if (scanf("%1s", &menu_input) == 1)
@@ -360,6 +366,7 @@ static void print_usage(char *prog_name)
                   "  --reset-bootloader         : reset device in bootloader mode\n"
                   "  --backup                   : backup configuration to NVRAM\n"
                   "  --calibrate                : send calibrate command\n"
+                  "  --debug-dump FILE          : capture diagnostic data to FILE\n"
                   "  -g                         : store golden references\n"
                   "  --version                  : print version\n"
                   "\n"
@@ -379,6 +386,10 @@ static void print_usage(char *prog_name)
                   "For bootloader mode:\n"
                   "  --firmware-version VERSION : Check firmware VERSION "
                                                  "before and after flash\n"
+                  "\n"
+                  "For T37 diagnostic data:\n"
+                  "  --frames N                 : Capture N frames of data\n"
+                  "  --references               : Dump references data\n"
                   "\n"
                   "For i2c-dev and bootloader mode:\n"
                   "  -d [--i2c-adapter] ADAPTER : i2c adapter, eg \"2\"\n"
@@ -411,6 +422,8 @@ int main (int argc, char *argv[])
   uint16_t object_type = 0;
   uint8_t instance = 0;
   uint8_t verbose = 0;
+  uint16_t t37_frames = 1;
+  uint8_t t37_mode = DELTAS_MODE;
   bool format = false;
   uint16_t port = 4000;
   uint8_t t68_datatype = 1;
@@ -430,12 +443,14 @@ int main (int argc, char *argv[])
       {"backup",           no_argument,       0, 0},
       {"bridge-client",    required_argument, 0, 'C'},
       {"calibrate",        no_argument,       0, 0},
+      {"debug-dump",       required_argument, 0, 0},
       {"i2c-adapter",      required_argument, 0, 'd'},
       {"t68-file",         required_argument, 0, 0},
       {"t68-datatype",     required_argument, 0, 0},
       {"format",           no_argument,       0, 'f'},
       {"flash",            required_argument, 0, 0},
       {"firmware-version", required_argument, 0, 0},
+      {"frames",           required_argument, 0, 0},
       {"help",             no_argument,       0, 'h'},
       {"instance",         required_argument, 0, 'I'},
       {"count",            required_argument, 0, 'n'},
@@ -444,6 +459,7 @@ int main (int argc, char *argv[])
       {"reset",            no_argument,       0, 0},
       {"reset-bootloader", no_argument,       0, 0},
       {"register",         required_argument, 0, 'r'},
+      {"references",       no_argument,       0, 0},
       {"bridge-server",    no_argument,       0, 'S'},
       {"test",             no_argument,       0, 't'},
       {"type",             required_argument, 0, 'T'},
@@ -505,6 +521,17 @@ int main (int argc, char *argv[])
             return -1;
           }
         }
+        else if (!strcmp(long_options[option_index].name, "debug-dump"))
+        {
+          if (cmd == CMD_NONE) {
+            cmd = CMD_DEBUG_DUMP;
+            strncpy(strbuf, optarg, sizeof(strbuf));
+            strbuf[sizeof(strbuf) - 1] = '\0';
+          } else {
+            print_usage(argv[0]);
+            return -1;
+          }
+        }
         else if (!strcmp(long_options[option_index].name, "reset"))
         {
           if (cmd == CMD_NONE) {
@@ -526,6 +553,14 @@ int main (int argc, char *argv[])
         else if (!strcmp(long_options[option_index].name, "firmware-version"))
         {
           strncpy(strbuf2, optarg, sizeof(strbuf2));
+        }
+        else if (!strcmp(long_options[option_index].name, "frames"))
+        {
+          t37_frames = strtol(optarg, NULL, 0);
+        }
+        else if (!strcmp(long_options[option_index].name, "references"))
+        {
+          t37_mode = REFS_MODE;
         }
         else if (!strcmp(long_options[option_index].name, "version"))
         {
@@ -778,6 +813,13 @@ int main (int argc, char *argv[])
     case CMD_CALIBRATE:
       LOG(LOG_DEBUG, "CMD_CALIBRATE");
       ret = mxt_calibrate_chip();
+      break;
+
+    case CMD_DEBUG_DUMP:
+      LOG(LOG_DEBUG, "CMD_DEBUG_DUMP");
+      LOG(LOG_DEBUG, "mode:%u", t37_mode);
+      LOG(LOG_DEBUG, "frames:%u", t37_frames);
+      ret = mxt_debug_dump(t37_mode, strbuf, t37_frames);
       break;
 
     case CMD_NONE:

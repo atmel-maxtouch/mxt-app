@@ -6,6 +6,7 @@ LOCAL_C_INCLUDES := $(SRC_PATH)
 LOCAL_SRC_FILES := \
   mxt_app.c \
   bootloader.c \
+  diagnostic_data.c \
   touch_app.c \
   self_test.c \
   bridge.c \

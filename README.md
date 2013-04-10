@@ -68,6 +68,7 @@ When run with no options, access menu interface.
     --reset-bootloader         : reset device in bootloader mode
     --backup                   : backup configuration to NVRAM
     --calibrate                : send calibrate command
+    --debug-dump FILE          : capture T37 diagnostic data to FILE
     -g                         : store golden references
     --version                  : print version
 
@@ -89,6 +90,11 @@ When run with no options, access menu interface.
 ### For bootloader mode:
 
     --firmware-version VERSION : Check firmware VERSION before and after flash
+
+### For T37 diagnostic data:
+
+    --frames N                 : Capture N frames of data
+    --references               : Dump references data
 
 ### For i2c-dev and bootloader mode:
 
@@ -117,13 +123,3 @@ uploaded it is backed up to NVRAM and the chip is reset.
 
     mxt-config-loader <filename>
     filename - configuration file (must be in .xcfg format)
-
-mxt-debug-dump
---------------
-
-Fetch diagnostic data (delta and reference values)
-
-### Usage:
-
-    mxt-debug-dump <mode> <filename> <number of frames>
-    mode: ‘d’ for delta, ‘r’ for reference

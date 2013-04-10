@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
-/// \file   mxt_debug_dump.c
-/// \brief  Debug dump tool for maxtouch chips
+/// \file   diagnostic_data.c
+/// \brief  T37 Diagnostic Data functions
 /// \author Atul Tiwari/Nick Dyer
 //------------------------------------------------------------------------------
 // Copyright 2012 Atmel Corporation. All rights reserved.
@@ -44,6 +44,8 @@
 #include "libmaxtouch/info_block.h"
 #include "libmaxtouch/log.h"
 
+#include "diagnostic_data.h"
+
 /* GEN_COMMANDPROCESSOR_T6 Register offsets from T6 base address */
 #define MXT_CP_T6_RESET_OFFSET      0x00
 #define MXT_CP_T6_BACKUPNV_OFFSET   0x01
@@ -52,15 +54,7 @@
 #define MXT_CP_T6_RESERVED_OFFSET   0x04
 #define MXT_CP_T6_DIAGNOSTIC_OFFSET 0x05
 
-/* T6 Debug Diagnostics Commands */
-#define PAGE_UP           0x01
-#define PAGE_DOWN         0x02
-#define DELTAS_MODE       0x10
-#define REFS_MODE         0x11
-
 #define MAX_FILENAME_LENGTH     255
-
-int exit_loop;
 
 struct mxt_debug_data {
   int x_size;
@@ -88,17 +82,6 @@ struct mxt_debug_data {
 
   FILE *hawkeye;
 };
-
-static void display_usage(void)
-{
-   printf
-   (
-      "Usage:  mxt-debug-dump mode file frames\n"
-      "mode: 'd' or 'D' for delta; 'r' or 'R' for reference\n"
-      "file:   Name of the (csv) file the data should be saved to\n"
-      "frames: Number of frames\n"
-   );
-}
 
 static int get_objects_addr(struct mxt_debug_data *mxt_dd)
 {
@@ -367,8 +350,8 @@ static uint16_t get_num_frames(void)
   return frames;
 }
 
-static int mxt_debug_dump(int mode, const char *csv_file,
-                          uint16_t frames, bool cmd_line)
+int mxt_debug_dump(int mode, const char *csv_file,
+                          uint16_t frames)
 {
   struct mxt_debug_data mxt_dd;
   int x_size, y_size;
@@ -379,11 +362,6 @@ static int mxt_debug_dump(int mode, const char *csv_file,
   int page;
   time_t t1;
   time_t t2;
-
-  if (!cmd_line)
-  {
-    frames = get_num_frames();
-  }
 
   if (frames == 0)
   {
@@ -458,7 +436,7 @@ static int mxt_debug_dump(int mode, const char *csv_file,
   }
 
   mxt_generate_hawkeye_header(&mxt_dd);
-  
+
   printf("Reading %u frames\n", frames);
 
   t1 = time(NULL);
@@ -517,52 +495,42 @@ free_page_buf:
  * @brief
  * @return Zero.
  */
-static int mxt_dd_cmd(char selection, const char *csv_file,
-                      uint16_t frames, bool cmd_line)
+static void mxt_dd_cmd(char selection, const char *csv_file)
 {
-  exit_loop = 0;
-  int ret = 0;
+  uint16_t frames;
 
   switch (selection)
   {
     case 'd':
     case 'D':
-      ret = mxt_debug_dump(DELTAS_MODE, csv_file, frames, cmd_line);
+      frames = get_num_frames();
+      mxt_debug_dump(DELTAS_MODE, csv_file, frames);
       break;
     case 'r':
     case 'R':
-      ret = mxt_debug_dump(REFS_MODE, csv_file, frames, cmd_line);
+      frames = get_num_frames();
+      mxt_debug_dump(REFS_MODE, csv_file, frames);
       break;
     case 'q':
     case 'Q':
-      if(!cmd_line)
-      {
-        printf("Quitting the debug dump utility\n");
-        exit_loop = 1;
-      }
+      printf("Quitting the debug dump utility\n");
       break;
     default:
       printf("Invalid menu option\n");
-      display_usage();
-      ret = -1;
       break;
   }
-  return ret;
 }
 
 /*!
  * @brief  Menu function for the debug dump utility.
  * @return Zero.
  */
-static int mxt_dd_menu(char option, const char *csv_file)
+void mxt_dd_menu(void)
 {
   char menu_input;
-  int ret;
   char csv_file_in[MAX_FILENAME_LENGTH + 1];
 
-  exit_loop = 0;
-
-  while(!exit_loop)
+  while(true)
   {
     printf("\nSelect one of the options:\n\n"
         "Enter D:   (D)elta dump\n"
@@ -572,78 +540,22 @@ static int mxt_dd_menu(char option, const char *csv_file)
     if (scanf("%1s", &menu_input) == EOF)
     {
       LOG(LOG_ERROR, "Could not handle the input, exiting");
-      return -1;
+      return;
     }
 
-    if ((menu_input != 'q') && (menu_input != 'Q'))
+    if ((menu_input == 'q') || (menu_input == 'Q'))
     {
-      printf("\nFile name: ");
-      if (scanf("%255s", csv_file_in) == EOF)
-      {
-        LOG(LOG_ERROR, "Could not handle the input, exiting");
-        return -1;
-      }
+      printf("Quitting the debug dump utility\n");
+      return;
     }
 
-    ret = mxt_dd_cmd(menu_input, csv_file_in, 0, 0);
-    if (ret < 0)
+    printf("\nFile name: ");
+    if (scanf("%255s", csv_file_in) == EOF)
     {
-      return ret;
+      LOG(LOG_ERROR, "Could not handle the input, exiting");
+      return;
     }
-  }
-  return ret;
-}
 
-/*!
- * @brief  Entry point for the debug dump utility.
- * @return Zero on success, negative for error.
- */
-int main (int argc, char *argv[])
-{
-  int ret;
-  char mode = 'i';
-  unsigned long frames = 0;
-  char csv_file[MAX_FILENAME_LENGTH + 1];
-
-  /*! Find an mXT device and read the info block */
-  ret = mxt_scan();
-  if (ret == 0)
-  {
-    printf("Unable to find any maXTouch devices - exiting the application\n");
-    return -1;
-  }
-  else if (ret < 0)
-  {
-    printf("Failed to init device - exiting the application\n");
-    return -1;
-  }
-
-  if (mxt_get_info() < 0)
-  {
-    printf("Error reading info block, exiting...\n");
-    return -1;
-  }
-
-  printf("Debug data utility for Atmel maXTouch chips version: %s\n\n",
-         __GIT_VERSION);
-
-  /* Parse input arguments */
-  if (argc == 4)
-  {
-    mode = *argv[1];
-    strncpy(csv_file, argv[2], MAX_FILENAME_LENGTH);
-    csv_file[MAX_FILENAME_LENGTH] = '\0';
-    frames = atoi(argv[3]);
-
-    return mxt_dd_cmd(mode, csv_file, frames, 1);
-  }
-  else if (argc == 1)
-  {
-    return mxt_dd_menu(mode, csv_file);
-  }
-  else
-  {
-     display_usage();
-     return -1;
+    mxt_dd_cmd(menu_input, csv_file_in);
   }
 }

@@ -19,7 +19,6 @@ doc/Makefile.in
 missing
 mxt-app
 mxt-config-loader
-mxt-debug-dump
 autom4te.cache/
 m4/
 obj/
