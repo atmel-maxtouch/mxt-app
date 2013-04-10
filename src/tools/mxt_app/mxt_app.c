@@ -69,6 +69,8 @@ typedef enum mxt_app_cmd_tag {
   CMD_BACKUP,
   CMD_CALIBRATE,
   CMD_DEBUG_DUMP,
+  CMD_LOAD_CFG,
+  CMD_SAVE_CFG,
 } mxt_app_cmd;
 
 //******************************************************************************
@@ -367,6 +369,8 @@ static void print_usage(char *prog_name)
                   "  --backup                   : backup configuration to NVRAM\n"
                   "  --calibrate                : send calibrate command\n"
                   "  --debug-dump FILE          : capture diagnostic data to FILE\n"
+                  "  --load FILE                : upload config from FILE\n"
+                  "  --save FILE                : save config to FILE\n"
                   "  -g                         : store golden references\n"
                   "  --version                  : print version\n"
                   "\n"
@@ -453,6 +457,8 @@ int main (int argc, char *argv[])
       {"frames",           required_argument, 0, 0},
       {"help",             no_argument,       0, 'h'},
       {"instance",         required_argument, 0, 'I'},
+      {"load",             required_argument, 0, 0},
+      {"save",             required_argument, 0, 0},
       {"count",            required_argument, 0, 'n'},
       {"port",             required_argument, 0, 'p'},
       {"read",             no_argument,       0, 'R'},
@@ -536,6 +542,28 @@ int main (int argc, char *argv[])
         {
           if (cmd == CMD_NONE) {
             cmd = CMD_RESET;
+          } else {
+            print_usage(argv[0]);
+            return -1;
+          }
+        }
+        else if (!strcmp(long_options[option_index].name, "load"))
+        {
+          if (cmd == CMD_NONE) {
+            cmd = CMD_LOAD_CFG;
+            strncpy(strbuf, optarg, sizeof(strbuf));
+            strbuf[sizeof(strbuf) - 1] = '\0';
+          } else {
+            print_usage(argv[0]);
+            return -1;
+          }
+        }
+        else if (!strcmp(long_options[option_index].name, "save"))
+        {
+          if (cmd == CMD_NONE) {
+            cmd = CMD_SAVE_CFG;
+            strncpy(strbuf, optarg, sizeof(strbuf));
+            strbuf[sizeof(strbuf) - 1] = '\0';
           } else {
             print_usage(argv[0]);
             return -1;
@@ -820,6 +848,46 @@ int main (int argc, char *argv[])
       LOG(LOG_DEBUG, "mode:%u", t37_mode);
       LOG(LOG_DEBUG, "frames:%u", t37_frames);
       ret = mxt_debug_dump(t37_mode, strbuf, t37_frames);
+      break;
+
+    case CMD_LOAD_CFG:
+      LOG(LOG_DEBUG, "CMD_LOAD_CFG");
+      LOG(LOG_DEBUG, "filename:%s", strbuf);
+      ret = mxt_load_config_file(strbuf);
+      if (ret < 0)
+      {
+        LOG(LOG_ERROR, "Error loading the configuration\n");
+      }
+      else
+      {
+        LOG(LOG_INFO, "Configuration loaded\n");
+
+        ret = mxt_backup_config();
+        if (ret < 0)
+        {
+          LOG(LOG_ERROR, "Error backing up\n");
+        }
+        else
+        {
+          LOG(LOG_INFO, "Configuration backed up\n");
+
+          ret = mxt_reset_chip(false);
+          if (ret < 0)
+          {
+            LOG(LOG_ERROR, "Error resetting\n");
+          }
+          else
+          {
+            LOG(LOG_INFO, "Chip reset\n");
+          }
+        }
+      }
+      break;
+
+    case CMD_SAVE_CFG:
+      LOG(LOG_DEBUG, "CMD_SAVE_CFG");
+      LOG(LOG_DEBUG, "filename:%s", strbuf);
+      ret = mxt_save_config_file(strbuf);
       break;
 
     case CMD_NONE:

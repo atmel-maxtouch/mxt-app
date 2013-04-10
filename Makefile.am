@@ -25,9 +25,7 @@ AM_LDFLAGS = \
 	-Wl,--gc-sections \
 	-Wl,--as-needed
 
-bin_PROGRAMS = \
-  mxt-app \
-  mxt-config-loader
+bin_PROGRAMS = mxt-app
 noinst_LTLIBRARIES = libmaxtouch.la
 
 libmaxtouch_la_SOURCES =\
@@ -48,11 +46,6 @@ AM_CFLAGS += -DHAVE_LIBUSB
 libmaxtouch_la_LIBS = @USBLIBS@
 libmaxtouch_la_LDFLAGS = -lusb-1.0
 endif
-
-mxt_config_loader_LDADD = libmaxtouch.la
-EXTRA_mxt_config_loader_DEPENDENCIES = obp-version
-mxt_config_loader_SOURCES = \
-	src/tools/mxt_config_loader/mxt_config_loader.c
 
 mxt_app_LDADD = libmaxtouch.la
 EXTRA_mxt_app_DEPENDENCIES = obp-version

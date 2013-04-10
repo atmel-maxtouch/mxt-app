@@ -68,6 +68,8 @@ When run with no options, access menu interface.
     --reset-bootloader         : reset device in bootloader mode
     --backup                   : backup configuration to NVRAM
     --calibrate                : send calibrate command
+    --load FILE                : upload config from FILE
+    --save FILE                : save config to FILE
     --debug-dump FILE          : capture T37 diagnostic data to FILE
     -g                         : store golden references
     --version                  : print version
@@ -112,14 +114,3 @@ When run with no options, access menu interface.
     ./mxt-app -R -T9 --format : Read T9 object, formatted output
     ./mxt-app -W -T7 0000     : Zero first two bytes of T7
     ./mxt-app --test          : run self tests
-
-mxt-config-loader
------------------
-
-Upload configuration files to maXTouch chips. Once configuration file has been
-uploaded it is backed up to NVRAM and the chip is reset.
-
-### Usage:
-
-    mxt-config-loader <filename>
-    filename - configuration file (must be in .xcfg format)

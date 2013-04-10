@@ -8,7 +8,6 @@ subdirs := $(addprefix $(SRC_PATH)/,$(addsuffix /Android.mk, \
     libmaxtouch \
     jni \
     tools/mxt_app \
-    tools/mxt_config_loader \
   ))
 
 include $(subdirs)
