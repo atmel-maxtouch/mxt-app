@@ -20,7 +20,7 @@ AM_CONDITIONAL([HAVE_LIBUSB], [test x$libusb = xtrue])
 AC_HEADER_STDBOOL
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h netinet/in.h stdint.h stdlib.h])
 AC_CHECK_HEADERS([string.h sys/ioctl.h sys/socket.h sys/statfs.h unistd.h])
-AC_CHECK_HEADERS([limits.h malloc.h netdb.h sys/time.h])
+AC_CHECK_HEADERS([limits.h malloc.h netdb.h sys/time.h ctype.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_INLINE
@@ -41,6 +41,7 @@ AC_CHECK_FUNCS([setlocale])
 AC_CHECK_FUNCS([socket])
 AC_CHECK_FUNCS([strerror])
 AC_CHECK_FUNCS([strncasecmp])
+AC_CHECK_FUNCS([tolower])
 
 AC_CONFIG_FILES([Makefile doc/Makefile])
 
