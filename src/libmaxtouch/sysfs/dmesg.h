@@ -36,9 +36,9 @@
 
 //******************************************************************************
 /// \brief  Linked list item structure
-typedef struct dmesg_item_tag {
+typedef struct dmesg_item_t {
   unsigned long sec;
   unsigned long msec;
   char msg[BUFFERSIZE];
-  struct dmesg_item_tag *next;
+  struct dmesg_item_t *next;
 } dmesg_item;

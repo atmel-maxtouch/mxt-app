@@ -47,7 +47,7 @@
 
 //******************************************************************************
 /// \brief Device information
-typedef struct i2c_dev_device_tag {
+typedef struct i2c_dev_device_t {
   int adapter;
   int address;
 } i2c_dev_device;

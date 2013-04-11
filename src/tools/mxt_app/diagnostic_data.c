@@ -56,7 +56,9 @@
 
 #define MAX_FILENAME_LENGTH     255
 
-struct mxt_debug_data {
+//******************************************************************************
+/// \brief T37 Diagnostic Data context object
+struct t37_ctx {
   int x_size;
   int y_size;
 
@@ -83,7 +85,7 @@ struct mxt_debug_data {
   FILE *hawkeye;
 };
 
-static int get_objects_addr(struct mxt_debug_data *mxt_dd)
+static int get_objects_addr(struct t37_ctx *mxt_dd)
 {
   int t6_addr;
 
@@ -105,7 +107,7 @@ static int get_objects_addr(struct mxt_debug_data *mxt_dd)
   return 0;
 }
 
-static int mxt_debug_dump_page(struct mxt_debug_data *mxt_dd)
+static int mxt_debug_dump_page(struct t37_ctx *mxt_dd)
 {
   int failures;
   int ret;
@@ -181,7 +183,7 @@ static int mxt_debug_dump_page(struct mxt_debug_data *mxt_dd)
   return 0;
 }
 
-static void mxt_generate_hawkeye_header(struct mxt_debug_data *mxt_dd)
+static void mxt_generate_hawkeye_header(struct t37_ctx *mxt_dd)
 {
   int x;
   int y;
@@ -200,7 +202,7 @@ static void mxt_generate_hawkeye_header(struct mxt_debug_data *mxt_dd)
   fprintf(mxt_dd->hawkeye, "\n");
 }
 
-static int mxt_debug_insert_data(struct mxt_debug_data *mxt_dd)
+static int mxt_debug_insert_data(struct t37_ctx *mxt_dd)
 {
   int i;
   uint16_t value;
@@ -237,7 +239,7 @@ static int mxt_debug_insert_data(struct mxt_debug_data *mxt_dd)
 }
 
 #if 0
-static int mxt_debug_print(struct mxt_debug_data *mxt_dd)
+static int mxt_debug_print(struct t37_ctx *mxt_dd)
 {
   int x;
   int y;
@@ -265,7 +267,7 @@ static int mxt_debug_print(struct mxt_debug_data *mxt_dd)
 }
 #endif
 
-static void mxt_print_timestamp(struct mxt_debug_data *mxt_dd)
+static void mxt_print_timestamp(struct t37_ctx *mxt_dd)
 {
   struct timeval tv;
   time_t nowtime;
@@ -280,7 +282,7 @@ static void mxt_print_timestamp(struct mxt_debug_data *mxt_dd)
   fprintf(mxt_dd->hawkeye, "%s.%06ld,", tmbuf, tv.tv_usec);
 }
 
-static void mxt_hawkeye_generate_control_file(struct mxt_debug_data *mxt_dd)
+static void mxt_hawkeye_generate_control_file(struct t37_ctx *mxt_dd)
 {
   int x;
   int y;
@@ -306,7 +308,7 @@ static void mxt_hawkeye_generate_control_file(struct mxt_debug_data *mxt_dd)
   fclose(fp);
 }
 
-static int mxt_hawkeye_output(struct mxt_debug_data *mxt_dd)
+static int mxt_hawkeye_output(struct t37_ctx *mxt_dd)
 {
   int x;
   int y;
@@ -353,7 +355,7 @@ static uint16_t get_num_frames(void)
 int mxt_debug_dump(int mode, const char *csv_file,
                           uint16_t frames)
 {
-  struct mxt_debug_data mxt_dd;
+  struct t37_ctx mxt_dd;
   int x_size, y_size;
   int pages_per_stripe;
   int num_stripes;

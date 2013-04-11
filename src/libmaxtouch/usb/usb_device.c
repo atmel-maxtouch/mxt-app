@@ -57,27 +57,27 @@
 
 //******************************************************************************
 /// \brief  Read/write memory map command packet format
-typedef struct command_packet_tag {
+typedef struct usb_cmd_t {
   unsigned char usb_report_id;
   unsigned char command_id;
   unsigned char bytes_to_write;
   unsigned char bytes_to_read;
   unsigned short address_pointer;
   unsigned char write_data[MAX_CMD_DATA_LENGTH];
-} command_packet;
+} usb_command;
 
 //******************************************************************************
 /// \brief  Read/write memory map response packet format
-typedef struct response_packet_tag {
+typedef struct usb_response_t {
   unsigned char usb_report_id;
   unsigned char result;
   unsigned char bytes_read;
   unsigned char read_data[MAX_RES_DATA_LENGTH];
-} response_packet;
+} usb_reponse;
 
 //******************************************************************************
 /// \brief  Device information
-typedef struct usb_device_tag {
+typedef struct usb_device_t {
   bool library_initialised;
   libusb_context *context;
   bool device_connected;
@@ -495,11 +495,11 @@ static int read_packet(unsigned char *buf, int start_register, int count)
   int ret = -1;
 
   static const int command_size = SIZE_OF_CMD_HEADER;
-  command_packet command;
+  struct usb_command command;
 
   /* Try to read a whole packet - otherwise we get LIBUSB_ERROR_OVERFLOW error */
   int response_size = gDevice.ep1_in_max_packet_size;
-  response_packet response;
+  struct usb_response response;
 
   int bytes_transferred = 0;
 
@@ -596,11 +596,11 @@ static int write_packet(unsigned char const *buf, int start_register, int count,
   int ret = -1;
 
   int command_size = SIZE_OF_CMD_HEADER + count;
-  command_packet command;
+  struct usb_command command;
 
   /* Try to read a whole packet - otherwise we get LIBUSB_ERROR_OVERFLOW error */
   int response_size = gDevice.ep1_in_max_packet_size;
-  response_packet response;
+  struct usb_reponse response;
 
   int bytes_transferred = 0;
 

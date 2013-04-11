@@ -48,7 +48,7 @@
 
 //******************************************************************************
 /// \brief Commands for mxt-app
-typedef enum mxt_app_cmd_tag {
+typedef enum mxt_app_cmd_t {
   CMD_NONE,
   CMD_TEST,
   CMD_WRITE,

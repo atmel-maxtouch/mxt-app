@@ -58,7 +58,9 @@
 #define MXT_RESET_TIME           2
 #define MXT_BOOTLOADER_DELAY     20000
 
-struct mxt_bootloader_context
+//******************************************************************************
+/// \brief Bootloader context object
+struct bootloader_ctx
 {
   bool have_bootloader_version;
   bool extended_id_mode;
@@ -82,7 +84,7 @@ static int unlock_bootloader(void)
   return i2c_dev_bootloader_write(buf, sizeof(buf));
 }
 
-static int mxt_check_bootloader(struct mxt_bootloader_context *ctx, unsigned int state)
+static int mxt_check_bootloader(struct bootloader_ctx *ctx, unsigned int state)
 {
     unsigned char buf[3];
     unsigned char val;
@@ -166,7 +168,7 @@ recheck:
     return 0;
 }
 
-static int get_hex_value(struct mxt_bootloader_context *ctx, unsigned char *ptr)
+static int get_hex_value(struct bootloader_ctx *ctx, unsigned char *ptr)
 {
   char str[] = "00\0";
   int val;
@@ -184,7 +186,7 @@ static int get_hex_value(struct mxt_bootloader_context *ctx, unsigned char *ptr)
   return ret;
 }
 
-static int send_frames(struct mxt_bootloader_context *ctx)
+static int send_frames(struct bootloader_ctx *ctx)
 {
   unsigned char buffer[FIRMWARE_BUFFER_SIZE];
   int ret;
@@ -328,7 +330,7 @@ static int lookup_bootloader_addr(int addr)
   }
 }
 
-static int mxt_bootloader_init_chip(struct mxt_bootloader_context *ctx,
+static int mxt_bootloader_init_chip(struct bootloader_ctx *ctx,
                                     int i2c_adapter, int i2c_address)
 {
   int ret;
@@ -413,7 +415,7 @@ static int mxt_bootloader_init_chip(struct mxt_bootloader_context *ctx,
 int mxt_flash_firmware(const char *filename, const char *version,
                        int i2c_adapter, int i2c_address)
 {
-  struct mxt_bootloader_context ctx;
+  struct bootloader_ctx ctx;
   int ret;
 
   LOG(LOG_INFO, "Opening firmware file %s", filename);

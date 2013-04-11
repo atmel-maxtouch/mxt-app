@@ -46,7 +46,7 @@
 
 //******************************************************************************
 /// \brief Device connection type
-typedef enum mxt_device_type_tag {
+typedef enum mxt_device_type_t {
   E_UNCONNECTED,
   E_SYSFS,
 #ifdef HAVE_LIBUSB

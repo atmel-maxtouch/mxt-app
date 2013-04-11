@@ -46,7 +46,7 @@
 
 //******************************************************************************
 /// \brief Device information
-typedef struct sysfs_device_tag {
+typedef struct sysfs_device_t {
   int adapter;
   int address;
   char *path;
