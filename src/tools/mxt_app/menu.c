@@ -28,6 +28,7 @@
 //------------------------------------------------------------------------------
 
 #include <stdio.h>
+#include <ctype.h>
 
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/utilfuncs.h"
@@ -38,146 +39,166 @@
 /// \brief Load config from file
 static void load_config(void)
 {
-   char cfg_file[255];
+  char cfg_file[255];
 
-   /* Load config file */
-   printf("Give cfg file name: ");
-   if (scanf("%255s", cfg_file) != 1) {
-     printf("Input parse error\n");
-     return;
-   }
+  /* Load config file */
+  printf("Give cfg file name: ");
+  if (scanf("%255s", cfg_file) != 1) {
+    printf("Input parse error\n");
+    return;
+  }
 
-   printf("Trying to open %s...\n", cfg_file);
+  printf("Trying to open %s...\n", cfg_file);
 
-   if (mxt_load_config_file(cfg_file) == 0)
-   {
-      printf("Successfully uploaded the configuration file\n");
-   }
-   else
-   {
-      printf("Failed to upload the configuration\n");
-   }
+  if (mxt_load_config_file(cfg_file) == 0)
+  {
+    printf("Successfully uploaded the configuration file\n");
+  }
+  else
+  {
+    printf("Failed to upload the configuration\n");
+  }
 }
 
 //******************************************************************************
 /// \brief Save config to file
 static void save_config(void)
 {
-   char cfg_file[255];
+  char cfg_file[255];
 
-   /* Save config file */
-   printf("Give cfg file name: ");
-   if (scanf("%255s", cfg_file) != 1) {
-     printf("Input parse error\n");
-     return;
-   }
+  /* Save config file */
+  printf("Give cfg file name: ");
+  if (scanf("%255s", cfg_file) != 1) {
+    printf("Input parse error\n");
+    return;
+  }
 
-   if (mxt_save_config_file(cfg_file) == 0)
-   {
-      printf("Successfully saved configuration to file\n");
-   }
-   else
-   {
-      printf("Failed to save configuration\n");
-   }
+  if (mxt_save_config_file(cfg_file) == 0)
+  {
+    printf("Successfully saved configuration to file\n");
+  }
+  else
+  {
+    printf("Failed to save configuration\n");
+  }
 }
+
+//******************************************************************************
+/// \brief Flash firmware to chip
+static void flash_firmware_command(void)
+{
+  char fw_file[255];
+
+  /* Save config file */
+  printf("Give firmware .enc file name: ");
+  if (scanf("%255s", fw_file) != 1) {
+    printf("Input parse error\n");
+    return;
+  }
+
+  mxt_flash_firmware(fw_file, "", -1, -1);
+}
+
 
 //******************************************************************************
 /// \brief Read objects according to the input value
 static void read_object_command(void)
 {
-   int obj_num;
+  int obj_num;
 
-   printf("Objects on the chip:\n");
+  printf("Objects on the chip:\n");
 
-   while(1)
-   {
-      print_objs();
+  while(1)
+  {
+    print_objs();
 
-      printf("Enter the object number to read the object's "
-             "field values; Enter 255 to return to main menu\n");
-      if (scanf("%d",&obj_num) != 1) {
-        printf("Input parse error\n");
-        return;
-      };
+    printf("Enter the object number to read the object's "
+        "field values; Enter 255 to return to main menu\n");
+    if (scanf("%d",&obj_num) != 1) {
+      printf("Input parse error\n");
+      return;
+    };
 
-      if ((obj_num >= 0) && (obj_num < 255))
-      {
-         read_object(obj_num, 0, 0, 0, true);
-      }
-      else if (obj_num == 255)
-      {
-         break;
-      }
-      else
-      {
-         printf("Please enter a valid object number\n");
-         printf("Coming out of objects space...\n");
-         break;
-      }
-   }
+    if ((obj_num >= 0) && (obj_num < 255))
+    {
+      read_object(obj_num, 0, 0, 0, true);
+    }
+    else if (obj_num == 255)
+    {
+      break;
+    }
+    else
+    {
+      printf("Please enter a valid object number\n");
+      printf("Coming out of objects space...\n");
+      break;
+    }
+  }
 }
 
 //******************************************************************************
 /// \brief Write objects
 static void write_object_command(void)
 {
-   int obj_num;
+  int obj_num;
 
-   printf("Objects on the chip:\n");
-   while(1)
-   {
-     print_objs();
-     printf("Enter the object number to modify the object's "
-       "field values; or 255 to return to main menu\n");
-     if (scanf("%d",&obj_num) != 1)
-     {
-       printf("Input parse error\n");
-       return;
-     }
+  printf("Objects on the chip:\n");
+  while(1)
+  {
+    print_objs();
+    printf("Enter the object number to modify the object's "
+        "field values; or 255 to return to main menu\n");
+    if (scanf("%d",&obj_num) != 1)
+    {
+      printf("Input parse error\n");
+      return;
+    }
 
-     if((obj_num >= 0) && (obj_num < 255))
-     {
-       write_to_object(obj_num);
-     }
-     else if(obj_num == 255)
-     {
-       break;
-     }
-     else
-     {
-       printf("Please enter a valid object number\n");
-       printf("Coming out of objects space...\n");
-       break;
-     }
-   }
+    if((obj_num >= 0) && (obj_num < 255))
+    {
+      write_to_object(obj_num);
+    }
+    else if(obj_num == 255)
+    {
+      break;
+    }
+    else
+    {
+      printf("Please enter a valid object number\n");
+      printf("Coming out of objects space...\n");
+      break;
+    }
+  }
 }
 
 //******************************************************************************
 /// \brief Handle command
 static bool mxt_app_command(char selection)
 {
-   bool exit_loop = false;
+  bool exit_loop = false;
 
-   switch(selection)
-   {
-   case 'l':
+  switch(selection)
+  {
+    case 'l':
       load_config();
       break;
-   case 's':
+    case 's':
       save_config();
-   case 'i':
+    case 'i':
       /* Print info block */
       printf("Reading info block.....\n");
       print_info_block();
       break;
-   case 'd':
+    case 'd':
       read_object_command();
       break;
     case 'w':
       write_object_command();
       break;
     case 'f':
+      flash_firmware_command();
+      break;
+    case 't':
       /* Run the self-test */
       self_test_handler();
       break;
@@ -203,7 +224,7 @@ static bool mxt_app_command(char selection)
         printf("Failed to force a reset\n");
       }
       break;
-    case 'a':
+    case 'c':
       /* Calibrate the device*/
       if (mxt_calibrate_chip() == 0)
       {
@@ -241,32 +262,38 @@ static bool mxt_app_command(char selection)
 /// \brief Menu function for mxt-app
 int mxt_menu(void)
 {
-   char menu_input;
-   bool exit_loop = false;
+  char menu_input;
+  bool exit_loop = false;
 
-   printf("Command line tool for Atmel maXTouch chips version: %s\n\n",
-          __GIT_VERSION);
+  printf("Command line tool for Atmel maXTouch chips version: %s\n\n",
+      __GIT_VERSION);
 
-   while(!exit_loop)
-   {
-     printf("Select one of the options:\n\n"
-       "Enter L:   (L)oad config file\n"
-       "Enter S:   (S)ave config file\n"
-       "Enter I:   Read (I)nfo block\n"
-       "Enter D:   Rea(D) individual object config\n"
-       "Enter W:   (W)rite individual object\n"
-       "Enter F:   Run sel(F)-test\n"
-       "Enter B:   (B)ackup the config data to NVM\n"
-       "Enter R:   (R)eset the maxtouch device\n"
-       "Enter A:   C(A)librate the maxtouch device\n"
-       "Enter E:   Display the input (E)vents from the device\n"
-       "Enter M:   Display raw (M)essages\n"
-       "Enter U:   D(U)mp Diagnostic data\n"
-       "Enter Q:   (Q)uit the application\n");
+  while(!exit_loop)
+  {
+    printf("Select one of the options:\n\n"
+        "Enter L:   (L)oad config file\n"
+        "Enter S:   (S)ave config file\n"
+        "Enter I:   Read (I)nfo block\n"
+        "Enter D:   Rea(D) individual object config\n"
+        "Enter W:   (W)rite individual object\n"
+        "Enter T:   Run sel(T)-test\n"
+        "Enter F:   (F)lash firmware to chip\n"
+        "Enter B:   (B)ackup the config data to NVM\n"
+        "Enter R:   (R)eset the maxtouch device\n"
+        "Enter C:   (C)alibrate the maxtouch device\n"
+        "Enter E:   Display the input (E)vents from the device\n"
+        "Enter M:   Display raw (M)essages\n"
+        "Enter U:   D(U)mp Diagnostic data\n"
+        "Enter Q:   (Q)uit the application\n");
 
-     if (scanf("%1s", &menu_input) == 1)
-       exit_loop = mxt_app_command(menu_input);
-   }
+    if (scanf("%1s", &menu_input) == 1)
+    {
+      /* force lower case */
+      menu_input = tolower(menu_input);
 
-   return 0;
+      exit_loop = mxt_app_command(menu_input);
+    }
+  }
+
+  return 0;
 }
