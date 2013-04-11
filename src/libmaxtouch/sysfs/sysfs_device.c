@@ -519,36 +519,6 @@ bool sysfs_get_debug()
 }
 
 //******************************************************************************
-/// \brief  Set pause state
-/// \return 0 on success or negative error
-int sysfs_set_pause(bool pause_state)
-{
-  // Check device is initialised
-  if (gpDevice == NULL)
-  {
-    LOG(LOG_ERROR, "Device uninitialised");
-    return -1;
-  }
-
-  return write_boolean_file(make_path("pause_driver"), pause_state);
-}
-
-//******************************************************************************
-/// \brief  Get pause state
-/// \return true (driver paused) or false (normal operation)
-bool sysfs_get_pause()
-{
-  // Check device is initialised
-  if (gpDevice == NULL)
-  {
-    LOG(LOG_ERROR, "Device uninitialised");
-    return false;
-  }
-
-  return read_boolean_file(make_path("pause_driver"));
-}
-
-//******************************************************************************
 /// \brief  Get sysfs directory
 /// \return location of the sysfs interface files
 char *sysfs_get_directory(void)

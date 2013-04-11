@@ -73,22 +73,6 @@ JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetDebugEnable
 
 /*
  * Class:     com_atmel_Maxtouch_MaxtouchJni
- * Method:    SetPause
- * Signature: (Z)I
- */
-JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_SetPause
-  (JNIEnv *, jobject, jboolean);
-
-/*
- * Class:     com_atmel_Maxtouch_MaxtouchJni
- * Method:    GetPause
- * Signature: ()Z
- */
-JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetPause
-  (JNIEnv *, jobject);
-
-/*
- * Class:     com_atmel_Maxtouch_MaxtouchJni
  * Method:    LoadConfigFile
  * Signature: (Ljava/lang/String;)I
  */

@@ -34,8 +34,6 @@ int sysfs_read_register(unsigned char *buf, int start_register, int count);
 int sysfs_write_register(unsigned char const *buf, int start_register, int count);
 int sysfs_set_debug(bool debug_state);
 bool sysfs_get_debug(void);
-int sysfs_set_pause(bool pause_state);
-bool sysfs_get_pause(void);
 int sysfs_get_i2c_adapter(void);
 int sysfs_get_i2c_address(void);
 char *sysfs_get_directory(void);

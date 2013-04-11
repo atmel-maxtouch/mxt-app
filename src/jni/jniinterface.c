@@ -161,30 +161,6 @@ JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetDebugEnable
 }
 
 //******************************************************************************
-/// \brief Enable/disable phone touchscreen
-JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_SetPause
-  (JNIEnv *env, jobject this, jboolean pauseState)
-{
-  bool bPauseState;
-
-  bPauseState = pauseState == JNI_TRUE ? true : false;
-
-  return mxt_set_pause(bPauseState);
-}
-
-//******************************************************************************
-/// \brief Get phone touchscreen enable/disable state
-JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetPause
-  (JNIEnv *env, jobject this)
-{
-  bool bPauseState;
-
-  bPauseState = mxt_get_pause();
-
-  return (bPauseState == true ? JNI_TRUE : JNI_FALSE);
-}
-
-//******************************************************************************
 /// \brief Load config file
 JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_LoadConfigFile
   (JNIEnv *env, jobject this, jstring filename)

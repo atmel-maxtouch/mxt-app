@@ -65,8 +65,6 @@ int mxt_read_register(unsigned char *buf, int start_register, int count);
 int mxt_write_register(unsigned char const *buf, int start_register, int count);
 int mxt_set_debug(bool debug_state);
 bool mxt_get_debug(void);
-int mxt_set_pause(bool pause_state);
-bool mxt_get_pause(void);
 int mxt_reset_chip(bool bootloader_mode);
 int mxt_calibrate_chip(void);
 int mxt_backup_config(void);
