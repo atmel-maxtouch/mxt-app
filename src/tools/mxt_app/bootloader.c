@@ -451,8 +451,8 @@ int mxt_flash_firmware(const char *filename, const char *version,
   }
 
   LOG(LOG_DEBUG, "i2c_adapter:%d", ctx.i2c_adapter);
-  LOG(LOG_DEBUG, "appmode_address:%d", ctx.appmode_address);
-  LOG(LOG_DEBUG, "bootloader_address:%d", ctx.bootloader_address);
+  LOG(LOG_DEBUG, "appmode_address:%02X", ctx.appmode_address);
+  LOG(LOG_DEBUG, "bootloader_address:%02X", ctx.bootloader_address);
 
   /* Change to slave address of bootloader */
   i2c_dev_set_address(ctx.i2c_adapter, ctx.bootloader_address);
