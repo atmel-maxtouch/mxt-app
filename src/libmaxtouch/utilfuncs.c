@@ -27,10 +27,6 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-/*----------------------------------------------------------------------------
-  include files
-  ----------------------------------------------------------------------------*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -53,49 +49,58 @@
   (byte & 0x02 ? 1 : 0), \
   (byte & 0x01 ? 1 : 0)
 
+//******************************************************************************
+/// \brief Print out info block
 void print_info_block()
 {
   int i;
   int report_id = 1;
-  int report_id_end;
+  int report_id_start, report_id_end;
 
   /* Show the Version Info */
-  printf("Family ID:         0x%02X\n", info_block.id->family_id);
-  printf("Variant ID:        0x%02X\n", info_block.id->variant_id);
-  printf("Version:           %d.%d\n",
-         (info_block.id->version & 0xF0) >> 4, (info_block.id->version & 0x0F));
-  printf("Build:             0x%02X\n", info_block.id->build);
-  printf("Matrix X Size:     %d\n", info_block.id->matrix_x_size);
-  printf("Matrix Y Size:     %d\n", info_block.id->matrix_y_size);
-  printf("Number of objects: %d\n", info_block.id->num_declared_objects);
-  printf("\n");
+  printf("\nFamily: %u Variant: %u Firmware V%u.%u.%02X Objects: %u\n",
+         info_block.id->family_id, info_block.id->variant_id,
+         info_block.id->version >> 4,
+         info_block.id->version & 0x0F,
+         info_block.id->build, info_block.id->num_declared_objects);
+
+  printf("Matrix size: X%uY%u\n",
+         info_block.id->matrix_x_size, info_block.id->matrix_y_size);
+  /* Show the CRC */
+  printf("Information Block CRC: 0x%06X\n\n", info_block_crc(info_block.crc));
 
   /* Show the object table */
-  printf("%s: OBJECT TABLE\n", __func__);
   for (i = 0; i < info_block.id->num_declared_objects; i++)
   {
-    printf("Object Type:\t\t %s\n", objname(info_block.objects[i].object_type));
-    printf("Address:\t\t %d\n", get_start_position(info_block.objects[i]));
-    printf("Size:\t\t\t %d\n", info_block.objects[i].size + 1);
-    printf("Instances:\t\t %d\n", info_block.objects[i].instances + 1);
 
     if (info_block.objects[i].num_report_ids > 0)
     {
-      report_id_end = report_id +
+      report_id_start = report_id;
+      report_id_end = report_id_start +
                       info_block.objects[i].num_report_ids * (info_block.objects[i].instances + 1)
                       - 1;
-      printf("Report IDs:\t\t %d-%d\n", report_id, report_id_end);
       report_id = report_id_end + 1;
     }
+    else
+    {
+      report_id_start = 0;
+      report_id_end = 0;
+    }
 
-    printf("\n");
+    printf("T%-3u Start:%-4u Size:%-3u Instances:%-2u Report IDs:%2u-%-2u   %s\n",
+           info_block.objects[i].object_type,
+           get_start_position(info_block.objects[i]),
+           info_block.objects[i].size + 1,
+           info_block.objects[i].instances + 1,
+           report_id_start, report_id_end,
+           objname(info_block.objects[i].object_type));
   }
 
-  /* Show the CRC */
-  printf("Information Block Checksum:\t\t 0x%06X \n",
-    (info_block.crc->CRC_hi<<16u) | (info_block.crc->CRC));
+  printf("\n");
 }
 
+//******************************************************************************
+/// \brief Convert object type to object name
 const char *objname(uint8_t objtype)
 {
   switch(objtype)
@@ -253,6 +258,8 @@ const char *objname(uint8_t objtype)
   }
 }
 
+//******************************************************************************
+/// \brief Menu function to write values to object
 void write_to_object(int obj_num)
 {
   uint8_t obj_tbl_num, i;
@@ -305,6 +312,8 @@ void write_to_object(int obj_num)
   }
 }
 
+//******************************************************************************
+/// \brief Menu function to read values from object
 int read_object(uint16_t object_type, uint8_t instance, uint16_t address, size_t count, bool format)
 {
   uint8_t *databuf;
@@ -374,6 +383,8 @@ free:
   return ret;
 }
 
+//******************************************************************************
+/// \brief Print list of declared objects
 void print_objs()
 {
   int i;
@@ -383,6 +394,8 @@ void print_objs()
   }
 }
 
+//******************************************************************************
+/// \brief Convert hex nibble to digit
 static char to_digit(char hex)
 {
     char decimal;
@@ -399,6 +412,8 @@ static char to_digit(char hex)
     return decimal;
 }
 
+//******************************************************************************
+/// \brief Convert ASCII buffer containing hex digits to binary
 int mxt_convert_hex(char *hex, unsigned char *databuf, uint8_t *count, unsigned int buf_size)
 {
   unsigned int pos = 0;

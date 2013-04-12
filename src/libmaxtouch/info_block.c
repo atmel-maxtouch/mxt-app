@@ -291,7 +291,7 @@ void display_chip_info()
   {
     element = info_block.objects[element_index];
 
-    LOG(LOG_INFO, "T%u size:%u instances:%u address:%u",
+    LOG(LOG_DEBUG, "T%u size:%u instances:%u address:%u",
       element.object_type, element.size + 1,
       element.instances + 1, get_start_position(element));
 
@@ -299,14 +299,14 @@ void display_chip_info()
     {
       case GEN_MESSAGEPROCESSOR_T5:
       {
-        LOG(LOG_INFO, "Message processor address = %u", get_start_position(element));
-        LOG(LOG_INFO, "Maximum message length = %d", element.size + 1);
+        LOG(LOG_DEBUG, "Message processor address = %u", get_start_position(element));
+        LOG(LOG_DEBUG, "Maximum message length = %d", element.size + 1);
         break;
       }
       case GEN_COMMANDPROCESSOR_T6:
       {
         command_processor_address = get_start_position(element);
-        LOG(LOG_INFO, "Command processor address = %u", command_processor_address);
+        LOG(LOG_DEBUG, "Command processor address = %u", command_processor_address);
         break;
       }
       case TOUCH_MULTITOUCHSCREEN_T9:
@@ -329,7 +329,7 @@ void display_chip_info()
     }
   }
 
-  LOG(LOG_INFO, "Instances of touch objects = %d", no_of_touch_instances);
+  LOG(LOG_DEBUG, "Instances of touch objects = %d", no_of_touch_instances);
 }
 
 /*!
