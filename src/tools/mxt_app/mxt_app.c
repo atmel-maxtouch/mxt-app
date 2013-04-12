@@ -50,6 +50,7 @@
 /// \brief Commands for mxt-app
 typedef enum mxt_app_cmd_t {
   CMD_NONE,
+  CMD_INFO,
   CMD_TEST,
   CMD_WRITE,
   CMD_READ,
@@ -117,6 +118,7 @@ static void print_usage(char *prog_name)
                   "When run with no options, access menu interface.\n\n"
                   "Available commands:\n"
                   "  -h [--help]                : display this help and exit\n"
+                  "  -i [--info]                : print device information\n"
                   "  -R [--read]                : read from object\n"
                   "  -t [--test]                : run all self tests\n"
                   "  -W [--write]               : write to object\n"
@@ -213,6 +215,7 @@ int main (int argc, char *argv[])
       {"firmware-version", required_argument, 0, 0},
       {"frames",           required_argument, 0, 0},
       {"help",             no_argument,       0, 'h'},
+      {"info",             no_argument,       0, 'i'},
       {"instance",         required_argument, 0, 'I'},
       {"load",             required_argument, 0, 0},
       {"save",             required_argument, 0, 0},
@@ -232,7 +235,7 @@ int main (int argc, char *argv[])
       {0,                  0,                 0,  0 }
     };
 
-    c = getopt_long(argc, argv, "a:C:d:D:fghI:n:p:Rr:StT:v:W", long_options, &option_index);
+    c = getopt_long(argc, argv, "a:C:d:D:fghiI:n:p:Rr:StT:v:W", long_options, &option_index);
 
     if (c == -1)
       break;
@@ -446,6 +449,15 @@ int main (int argc, char *argv[])
         }
         break;
 
+      case 'i':
+        if (cmd == CMD_NONE) {
+          cmd = CMD_INFO;
+        } else {
+          print_usage(argv[0]);
+          return -1;
+        }
+        break;
+
       case 't':
         if (cmd == CMD_NONE) {
           cmd = CMD_TEST;
@@ -546,6 +558,11 @@ int main (int argc, char *argv[])
     case CMD_READ:
       LOG(LOG_DEBUG, "Read command");
       ret = read_object(object_type, instance, address, count, format);
+      break;
+
+    case CMD_INFO:
+      LOG(LOG_DEBUG, "CMD_TEST");
+      print_info_block();
       break;
 
     case CMD_GOLDEN_REFERENCES:
