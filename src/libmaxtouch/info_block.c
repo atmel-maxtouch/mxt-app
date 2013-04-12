@@ -340,7 +340,7 @@ void display_chip_info()
  *         in the chip's memory map.
  * @return Object address, or OBJECT_NOT_FOUND if object/instance not found.
  */
-uint16_t get_object_address(uint8_t object_type, uint8_t instance)
+uint16_t get_object_address(uint16_t object_type, uint8_t instance)
 {
   int element_index = 0;
   object_t element;
@@ -376,7 +376,7 @@ uint16_t get_object_address(uint8_t object_type, uint8_t instance)
  * @brief  Returns the size of the specified type in the object table.
  * @return Object size, or OBJECT_NOT_FOUND if object not found.
  */
-uint8_t get_object_size(uint8_t object_type)
+uint8_t get_object_size(uint16_t object_type)
 {
   int element_index = get_object_table_num(object_type);
   if (element_index == 255)
@@ -393,7 +393,7 @@ uint8_t get_object_size(uint8_t object_type)
  * @brief  Returns the index of the specified type in the object table.
  * @return Element index, or 255 if object type not found.
  */
-uint8_t get_object_table_num(uint8_t object_type)
+uint8_t get_object_table_num(uint16_t object_type)
 {
   int element_index;
 
