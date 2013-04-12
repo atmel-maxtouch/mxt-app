@@ -60,6 +60,7 @@ When run with no options, access menu interface.
 ### Available commands:
 
     -h [--help]                : display this help and exit
+    -i [--info]                : print device information
     -R [--read]                : read from object
     -t [--test]                : run all self tests
     -W [--write]               : write to object
@@ -68,9 +69,9 @@ When run with no options, access menu interface.
     --reset-bootloader         : reset device in bootloader mode
     --backup                   : backup configuration to NVRAM
     --calibrate                : send calibrate command
+    --debug-dump FILE          : capture diagnostic data to FILE
     --load FILE                : upload config from FILE
     --save FILE                : save config to FILE
-    --debug-dump FILE          : capture T37 diagnostic data to FILE
     -g                         : store golden references
     --version                  : print version
 
