@@ -70,6 +70,8 @@ void print_info_block()
   printf("Information Block CRC: 0x%06X\n\n", info_block_crc(info_block.crc));
 
   /* Show the object table */
+  printf("Type Start Size Instances ReportIds Name\n");
+  printf("-----------------------------------------------------------------\n");
   for (i = 0; i < info_block.id->num_declared_objects; i++)
   {
 
@@ -87,7 +89,7 @@ void print_info_block()
       report_id_end = 0;
     }
 
-    printf("T%-3u Start:%-4u Size:%-3u Instances:%-2u Report IDs:%2u-%-2u   %s\n",
+    printf("T%-3u %4u  %4u    %2u       %2u-%-2u   %s\n",
            info_block.objects[i].object_type,
            get_start_position(info_block.objects[i]),
            info_block.objects[i].size + 1,
