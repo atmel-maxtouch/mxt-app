@@ -110,6 +110,9 @@
 #define MOTION_SENSING_OBJECT_T75                 75u
 #define PROCI_MOTION_GESTURES_T76                 76u
 #define SPT_CTESCANCONFIG_T77                     77u
+#define PROCI_GLOVEDETECTION_T78                  78u
+#define SPT_TOUCHEVENTTRIGGER_T79                 79u
+#define PROCI_RETRANSMISSIONCOMPENSATION_T80      80u
 #define TOUCH_MULTITOUCHSCREEN_T100               100u
 #define SPT_TOUCHSCREENHOVER_T101                 101u
 #define SPT_SELFCAPHOVERCTECONFIG_T102            102u
