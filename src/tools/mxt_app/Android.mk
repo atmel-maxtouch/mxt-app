@@ -11,6 +11,7 @@ LOCAL_SRC_FILES := \
   touch_app.c \
   self_test.c \
   bridge.c \
+  buffer.c \
   gr.c \
   serial_data.c
 LOCAL_LDLIBS := -llog

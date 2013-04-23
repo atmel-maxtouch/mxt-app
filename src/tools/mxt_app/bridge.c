@@ -37,35 +37,39 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <inttypes.h>
 
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/utilfuncs.h"
 
 #include "mxt_app.h"
+#include "buffer.h"
 
-#define BUF_SIZE 1024
-
-char buf[BUF_SIZE];
-char hexbuf[BUF_SIZE];
+#define MAX_LINESIZE 10000
 
 //******************************************************************************
 /// \brief Read command on a single line
-static int readline(int fd, char *str, int maxlen)
+static int readline(int fd, struct mxt_buffer *linebuf)
 {
+  int ret;
   int n;
   int readcount;
   char c;
 
-  for (n = 1; n < maxlen; n++) {
+  mxt_buf_reset(linebuf);
+
+  for (n = 1; n < MAX_LINESIZE; n++) {
     /* read 1 character at a time */
     readcount = read(fd, &c, 1);
     if (readcount == 1)
     {
       if ((c == '\n') || (c == '\r'))
         break;
-      *str = c;
-      str++;
+
+      ret = mxt_buf_add(linebuf, c);
+      if (ret < 0)
+        return ret;
     }
     else if (readcount == 0)
     {
@@ -82,7 +86,9 @@ static int readline(int fd, char *str, int maxlen)
   }
 
   /* null-terminate the buffer */
-  *str=0;
+  ret = mxt_buf_add(linebuf, '\0');
+  if (ret < 0)
+    return ret;
 
   return n;
 }
@@ -92,6 +98,7 @@ static int readline(int fd, char *str, int maxlen)
 static int handle_messages(int sockfd)
 {
   int count, i;
+  char *msg;
   int ret;
 
   count = mxt_get_msg_count();
@@ -100,16 +107,122 @@ static int handle_messages(int sockfd)
   {
     for (i = 0; i < count; i++)
     {
-      snprintf(buf, BUF_SIZE, "%s\n", mxt_get_msg_string());
-      ret = write(sockfd, buf, strlen(buf));
+      msg = mxt_get_msg_string();
+      ret = write(sockfd, msg, strlen(msg));
       if (ret < 0)
       {
-        printf("write returned %d (%s)", errno, strerror(errno));
+        LOG(LOG_ERROR, "write returned %d (%s)", errno, strerror(errno));
         return ret;
       }
+
+      ret = write(sockfd, "\n", 1);
+      if (ret < 0)
+      {
+        LOG(LOG_ERROR, "write returned %d (%s)", errno, strerror(errno));
+        return ret;
+      }
+
     }
   }
   return 0;
+}
+
+
+//******************************************************************************
+/// \brief Handle bridge read
+static int bridge_rea_cmd(int sockfd, uint16_t address, uint16_t count)
+{
+  int ret;
+  uint8_t *databuf;
+  char *response;
+  const char * const PREFIX = "RRP ";
+  size_t response_len;
+  int i;
+
+  databuf = malloc(count);
+  if (!databuf)
+  {
+    LOG(LOG_ERROR, "Failed to allocate memory");
+    return -1;
+  }
+
+  /* Allow for newline/null byte */
+  response_len = strlen(PREFIX) + count*2 + 1;
+  response = malloc(response_len);
+  if (!response)
+  {
+    LOG(LOG_ERROR, "Failed to allocate memory");
+    ret = -1;
+    goto free_databuf;
+  }
+
+  strcpy(response, PREFIX);
+  LOG(LOG_INFO, "reading %d %d", address, count);
+  ret = mxt_read_register(databuf, address, count);
+  if (ret < 0) {
+    LOG(LOG_WARN, "RRP ERR");
+    strcpy(response + strlen(PREFIX), "ERR\n");
+    response_len = strlen(response);
+  } else {
+    for (i = 0; i < count; i++) {
+      sprintf(response + strlen(PREFIX) + i*2, "%02X", databuf[i]);
+    }
+    LOG(LOG_INFO, "%s", response);
+    response[response_len - 1] = '\n';
+  }
+
+  ret = write(sockfd, response, response_len);
+  if (ret < 0) {
+    LOG(LOG_ERROR, "Socket write error %d (%s)", errno, strerror(errno));
+    goto free;
+  }
+
+free:
+  free(response);
+free_databuf:
+  free(databuf);
+  return ret;
+}
+
+//******************************************************************************
+/// \brief Handle bridge write
+static int bridge_wri_cmd(int sockfd, uint16_t address,
+                          char *hex, uint16_t bytes)
+{
+  int ret;
+  uint16_t count;
+  const char * const FAIL = "WRP ERR\n";
+  const char * const PASS = "WRP OK\n";
+  const char *response;
+  uint8_t *databuf;
+
+  databuf = malloc(bytes);
+  if (!databuf)
+  {
+    LOG(LOG_ERROR, "Failed to allocate memory");
+    return -1;
+  }
+
+  ret = mxt_convert_hex(hex, databuf, &count, bytes);
+  if (ret < 0) {
+    response = FAIL;
+  } else {
+    ret = mxt_write_register(databuf, address, count);
+    if (ret < 0) {
+      LOG(LOG_VERBOSE, "WRI OK");
+      response = FAIL;
+    } else {
+      response = PASS;
+    }
+  }
+
+  ret = write(sockfd, response, strlen(response));
+  if (ret < 0) {
+    LOG(LOG_ERROR, "Socket write error %d (%s)", errno, strerror(errno));
+  }
+
+  free(databuf);
+  return ret;
 }
 
 //******************************************************************************
@@ -117,73 +230,54 @@ static int handle_messages(int sockfd)
 static int handle_cmd(int sockfd)
 {
   int ret;
-  int i;
   uint16_t address;
-  uint8_t count;
-  unsigned char databuf[BUF_SIZE];
+  uint16_t count;
+  struct mxt_buffer linebuf;
+  char *line;
+  int offset;
 
-  ret = readline(sockfd, buf, BUF_SIZE);
+  ret = mxt_buf_init(&linebuf);
+  if (ret)
+    return ret;
+
+  ret = readline(sockfd, &linebuf);
   if (ret <= 0) {
     LOG(LOG_DEBUG, "error reading or peer closed socket");
-    return -1;
+    ret = -1;
+    goto free;
   }
 
-  if (!strcmp(buf, "")) {
-    return 0;
+  line = (char *)linebuf.data;
+  if (strlen(line) == 0) {
+    ret = 0;
+    goto free;
   }
 
-  LOG(LOG_VERBOSE, "%s", buf);
+  LOG(LOG_VERBOSE, "%s", line);
 
-  if (!strcmp(buf, "SAT")) {
-    printf("Server attached\n");
-  } else if (!strcmp(buf, "SDT")) {
-    printf("Server detached\n");
-  } else if (sscanf(buf, "REA %hu %hhu", &address, &count) == 2) {
-    ret = mxt_read_register(&databuf[0], address, count);
-    if (ret < 0) {
-      snprintf(buf, BUF_SIZE, "RRP ERR");
-    } else {
-      snprintf(buf, BUF_SIZE, "RRP ");
+  if (!strcmp(line, "SAT")) {
+    LOG(LOG_INFO, "Server attached\n");
+    ret = 0;
+  } else if (!strcmp(line, "SDT")) {
+    LOG(LOG_INFO, "Server detached\n");
+    ret = 0;
+  } else if (sscanf(line, "REA %" SCNu16 " %" SCNu16, &address, &count) == 2) {
+    ret = bridge_rea_cmd(sockfd, address, count);
+  } else if (sscanf(line, "WRI %" SCNu16 "%n", &address, &offset) == 1) {
+    /* skip space */
+    offset += 1;
 
-      for (i = 0; i < count; i++) {
-        sprintf(hexbuf, "%02X", databuf[i]);
-        strncat(buf, hexbuf, BUF_SIZE - 1);
-      }
-      buf[BUF_SIZE - 1] = '\0';
-    }
-    LOG(LOG_INFO, "%s", buf);
-    strncat(buf, "\n", BUF_SIZE);
-    ret = write(sockfd, buf, strlen(buf));
-    if (ret < 0) {
-      printf("write error\n");
-      return -1;
-    }
-  } else if (sscanf(buf, "WRI %hd %s", &address, (char *)&hexbuf) == 2) {
-    ret = mxt_convert_hex(&hexbuf[0], &databuf[0], &count, BUF_SIZE);
-    if (ret < 0) {
-      snprintf(buf, BUF_SIZE, "WRP ERR");
-    } else {
-      ret = mxt_write_register(&databuf[0], address, count);
-      if (ret < 0) {
-        snprintf(buf, BUF_SIZE, "WRP ERR");
-      } else {
-        snprintf(buf, BUF_SIZE, "WRP OK");
-      }
-    }
-
-    LOG(LOG_INFO, "%s", buf);
-    strncat(buf, "\n", BUF_SIZE);
-    ret = write(sockfd, buf, strlen(buf));
-    if (ret < 0) {
-      printf("write error\n");
-      return -1;
-    }
+    ret = bridge_wri_cmd(sockfd, address,
+                         line + offset,
+                         strlen(line) - offset);
   } else {
-    printf("Unrecognised cmd %s\n", buf);
-    return -1;
+    LOG(LOG_INFO, "Unrecognised cmd");
+    ret = 0;
   }
 
-  return 0;
+free:
+  mxt_buf_free(&linebuf);
+  return ret;
 }
 
 //******************************************************************************
@@ -194,7 +288,6 @@ static int bridge(int sockfd)
   fd_set readfds;
   struct timeval tv;
   int fopts = 0;
-
 
   /* set up select timeout */
   tv.tv_sec = 0;
@@ -254,7 +347,7 @@ int mxt_socket_client(char *ip_address, uint16_t port)
 
   server = gethostbyname(ip_address);
   if (server == NULL) {
-    printf("Error, no such host\n");
+    LOG(LOG_ERROR, "Error, no such host\n");
     return -1;
   }
 
@@ -320,7 +413,7 @@ int mxt_socket_server(uint16_t portno)
   }
 
   /* Start listening */
-  ret = listen(serversock, BUF_SIZE);
+  ret = listen(serversock, 1);
   if (ret < 0)
   {
     LOG(LOG_DEBUG, "listen returned %d (%s)", errno, strerror(errno));

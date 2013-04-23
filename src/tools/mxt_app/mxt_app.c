@@ -179,7 +179,7 @@ int main (int argc, char *argv[])
   int c;
   uint16_t address = 0;
   uint16_t object_address = 0;
-  uint8_t count = 0;
+  uint16_t count = 0;
   int i2c_address = -1;
   int i2c_adapter = -1;
   uint16_t object_type = 0;

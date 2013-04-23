@@ -40,3 +40,4 @@ struct mxt_buffer
 int mxt_buf_init(struct mxt_buffer *ctx);
 int mxt_buf_add(struct mxt_buffer *ctx, uint8_t value);
 void mxt_buf_free(struct mxt_buffer *ctx);
+void mxt_buf_reset(struct mxt_buffer *ctx);

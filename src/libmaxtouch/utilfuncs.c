@@ -422,10 +422,10 @@ static char to_digit(char hex)
 
 //******************************************************************************
 /// \brief Convert ASCII buffer containing hex digits to binary
-int mxt_convert_hex(char *hex, unsigned char *databuf, uint8_t *count, unsigned int buf_size)
+int mxt_convert_hex(char *hex, unsigned char *databuf, uint16_t *count, unsigned int buf_size)
 {
   unsigned int pos = 0;
-  uint8_t datapos = 0;
+  uint16_t datapos = 0;
   char highnibble;
   char lownibble;
 

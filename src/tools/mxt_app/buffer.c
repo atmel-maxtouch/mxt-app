@@ -113,3 +113,10 @@ void mxt_buf_free(struct mxt_buffer *ctx)
     ctx->data = 0;
   }
 }
+
+//******************************************************************************
+/// \brief Reset buffer
+void mxt_buf_reset(struct mxt_buffer *ctx)
+{
+  ctx->size = 0;
+}

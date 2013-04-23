@@ -186,7 +186,7 @@ static int mxt_t68_load_file(struct t68_ctx *ctx)
   FILE *fp;
   bool file_read = false;
   char hexbuf[3];
-  uint8_t hexcount;
+  uint16_t hexcount;
   int c;
 
   /* open file */
