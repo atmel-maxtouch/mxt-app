@@ -43,6 +43,7 @@
 #include "libmaxtouch/log.h"
 
 #include "mxt_app.h"
+#include "buffer.h"
 
 #define T68_CTRL                   0
 #define T68_CTRL_ENABLE            (1 << 0)
@@ -59,16 +60,12 @@
 
 #define T68_TIMEOUT                30
 
-#define T68_BUFFER_BLOCKSIZE       16
-
 //******************************************************************************
 /// \brief T68 Serial Data Command Context object
 struct t68_ctx
 {
   const char *filename;
-  size_t size;
-  size_t capacity;
-  uint8_t *data;
+  struct mxt_buffer buf;
   uint16_t t68_addr;
   uint8_t t68_size;
   uint16_t t68_cmd_addr;
@@ -180,85 +177,6 @@ static int mxt_t68_enable(uint16_t addr)
 }
 
 //******************************************************************************
-/// \brief Allocate memory associated with file buffer
-static int mxt_t68_buf_init(struct t68_ctx *ctx)
-{
-  int *ptr;
-
-  ctx->capacity = T68_BUFFER_BLOCKSIZE;
-  ctx->size = 0;
-  ptr = malloc(ctx->capacity*sizeof(uint8_t));
-
-  if (ptr)
-  {
-    ctx->data = (uint8_t *)ptr;
-    return 0;
-  }
-  else
-  {
-    LOG(LOG_ERROR, "malloc failed");
-    return -1;
-  }
-}
-
-//******************************************************************************
-/// \brief Reallocate file buffer memory if necessary
-static int mxt_t68_buf_realloc(struct t68_ctx *ctx)
-{
-  int *ptr = 0;
-
-  /* Check whether we are still within bounds of buffer */
-  if (ctx->size <= ctx->capacity)
-    return 0;
-
-  ctx->capacity += T68_BUFFER_BLOCKSIZE;
-  ptr = realloc(ctx->data, ctx->capacity*sizeof(uint8_t));
-
-  if (ptr)
-  {
-    ctx->data = (uint8_t *)ptr;
-    return 0;
-  }
-  else
-  {
-    LOG(LOG_ERROR, "realloc failed");
-    return -1;
-  }
-}
-
-//******************************************************************************
-/// \brief Add value to buffer
-static int mxt_t68_buf_add(struct t68_ctx *ctx, uint8_t value)
-{
-  size_t offset;
-  int ret;
-
-  offset = ctx->size;
-
-  ret = mxt_t68_buf_realloc(ctx);
-  if (ret < 0)
-    return ret;
-
-  *(ctx->data + offset) = value;
-
-  /* update new file size */
-  ctx->size = offset + 1;
-
-  return 0;
-}
-
-//******************************************************************************
-/// \brief Free memory associated with file buffer
-static void mxt_t68_buf_free(struct t68_ctx *ctx)
-{
-  if (ctx->data)
-  {
-    free(ctx->data);
-    ctx->data = 0;
-  }
-}
-
-//******************************************************************************
 /// \brief  Read hex encoded data from file
 /// \return 0 on success, negative error
 static int mxt_t68_load_file(struct t68_ctx *ctx)
@@ -279,7 +197,7 @@ static int mxt_t68_load_file(struct t68_ctx *ctx)
     return -1;
   }
 
-  ret = mxt_t68_buf_init(ctx);
+  ret = mxt_buf_init(&ctx->buf);
   if (ret < 0)
     return -1;
 
@@ -319,7 +237,7 @@ static int mxt_t68_load_file(struct t68_ctx *ctx)
       if (ret < 0)
         goto fail;
 
-      ret = mxt_t68_buf_add(ctx, value);
+      ret = mxt_buf_add(&ctx->buf, value);
       if (ret < 0)
         goto fail;
     }
@@ -334,7 +252,7 @@ static int mxt_t68_load_file(struct t68_ctx *ctx)
   return 0;
 
 fail:
-  mxt_t68_buf_free(ctx);
+  mxt_buf_free(&ctx->buf);
   return ret;
 }
 
@@ -348,7 +266,7 @@ static int mxt_t68_write_length(struct t68_ctx *ctx, uint8_t length)
 }
 
 //******************************************************************************
-/// \brief Write LENGTH
+/// \brief Zero entire T68 object
 static int mxt_t68_zero_data(struct t68_ctx *ctx)
 {
   int ret;
@@ -364,7 +282,7 @@ static int mxt_t68_zero_data(struct t68_ctx *ctx)
 }
 
 //******************************************************************************
-/// \brief Free memory associated with file buffer
+/// \brief Send frames of T68 data to chip
 static int mxt_t68_send_frames(struct t68_ctx *ctx)
 {
   int ret;
@@ -372,9 +290,9 @@ static int mxt_t68_send_frames(struct t68_ctx *ctx)
   uint16_t frame_size;
   uint16_t frame_number = 1;
 
-  while (offset < ctx->size)
+  while (offset < ctx->buf.size)
   {
-    frame_size = MIN(ctx->size - offset, ctx->t68_data_size);
+    frame_size = MIN(ctx->buf.size - offset, ctx->t68_data_size);
 
     printf("Writing frame %u, %u bytes\n", frame_number, frame_size);
 
@@ -384,7 +302,7 @@ static int mxt_t68_send_frames(struct t68_ctx *ctx)
       return -1;
     }
 
-    ret = mxt_write_register(ctx->data + offset,
+    ret = mxt_write_register(ctx->buf.data + offset,
                              ctx->t68_addr + T68_DATA,
                              frame_size);
     if (ret < 0)
@@ -522,6 +440,6 @@ int mxt_serial_data_upload(const char *filename, uint16_t datatype)
   ret = 0;
 
 release:
-  mxt_t68_buf_free(&ctx);
+  mxt_buf_free(&ctx.buf);
   return ret;
 }
