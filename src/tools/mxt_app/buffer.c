@@ -59,20 +59,22 @@ int mxt_buf_init(struct mxt_buffer *ctx)
 
 //******************************************************************************
 /// \brief Reallocate buffer memory if necessary
-static int mxt_buf_realloc(struct mxt_buffer *ctx)
+static int mxt_buf_realloc(struct mxt_buffer *ctx, size_t new_size)
 {
   int *ptr = 0;
+  size_t new_capacity;
 
   /* Check whether we are still within bounds of buffer */
-  if (ctx->size <= ctx->capacity)
+  if (new_size <= ctx->capacity)
     return 0;
 
-  ctx->capacity += BUFFER_BLOCKSIZE;
-  ptr = realloc(ctx->data, ctx->capacity*sizeof(uint8_t));
+  new_capacity = ctx->capacity + BUFFER_BLOCKSIZE;
+  ptr = realloc(ctx->data, new_capacity * sizeof(uint8_t));
 
   if (ptr)
   {
     ctx->data = (uint8_t *)ptr;
+    ctx->capacity = new_capacity;
     return 0;
   }
   else
@@ -86,19 +88,17 @@ static int mxt_buf_realloc(struct mxt_buffer *ctx)
 /// \brief Add value to buffer
 int mxt_buf_add(struct mxt_buffer *ctx, uint8_t value)
 {
-  size_t offset;
   int ret;
+  size_t new_size = ctx->size + 1;
 
-  offset = ctx->size;
-
-  ret = mxt_buf_realloc(ctx);
+  ret = mxt_buf_realloc(ctx, new_size);
   if (ret < 0)
     return ret;
 
-  *(ctx->data + offset) = value;
+  *(ctx->data + ctx->size) = value;
 
   /* update new size */
-  ctx->size = offset + 1;
+  ctx->size = new_size;
 
   return 0;
 }
