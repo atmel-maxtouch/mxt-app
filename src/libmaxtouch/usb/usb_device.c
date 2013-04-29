@@ -73,7 +73,7 @@ typedef struct usb_response_t {
   unsigned char result;
   unsigned char bytes_read;
   unsigned char read_data[MAX_RES_DATA_LENGTH];
-} usb_reponse;
+} usb_response;
 
 //******************************************************************************
 /// \brief  Device information
@@ -495,11 +495,11 @@ static int read_packet(unsigned char *buf, int start_register, int count)
   int ret = -1;
 
   static const int command_size = SIZE_OF_CMD_HEADER;
-  struct usb_command command;
+  usb_command command;
 
   /* Try to read a whole packet - otherwise we get LIBUSB_ERROR_OVERFLOW error */
   int response_size = gDevice.ep1_in_max_packet_size;
-  struct usb_response response;
+  usb_response response;
 
   int bytes_transferred = 0;
 
@@ -596,11 +596,11 @@ static int write_packet(unsigned char const *buf, int start_register, int count,
   int ret = -1;
 
   int command_size = SIZE_OF_CMD_HEADER + count;
-  struct usb_command command;
+  usb_command command;
 
   /* Try to read a whole packet - otherwise we get LIBUSB_ERROR_OVERFLOW error */
   int response_size = gDevice.ep1_in_max_packet_size;
-  struct usb_reponse response;
+  usb_response response;
 
   int bytes_transferred = 0;
 
