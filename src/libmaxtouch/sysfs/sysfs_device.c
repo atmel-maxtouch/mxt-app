@@ -61,6 +61,28 @@ sysfs_device *gpDevice = NULL;
 char tempPath[PATH_LENGTH + 1];
 
 //******************************************************************************
+/// \brief Register sysfs device
+static void sysfs_register_device(const char *dirname, int adapter, int address)
+{
+  gpDevice = (sysfs_device *)malloc(sizeof(sysfs_device));
+  gpDevice->path = (char *)malloc(strlen(dirname) + 1);
+  gpDevice->mem_access_path = (char *)malloc(strlen(dirname) + 20);
+
+  gpDevice->adapter = adapter;
+  gpDevice->address = address;
+
+  gpDevice->path[0] = '\0';
+  memcpy(gpDevice->path, dirname, strlen(dirname) + 1);
+
+  // Cache memory access path for fast access
+  snprintf(gpDevice->mem_access_path, strlen(dirname) + 20,
+           "%s/mem_access", dirname);
+
+  LOG(LOG_INFO, "Registered sysfs adapter:%d address:%x path:%s",
+        gpDevice->adapter, gpDevice->address, gpDevice->path);
+}
+
+//******************************************************************************
 /// \brief Check sysfs device directory for correct files
 /// \return 1 = device found, 0 = not found, negative for error
 static int scan_sysfs_directory(struct dirent *i2c_dir,
@@ -108,23 +130,7 @@ static int scan_sysfs_directory(struct dirent *i2c_dir,
   /* If device found, store it and return success */
   if (mem_access_found && debug_found)
   {
-    gpDevice = (sysfs_device *)malloc(sizeof(sysfs_device));
-    gpDevice->path = (char *)malloc(strlen(pszDirname) + 1);
-    gpDevice->mem_access_path = (char *)malloc(strlen(pszDirname) + 20);
-
-    gpDevice->adapter = adapter;
-    gpDevice->address = address;
-
-    gpDevice->path[0] = '\0';
-    memcpy(gpDevice->path, pszDirname, strlen(pszDirname) + 1);
-
-    // Cache memory access path for fast access
-    snprintf(gpDevice->mem_access_path, strlen(pszDirname) + 20,
-             "%s/mem_access", pszDirname);
-
-    LOG(LOG_INFO, "Registered sysfs adapter:%d address:%x path:%s",
-          gpDevice->adapter, gpDevice->address, gpDevice->path);
-
+    sysfs_register_device(pszDirname, adapter, address);
     ret = 1;
     goto close;
   }
