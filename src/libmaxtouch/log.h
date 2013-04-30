@@ -67,7 +67,7 @@ const char* get_log_level_string(mxt_log_level level);
 #define LOG(level, format, ...) \
   if (level >= log_level) { \
     printf("%s: " format "\n", get_log_level_string(level), ##__VA_ARGS__); \
-  } else { \
+  } else if (level >= LOG_ERROR) { \
     __android_log_print(ANDROID_ ## level, LOG_TAG, format, ##__VA_ARGS__); \
   }
 #else
