@@ -561,7 +561,7 @@ int main (int argc, char *argv[])
       break;
 
     case CMD_INFO:
-      LOG(LOG_DEBUG, "CMD_TEST");
+      LOG(LOG_DEBUG, "CMD_INFO");
       print_info_block();
       break;
 
