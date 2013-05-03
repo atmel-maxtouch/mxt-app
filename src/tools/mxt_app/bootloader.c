@@ -313,8 +313,7 @@ static int lookup_bootloader_addr(int addr)
   {
     case 0x4a:
     case 0x4b:
-      /* 1188S/1664S use different scheme */
-      if (info_block.id->family_id == 0xa2)
+      if (info_block.id->family_id >= 0xa2)
       {
         return (addr - 0x24);
       }
