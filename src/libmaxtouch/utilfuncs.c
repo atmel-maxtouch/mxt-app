@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <inttypes.h>
 
 #include "libmaxtouch.h"
 #include "info_block.h"
@@ -91,7 +92,7 @@ void print_info_block()
 
     printf("T%-3u %4u  %4u    %2u       %2u-%-2u   %s\n",
            info_block.objects[i].object_type,
-           get_start_position(info_block.objects[i]),
+           get_start_position(info_block.objects[i], 0),
            info_block.objects[i].size + 1,
            info_block.objects[i].instances + 1,
            report_id_start, report_id_end,
@@ -268,56 +269,58 @@ const char *objname(uint8_t objtype)
 
 //******************************************************************************
 /// \brief Menu function to write values to object
-void write_to_object(int obj_num)
+void write_to_object(int obj_num, uint8_t instance)
 {
   uint8_t obj_tbl_num, i;
-  uint8_t *temp;
+  uint8_t *buffer;
+  uint16_t start_position;
   int yn;
-  int value;
+  uint8_t value;
+  uint8_t size;
 
   obj_tbl_num = get_object_table_num(obj_num);
-
-  temp = (uint8_t *)malloc(sizeof(char)*(info_block.objects[obj_tbl_num].size+1));
-  if (temp == NULL)
-  {
-    fputs ("Memory error\n",stderr);
-    exit (2);
-  }
-
-  if(obj_tbl_num == 255)
-  {
+  if (obj_tbl_num == 255) {
     printf("Object not found\n");
+    return;
   }
-  else
+
+  buffer = (uint8_t *)malloc(sizeof(char)*(info_block.objects[obj_tbl_num].size+1));
+  if (buffer == NULL)
   {
-    printf("%s:\n", objname(info_block.objects[obj_tbl_num].object_type));
-    mxt_read_register(temp, get_start_position(info_block.objects[obj_tbl_num]), info_block.objects[obj_tbl_num].size+1);
+    LOG(LOG_ERROR, "Memory error\n");
+    return;
+  }
 
+  printf("%s:\n", objname(info_block.objects[obj_tbl_num].object_type));
 
-    for(i = 0; i < (info_block.objects[obj_tbl_num].size+1); i++)
+  start_position = get_start_position(info_block.objects[obj_tbl_num], instance);
+  size = get_object_size(obj_num);
+
+  mxt_read_register(buffer, start_position, size);
+
+  for(i = 0; i < size; i++)
+  {
+    printf("Object element %d =\t %d\n",i, *(buffer+i));
+    printf("Do you want to change this value? (1 for yes/2 for no)");
+    if (scanf("%d", &yn) != 1)
     {
-      printf("Object element %d =\t %d\n",i, *(temp+i));
-      printf("Do you want to change this value? (1 for yes/2 for no)");
-      if (scanf("%d", &yn) != 1)
+      printf("Input error\n");
+      return;
+    }
+    if (yn == 1)
+    {
+      printf("Enter the value to be written to object element %d\t :", i);
+      if (scanf("%" SCNu8, &value) != 1)
       {
         printf("Input error\n");
         return;
       }
-      if(yn == 1)
-      {
-        printf("Enter the value to be written to object element %d\t :", i);
-        if (scanf("%d", &value) != 1)
-        {
-          printf("Input error\n");
-          return;
-        }
-        *(temp+i) = (uint8_t) value;
-        printf("wrote %d\n", (uint8_t) value);
-      }
+      *(buffer+i) = value;
+      printf("Wrote %d\n", value);
     }
-
-    mxt_write_register(temp, get_start_position(info_block.objects[obj_tbl_num]), info_block.objects[obj_tbl_num].size+1);
   }
+
+  mxt_write_register(buffer, start_position, size);
 }
 
 //******************************************************************************
@@ -389,17 +392,6 @@ int read_object(uint16_t object_type, uint8_t instance, uint16_t address, size_t
 free:
   free(databuf);
   return ret;
-}
-
-//******************************************************************************
-/// \brief Print list of declared objects
-void print_objs()
-{
-  int i;
-  for (i = 0; i < info_block.id->num_declared_objects; i++)
-  {
-    printf("\t %s\n", objname(info_block.objects[i].object_type));
-  }
 }
 
 //******************************************************************************

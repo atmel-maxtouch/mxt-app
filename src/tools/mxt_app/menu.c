@@ -29,9 +29,11 @@
 
 #include <stdio.h>
 #include <ctype.h>
+#include <inttypes.h>
 
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/utilfuncs.h"
+#include "libmaxtouch/info_block.h"
 
 #include "mxt_app.h"
 
@@ -104,35 +106,29 @@ static void flash_firmware_command(void)
 /// \brief Read objects according to the input value
 static void read_object_command(void)
 {
-  int obj_num;
-
-  printf("Objects on the chip:\n");
+  uint16_t obj_num;
+  uint8_t instance = 0;
 
   while(1)
   {
-    print_objs();
-
-    printf("Enter the object number to read the object's "
-        "field values; Enter 255 to return to main menu\n");
-    if (scanf("%d",&obj_num) != 1) {
+    printf("Enter the object number to read or 0 to finish\n");
+    if (scanf("%" SCNu16, &obj_num) != 1) {
       printf("Input parse error\n");
       return;
     };
 
-    if ((obj_num >= 0) && (obj_num < 255))
-    {
-      read_object(obj_num, 0, 0, 0, true);
+    if (obj_num == 0)
+      return;
+
+    if (info_block.objects[obj_num].instances > 0) {
+      printf("Enter object instance\n");
+      if (scanf("%" SCNu8, &instance) != 1) {
+        printf("Input parse error\n");
+        return;
+      }
     }
-    else if (obj_num == 255)
-    {
-      break;
-    }
-    else
-    {
-      printf("Please enter a valid object number\n");
-      printf("Coming out of objects space...\n");
-      break;
-    }
+
+    read_object(obj_num, instance, 0, 0, true);
   }
 }
 
@@ -140,34 +136,30 @@ static void read_object_command(void)
 /// \brief Write objects
 static void write_object_command(void)
 {
-  int obj_num;
+  uint16_t obj_num;
+  uint8_t instance = 0;
 
-  printf("Objects on the chip:\n");
   while(1)
   {
-    print_objs();
-    printf("Enter the object number to modify the object's "
-        "field values; or 255 to return to main menu\n");
-    if (scanf("%d",&obj_num) != 1)
+    printf("Enter the object number to write or 0 to finish\n");
+    if (scanf("%" SCNu16, &obj_num) != 1)
     {
       printf("Input parse error\n");
       return;
     }
 
-    if((obj_num >= 0) && (obj_num < 255))
-    {
-      write_to_object(obj_num);
+    if (obj_num == 0)
+      return;
+
+    if (info_block.objects[obj_num].instances > 0) {
+      printf("Enter object instance\n");
+      if (scanf("%" SCNu8, &instance) != 1) {
+        printf("Input parse error\n");
+        return;
+      }
     }
-    else if(obj_num == 255)
-    {
-      break;
-    }
-    else
-    {
-      printf("Please enter a valid object number\n");
-      printf("Coming out of objects space...\n");
-      break;
-    }
+
+    write_to_object(obj_num, instance);
   }
 }
 

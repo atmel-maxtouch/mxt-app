@@ -133,7 +133,7 @@ void display_chip_info(void);
 uint16_t get_object_address(uint16_t object_type, uint8_t instance);
 uint8_t get_object_size(uint16_t object_type);
 uint8_t get_object_table_num(uint16_t object_type);
-uint16_t get_start_position(object_t element);
+uint16_t get_start_position(object_t element, uint8_t instance);
 int mxt_get_firmware_version(char *version_str);
 uint32_t info_block_crc(crc_t *);
 uint16_t report_id_to_type(int report_id);

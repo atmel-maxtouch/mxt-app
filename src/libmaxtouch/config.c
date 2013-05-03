@@ -82,7 +82,7 @@ int mxt_save_config_file(const char *cfg_file)
       fprintf(fp, "%04X %04X %04X", object->object_type, instance, num_bytes);
 
       mxt_read_register(temp,
-                       get_start_position(*object) + num_bytes * instance,
+                       get_start_position(*object, instance),
                        num_bytes);
 
       for (i=0; i< num_bytes; i++)

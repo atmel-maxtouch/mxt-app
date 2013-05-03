@@ -292,7 +292,7 @@ void display_chip_info()
 
     LOG(LOG_DEBUG, "T%u size:%u instances:%u address:%u",
       element.object_type, element.size + 1,
-      element.instances + 1, get_start_position(element));
+      element.instances + 1, get_start_position(element, 0));
 
   }
 }
@@ -320,7 +320,7 @@ uint16_t get_object_address(uint16_t object_type, uint8_t instance)
       /* Are there enough instances defined in the firmware? */
       if (element.instances >= instance)
       {
-        return get_start_position(element) + ((element.size + 1) * instance);
+        return get_start_position(element, instance);
       }
       else
       {
@@ -376,14 +376,16 @@ uint8_t get_object_table_num(uint16_t object_type)
 
 /*!
  * @param element Object table element.
+ * @param instance Object instance.
  *
  * @brief  Returns the start position for the specified object element by
  *         combining the least significant and most significant bytes.
  * @return Start position as a single value.
  */
-uint16_t get_start_position(object_t element)
+uint16_t get_start_position(object_t element, uint8_t instance)
 {
-  return (element.start_pos_msbyte * 256) + element.start_pos_lsbyte;
+  return (element.start_pos_msbyte * 256) + element.start_pos_lsbyte
+         + ((element.size + 1) * instance);
 }
 
 /*!

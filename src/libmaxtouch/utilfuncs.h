@@ -29,14 +29,8 @@
 
 #include <stdint.h>
 
-/*! \brief Prints the whole info block read from the chip */
 void print_info_block(void);
-
 const char *objname(uint8_t objtype);
-
-/*! \brief Prints the elements of the object */
-void print_objs(void);
-
-void write_to_object(int obj_num);
+void write_to_object(int obj_num, uint8_t instance);
 int read_object(uint16_t object_type, uint8_t instance, uint16_t offset, size_t count, bool format);
 int mxt_convert_hex(char *hex, unsigned char *databuf, uint16_t *count, unsigned int buf_size);

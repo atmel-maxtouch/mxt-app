@@ -161,7 +161,7 @@ static void print_t25_limits(uint16_t t25_addr)
       case TOUCH_XSLIDERSET_T32:
          for (instance = 0; (instance < element.instances + 1); instance++)
          {
-            mxt_read_register((uint8_t *)&buf, get_start_position(element), 1);
+            mxt_read_register((uint8_t *)&buf, get_start_position(element, instance), 1);
 
             printf("%s[%d] %s\n",
                    objname(element.object_type),
