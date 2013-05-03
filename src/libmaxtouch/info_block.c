@@ -273,7 +273,6 @@ void display_chip_info()
 {
   object_t element;
   int element_index;
-  int no_of_touch_instances = 0;
   char firmware_version[MXT_FW_VER_LEN];
 
   mxt_get_firmware_version((char *)&firmware_version);
@@ -295,41 +294,7 @@ void display_chip_info()
       element.object_type, element.size + 1,
       element.instances + 1, get_start_position(element));
 
-    switch (element.object_type)
-    {
-      case GEN_MESSAGEPROCESSOR_T5:
-      {
-        LOG(LOG_DEBUG, "Message processor address = %u", get_start_position(element));
-        LOG(LOG_DEBUG, "Maximum message length = %d", element.size + 1);
-        break;
-      }
-      case GEN_COMMANDPROCESSOR_T6:
-      {
-        command_processor_address = get_start_position(element);
-        LOG(LOG_DEBUG, "Command processor address = %u", command_processor_address);
-        break;
-      }
-      case TOUCH_MULTITOUCHSCREEN_T9:
-      case TOUCH_SINGLETOUCHSCREEN_T10:
-      case TOUCH_XSLIDER_T11:
-      case TOUCH_YSLIDER_T12:
-      case TOUCH_XWHEEL_T13:
-      case TOUCH_YWHEEL_T14:
-      case TOUCH_KEYARRAY_T15:
-      case TOUCH_PROXIMITY_T23:
-      case TOUCH_KEYSET_T31:
-      case TOUCH_XSLIDERSET_T32:
-      {
-        no_of_touch_instances += element.instances + 1;
-        break;
-      }
-      default:
-        /* Do nothing */
-        break;
-    }
   }
-
-  LOG(LOG_DEBUG, "Instances of touch objects = %d", no_of_touch_instances);
 }
 
 /*!
