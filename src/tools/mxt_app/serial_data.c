@@ -347,7 +347,7 @@ static int mxt_t68_check_power_cfg(void)
 
   t7_addr = get_object_address(GEN_POWERCONFIG_T7, 0);
   if (t7_addr == OBJECT_NOT_FOUND)
-    return -1;
+    return 0;
 
   ret = mxt_read_register(&buf[0], t7_addr, sizeof(buf));
   if (ret < 0)
