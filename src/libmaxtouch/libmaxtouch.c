@@ -310,7 +310,13 @@ bool mxt_get_debug()
 static int mxt_send_reset_command(bool bootloader_mode)
 {
   int ret;
+  uint16_t t6_addr;
   unsigned char write_value = RESET_COMMAND;
+
+  /* Obtain command processor's address */
+  t6_addr = get_object_address(GEN_COMMANDPROCESSOR_T6, 0);
+  if (t6_addr == OBJECT_NOT_FOUND)
+    return -1;
 
   /* The value written determines which mode the chip will boot into */
   if (bootloader_mode)
@@ -322,7 +328,7 @@ static int mxt_send_reset_command(bool bootloader_mode)
   /* Write to command processor register to perform command */
   ret = mxt_write_register
   (
-    &write_value, command_processor_address + RESET_OFFSET, 1
+    &write_value, t6_addr + RESET_OFFSET, 1
   );
 
   return ret;
@@ -365,7 +371,13 @@ int mxt_reset_chip(bool bootloader_mode)
 int mxt_calibrate_chip()
 {
   int ret = -1;
+  uint16_t t6_addr;
   unsigned char write_value = CALIBRATE_COMMAND;
+
+  /* Obtain command processor's address */
+  t6_addr = get_object_address(GEN_COMMANDPROCESSOR_T6, 0);
+  if (t6_addr == OBJECT_NOT_FOUND)
+    return -1;
 
   if (gDeviceType == E_UNCONNECTED)
   {
@@ -376,7 +388,7 @@ int mxt_calibrate_chip()
     /* Write to command processor register to perform command */
     ret = mxt_write_register
     (
-      &write_value, command_processor_address + CALIBRATE_OFFSET, 1
+      &write_value, t6_addr + CALIBRATE_OFFSET, 1
     );
 
     if (ret == 0)
@@ -398,7 +410,13 @@ int mxt_calibrate_chip()
 int mxt_backup_config()
 {
   int ret = -1;
+  uint16_t t6_addr;
   unsigned char write_value = BACKUPNV_COMMAND;
+
+  /* Obtain command processor's address */
+  t6_addr = get_object_address(GEN_COMMANDPROCESSOR_T6, 0);
+  if (t6_addr == OBJECT_NOT_FOUND)
+    return -1;
 
   if (gDeviceType == E_UNCONNECTED)
   {
@@ -409,7 +427,7 @@ int mxt_backup_config()
     /* Write to command processor register to perform command */
     ret = mxt_write_register
     (
-      &write_value, command_processor_address + BACKUPNV_OFFSET, 1
+      &write_value, t6_addr + BACKUPNV_OFFSET, 1
     );
 
     if (ret == 0)

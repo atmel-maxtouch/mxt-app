@@ -371,7 +371,13 @@ void usb_release()
 int usb_reset_chip(bool bootloader_mode)
 {
   int ret = -1;
+  uint16_t t6_addr;
   unsigned char write_value = RESET_COMMAND;
+
+  /* Obtain command processor's address */
+  t6_addr = get_object_address(GEN_COMMANDPROCESSOR_T6, 0);
+  if (t6_addr == OBJECT_NOT_FOUND)
+    return -1;
 
   /* The value written determines which mode the chip will boot into */
   if (bootloader_mode)
@@ -382,7 +388,7 @@ int usb_reset_chip(bool bootloader_mode)
   /* Send write command to reset the chip */
   ret = write_packet
   (
-    &write_value, command_processor_address + RESET_OFFSET, 1, true
+    &write_value, t6_addr + RESET_OFFSET, 1, true
   );
 
   if (ret != 0)

@@ -40,9 +40,6 @@ info_block_t info_block;
 /*! Pointer to report ID look-up table. */
 static report_id_map_t *report_id_map;
 
-/*! Command processor start position. */
-uint16_t command_processor_address;
-
 /*!
  * @brief Information block checksum return function.
  * @return 24-bit checksum value in 32-bit integer.

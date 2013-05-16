@@ -152,5 +152,4 @@ typedef struct
 } report_id_map_t;
 
 /* Global variables - documented in the .c file */
-extern uint16_t command_processor_address;
 extern info_block_t info_block;
