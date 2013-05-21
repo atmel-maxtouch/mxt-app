@@ -1,7 +1,7 @@
 EXTRA_DIST = autogen.sh
 AM_MAKEFLAGS = --no-print-directory
 
-OBP_VERSION := $(shell sh -c 'build-aux/version.sh')
+OBP_VERSION := $(shell build-aux/version.sh)
 
 .PHONY: force
 obp-version: force
