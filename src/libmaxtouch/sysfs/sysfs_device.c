@@ -28,6 +28,7 @@
 //------------------------------------------------------------------------------
 
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -38,6 +39,7 @@
 #include <stdio.h>
 
 #include "libmaxtouch/log.h"
+#include "libmaxtouch/info_block.h"
 #include "dmesg.h"
 #include "sysfs_device.h"
 
@@ -51,6 +53,12 @@ typedef struct sysfs_device_t {
   int address;
   char *path;
   char *mem_access_path;
+  bool debug_ng;
+  uint16_t debug_ng_msg_count;
+  uint16_t debug_ng_msg_ptr;
+  uint8_t *debug_ng_msg_buf;
+  int debug_notify_fd;
+  size_t debug_ng_size;
 } sysfs_device;
 
 /* detected devices */
@@ -61,8 +69,38 @@ sysfs_device *gpDevice = NULL;
 char tempPath[PATH_LENGTH + 1];
 
 //******************************************************************************
+/// \brief Construct filename of path
+static char *make_path(const char *filename)
+{
+  snprintf(tempPath, PATH_LENGTH, "%s/%s", gpDevice->path, filename);
+
+  return &tempPath[0];
+}
+
+static void sysfs_open_notify_fd(void)
+{
+  char *filename = make_path("debug_notify");
+
+  gpDevice->debug_notify_fd = open(filename, O_RDONLY);
+  if (gpDevice->debug_notify_fd < 0) {
+    LOG(LOG_ERROR, "Could not open %s, error %s (%d)", filename, strerror(errno), errno);
+    return;
+  }
+}
+
+static void sysfs_reopen_notify_fd(void)
+{
+  uint16_t val;
+
+  close(gpDevice->debug_notify_fd);
+  sysfs_open_notify_fd();
+  read(gpDevice->debug_notify_fd, &val, 2);
+}
+
+//******************************************************************************
 /// \brief Register sysfs device
-static void sysfs_register_device(const char *dirname, int adapter, int address)
+static void sysfs_register_device(const char *dirname, int adapter,
+                                  int address, bool debug_ng)
 {
   gpDevice = (sysfs_device *)malloc(sizeof(sysfs_device));
   gpDevice->path = (char *)malloc(strlen(dirname) + 1);
@@ -78,8 +116,28 @@ static void sysfs_register_device(const char *dirname, int adapter, int address)
   snprintf(gpDevice->mem_access_path, strlen(dirname) + 20,
            "%s/mem_access", dirname);
 
+  if (debug_ng)
+  {
+    sysfs_open_notify_fd();
+    gpDevice->debug_ng = true;
+  }
+
   LOG(LOG_INFO, "Registered sysfs adapter:%d address:%x path:%s",
         gpDevice->adapter, gpDevice->address, gpDevice->path);
+}
+
+//******************************************************************************
+/// \brief Check whether device has NG debug
+bool sysfs_has_debug_ng()
+{
+  return gpDevice->debug_ng;
+}
+
+//******************************************************************************
+/// \brief Get fd for select
+int sysfs_get_debug_ng_fd()
+{
+  return gpDevice->debug_notify_fd;
 }
 
 //******************************************************************************
@@ -94,6 +152,7 @@ static int scan_sysfs_directory(struct dirent *i2c_dir,
   struct dirent *pEntry;
   bool mem_access_found = false;
   bool debug_found = false;
+  bool debug_ng_found = false;
   int ret = 0;
 
   length = strlen(dirname) + strlen(i2c_dir->d_name) + 2;
@@ -110,7 +169,8 @@ static int scan_sysfs_directory(struct dirent *i2c_dir,
 
   pDirectory = opendir(pszDirname);
 
-  if (pDirectory == NULL) return 0;
+  if (!pDirectory)
+    return 0;
 
   while ((pEntry = readdir(pDirectory)) != NULL)
   {
@@ -125,12 +185,18 @@ static int scan_sysfs_directory(struct dirent *i2c_dir,
       LOG(LOG_DEBUG, "Found debug_enable interface at %s/debug_enable", pszDirname);
       debug_found = true;
     }
+
+    if (!strcmp(pEntry->d_name, "debug_msg"))
+    {
+      LOG(LOG_DEBUG, "Found Debug NG at %s/debug_msg", pszDirname);
+      debug_ng_found = true;
+    }
   }
 
   /* If device found, store it and return success */
   if (mem_access_found && debug_found)
   {
-    sysfs_register_device(pszDirname, adapter, address);
+    sysfs_register_device(pszDirname, adapter, address, debug_ng_found);
     ret = 1;
     goto close;
   }
@@ -225,14 +291,15 @@ static int sysfs_scan_tree(const char *root)
   // Look in sysfs for driver entries
   pDirectory = opendir(root);
 
-  if (pDirectory == NULL) return 0;
+  if (!pDirectory)
+    return 0;
 
   LOG(LOG_DEBUG, "Scanning %s", root);
 
   while (ret == 0)
   {
     pEntry = readdir(pDirectory);
-    if (pEntry == NULL)
+    if (!pEntry)
       break;
 
     if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
@@ -272,11 +339,17 @@ int sysfs_scan()
 /// \brief  Release device
 void sysfs_release()
 {
-  if (gpDevice != NULL)
+  if (gpDevice)
   {
-    if (gpDevice->path != NULL)
+    if (gpDevice->path)
     {
       free(gpDevice->path);
+    }
+
+    if (gpDevice->debug_ng_msg_buf)
+    {
+      free(gpDevice->debug_ng_msg_buf);
+      close(gpDevice->debug_notify_fd);
     }
 
     free(gpDevice);
@@ -305,7 +378,7 @@ static int open_device_file(void)
   int file;
 
   // Check device is initialised
-  if (gpDevice == NULL || gpDevice->mem_access_path == NULL)
+  if (!gpDevice || !gpDevice->mem_access_path)
   {
     LOG(LOG_ERROR, "Device uninitialised");
     return -1;
@@ -407,14 +480,6 @@ close:
   return ret;
 }
 
-//******************************************************************************
-/// \brief Construct filename of path
-static char *make_path(const char *filename)
-{
-  snprintf(tempPath, PATH_LENGTH, "%s/%s", gpDevice->path, filename);
-
-  return &tempPath[0];
-}
 
 //******************************************************************************
 /// \brief  Write boolean to file as ASCII 0/1
@@ -422,7 +487,7 @@ static int write_boolean_file(const char *filename, bool value)
 {
   FILE *file;
 
-  if (filename == NULL)
+  if (!filename)
   {
     LOG(LOG_ERROR, "write_boolean_file: No filename");
     return -1;
@@ -430,7 +495,7 @@ static int write_boolean_file(const char *filename, bool value)
 
   file = fopen(filename, "w+");
 
-  if (file == NULL)
+  if (!file)
   {
     LOG(LOG_ERROR, "Could not open %s, error %s (%d)", filename, strerror(errno), errno);
     return -1;
@@ -458,7 +523,7 @@ static bool read_boolean_file(char *filename)
   char val;
   bool ret;
 
-  if (filename == NULL)
+  if (!filename)
   {
     LOG(LOG_ERROR, "read_boolean_file: No filename");
     return false;
@@ -466,7 +531,7 @@ static bool read_boolean_file(char *filename)
 
   file = fopen(filename, "r");
 
-  if (file == NULL)
+  if (!file)
   {
     LOG(LOG_ERROR, "Could not open %s, error %s (%d)", filename, strerror(errno), errno);
     return false;
@@ -499,15 +564,140 @@ static bool read_boolean_file(char *filename)
 int sysfs_set_debug(bool debug_state)
 {
   // Check device is initialised
-  if (gpDevice == NULL)
+  if (!gpDevice)
   {
     LOG(LOG_ERROR, "Device uninitialised");
     return -1;
   }
 
-  return write_boolean_file(make_path("debug_enable"), debug_state);
+  if (gpDevice->debug_ng == true)
+  {
+    return write_boolean_file(make_path("debug_v2_enable"), debug_state);
+  }
+  else
+  {
+    return write_boolean_file(make_path("debug_enable"), debug_state);
+  }
 }
 
+//******************************************************************************
+/// \brief  Get debug message string
+char *sysfs_get_msg_string_ng(void)
+{
+  int ret, i;
+  uint16_t t5_size;
+  size_t length;
+  unsigned char databuf[20];
+  static char msg_string[255];
+
+  t5_size = get_object_size(GEN_MESSAGEPROCESSOR_T5) - 1;
+
+  ret = sysfs_get_msg_bytes_ng(&databuf[0], sizeof(databuf));
+  if (ret < 0)
+    return NULL;
+
+  length = snprintf(msg_string, sizeof(msg_string), "MXT MSG:");
+  for (i = 0; i < t5_size; i++)
+  {
+    length += snprintf(msg_string + length, sizeof(msg_string) - length,
+        "%02X ", databuf[i]);
+  }
+
+  return &msg_string[0];
+}
+
+//******************************************************************************
+/// \brief Get debug message bytes
+int sysfs_get_msg_bytes_ng(unsigned char *buf, size_t buflen)
+{
+  uint16_t t5_size;
+
+  if (!gpDevice->debug_ng_msg_buf)
+    return -1;
+
+  t5_size = get_object_size(GEN_MESSAGEPROCESSOR_T5) - 1;
+
+  if (buflen < t5_size)
+    return -1;
+
+  if (gpDevice->debug_ng_msg_ptr > gpDevice->debug_ng_msg_count)
+    return -1;
+
+  memcpy(buf,
+         gpDevice->debug_ng_msg_buf + gpDevice->debug_ng_msg_ptr * t5_size,
+         t5_size);
+
+  gpDevice->debug_ng_msg_ptr++;
+
+  return 0;
+}
+
+//******************************************************************************
+/// \brief Reset debug messages
+int sysfs_msg_reset_ng(void)
+{
+  // Free buffer of previous messages (TODO realloc)
+  if (gpDevice->debug_ng_msg_buf)
+  {
+    free(gpDevice->debug_ng_msg_buf);
+  }
+
+  return 0;
+}
+
+//******************************************************************************
+/// \brief  Get messages (new)
+int sysfs_get_msg_count_ng()
+{
+  ssize_t count;
+  uint16_t t5_size;
+  char *filename;
+  struct stat filestat;
+  int ret;
+  int fd;
+
+  sysfs_reopen_notify_fd();
+
+  filename = make_path("debug_msg");
+
+  ret = stat(filename, &filestat);
+  if (ret < 0) {
+    LOG(LOG_ERROR, "Could not stat %s, error %s (%d)", filename, strerror(errno), errno);
+    return 0;
+  }
+
+  gpDevice->debug_ng_size = filestat.st_size;
+
+  if (gpDevice->debug_ng_msg_buf)
+  {
+    free(gpDevice->debug_ng_msg_buf);
+  }
+
+  gpDevice->debug_ng_msg_buf = calloc(gpDevice->debug_ng_size, sizeof(uint8_t));
+
+  fd = open(filename, O_RDWR);
+  if (fd < 0) {
+    LOG(LOG_ERROR, "Could not open %s, error %s (%d)", filename, strerror(errno), errno);
+    goto close;
+  }
+
+  t5_size = get_object_size(GEN_MESSAGEPROCESSOR_T5) - 1;
+
+  count = read(fd, gpDevice->debug_ng_msg_buf, gpDevice->debug_ng_size);
+  if (count < 0)
+  {
+    LOG(LOG_ERROR, "read error %s (%d)", strerror(errno), errno);
+    goto close;
+  }
+
+  gpDevice->debug_ng_msg_count = count / t5_size;
+  gpDevice->debug_ng_msg_ptr = 0;
+
+close:
+  close(fd);
+
+  return gpDevice->debug_ng_msg_count;
+}
 
 //******************************************************************************
 /// \brief  Get debug state
@@ -515,7 +705,7 @@ int sysfs_set_debug(bool debug_state)
 bool sysfs_get_debug()
 {
   // Check device is initialised
-  if (gpDevice == NULL)
+  if (!gpDevice)
   {
     LOG(LOG_ERROR, "Device uninitialised");
     return false;
@@ -530,7 +720,7 @@ bool sysfs_get_debug()
 char *sysfs_get_directory(void)
 {
   // Check device is initialised
-  if (gpDevice == NULL)
+  if (!gpDevice)
   {
     LOG(LOG_ERROR, "Device uninitialised");
     return 0;

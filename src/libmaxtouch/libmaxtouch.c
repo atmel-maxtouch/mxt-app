@@ -57,7 +57,7 @@ int mxt_scan()
   ret = sysfs_scan();
   if (ret == 1)
   {
-    gDeviceType = E_SYSFS;
+    gDeviceType = sysfs_has_debug_ng() ? E_SYSFS_DEBUG_NG : E_SYSFS;
   }
 #ifdef HAVE_LIBUSB
   else
@@ -117,6 +117,7 @@ void mxt_release()
       break;
 
     case E_SYSFS:
+    case E_SYSFS_DEBUG_NG:
       sysfs_release();
       break;
 
@@ -157,6 +158,7 @@ const char* mxt_get_input_event_file()
       break;
 
     case E_SYSFS:
+    case E_SYSFS_DEBUG_NG:
       /* This must be adjusted depending on which sysfs device the code is running on */
       return "/dev/input/event2";
 
@@ -187,6 +189,7 @@ int mxt_read_register(unsigned char *buf, int start_register, int count)
       break;
 
     case E_SYSFS:
+    case E_SYSFS_DEBUG_NG:
       ret = sysfs_read_register(buf, start_register, count);
       break;
 
@@ -221,6 +224,7 @@ int mxt_write_register(unsigned char const *buf, int start_register, int count)
       break;
 
     case E_SYSFS:
+    case E_SYSFS_DEBUG_NG:
       ret = sysfs_write_register(buf, start_register, count);
       break;
 
@@ -255,6 +259,7 @@ int mxt_set_debug(bool debug_state)
       break;
 
     case E_SYSFS:
+    case E_SYSFS_DEBUG_NG:
       ret = sysfs_set_debug(debug_state);
       break;
 
@@ -287,6 +292,7 @@ bool mxt_get_debug()
       break;
 
     case E_SYSFS:
+    case E_SYSFS_DEBUG_NG:
       ret = sysfs_get_debug();
       break;
 
@@ -349,6 +355,7 @@ int mxt_reset_chip(bool bootloader_mode)
 
     case E_SYSFS:
     case E_I2C_DEV:
+    case E_SYSFS_DEBUG_NG:
       ret = mxt_send_reset_command(bootloader_mode);
       break;
 
@@ -460,6 +467,10 @@ int mxt_get_msg_count(void)
       count = sysfs_get_msg_count();
       break;
 
+    case E_SYSFS_DEBUG_NG:
+      count = sysfs_get_msg_count_ng();
+      break;
+
 #ifdef HAVE_LIBUSB
     case E_USB:
 #endif /* HAVE_LIBUSB */
@@ -489,6 +500,10 @@ char *mxt_get_msg_string(void)
 
     case E_SYSFS:
       msg_string = sysfs_get_msg_string();
+      break;
+
+    case E_SYSFS_DEBUG_NG:
+      msg_string = sysfs_get_msg_string_ng();
       break;
 
 #ifdef HAVE_LIBUSB
@@ -524,6 +539,10 @@ int mxt_get_msg_bytes(unsigned char *buf, size_t buflen)
 
     case E_SYSFS:
       count = sysfs_get_msg_bytes(buf, buflen);
+      break;
+
+    case E_SYSFS_DEBUG_NG:
+      count = sysfs_get_msg_bytes_ng(buf, buflen);
       break;
 
 #ifdef HAVE_LIBUSB
@@ -567,6 +586,10 @@ int mxt_msg_reset(void)
 
     case E_SYSFS:
       ret = sysfs_msg_reset();
+      break;
+
+    case E_SYSFS_DEBUG_NG:
+      ret = sysfs_msg_reset_ng();
       break;
 
 #ifdef HAVE_LIBUSB

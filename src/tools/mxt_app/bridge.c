@@ -38,8 +38,10 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <inttypes.h>
+#include <poll.h>
 
 #include "libmaxtouch/libmaxtouch.h"
+#include "libmaxtouch/sysfs/sysfs_device.h"
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/utilfuncs.h"
 
@@ -285,13 +287,10 @@ free:
 static int bridge(int sockfd)
 {
   int ret;
-  fd_set readfds;
-  struct timeval tv;
+  struct pollfd fds[2];
   int fopts = 0;
-
-  /* set up select timeout */
-  tv.tv_sec = 0;
-  tv.tv_usec = 100000; /* 0.1 seconds */
+  int debug_ng_fd = 0;
+  int numfds = 1;
 
   LOG(LOG_INFO, "Connected");
 
@@ -299,35 +298,46 @@ static int bridge(int sockfd)
   if (ret)
     LOG(LOG_ERROR, "Failure to reset dmesg timestamp");
 
+  fds[0].fd = sockfd;
+  fds[0].events = POLLRDNORM | POLLERR;
+
   while (1)
   {
-    FD_ZERO(&readfds);
-    FD_SET(sockfd, &readfds);
+    if (sysfs_has_debug_ng())
+    {
+      debug_ng_fd = sysfs_get_debug_ng_fd();
+      fds[1].fd = debug_ng_fd;
+      fds[1].events = POLLPRI;
+      numfds = 2;
+    }
 
-    ret = select(sockfd + 1, &readfds, NULL, NULL, &tv);
+    ret = poll(fds, numfds, -1);
     if (ret == -1 && errno == EINTR) {
       LOG(LOG_DEBUG, "interrupted");
       continue;
     } else if (ret == -1) {
       ret = -errno;
-      LOG(LOG_ERROR, "select returned %d (%s)", errno, strerror(errno));
+      LOG(LOG_ERROR, "poll returned %d (%s)", errno, strerror(errno));
       goto disconnect;
     }
 
+    /* Detect socket disconnect */
     if (fcntl(sockfd, F_GETFL, &fopts) < 0) {
       ret = 0;
       goto disconnect;
     }
 
-    if (FD_ISSET(sockfd, &readfds)) {
+    if (fds[0].revents) {
       ret = handle_cmd(sockfd);
       if (ret < 0)
         goto disconnect;
     }
 
-    ret = handle_messages(sockfd);
-    if (ret < 0)
-      goto disconnect;
+    if (fds[1].revents) {
+      ret = handle_messages(sockfd);
+      if (ret < 0)
+        goto disconnect;
+    }
   }
 
 disconnect:
@@ -343,7 +353,6 @@ int mxt_socket_client(char *ip_address, uint16_t port)
   int sockfd;
   int ret;
   struct sockaddr_in serv_addr;
-
 
   server = gethostbyname(ip_address);
   if (server == NULL) {

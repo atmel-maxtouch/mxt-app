@@ -49,6 +49,7 @@
 typedef enum mxt_device_type_t {
   E_UNCONNECTED,
   E_SYSFS,
+  E_SYSFS_DEBUG_NG,
 #ifdef HAVE_LIBUSB
   E_USB,
 #endif
