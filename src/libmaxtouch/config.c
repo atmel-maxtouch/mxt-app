@@ -201,12 +201,15 @@ int mxt_load_config_file(const char *cfg_file)
       return -1;
     }
 
-    /* Last character is expected to be ']' */
-    c = getc(fp);
-    if (c != ']')
+    /* Read rest of header section */
+    while(c != ']')
     {
-      LOG(LOG_ERROR, "Parse error, expected ]");
-      return(-1);
+      c = getc(fp);
+      if (c == '\n')
+      {
+        LOG(LOG_ERROR, "Parse error, expected ] before end of line");
+        return(-1);
+      }
     }
 
     while(c != '\n')
