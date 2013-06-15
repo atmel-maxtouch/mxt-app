@@ -235,7 +235,7 @@ int mxt_load_config_file(const char *cfg_file)
 
     if (fscanf(fp, "%d", &object_size) != 1)
     {
-      printf("Parse error\n");
+      LOG(LOG_ERROR, "Parse error");
       return -1;
     }
 
@@ -261,7 +261,11 @@ int mxt_load_config_file(const char *cfg_file)
 
     /* Check the address of the object */
     expected_address = get_object_address((uint8_t)object_id, (uint8_t)instance);
-    if (object_address != (int)expected_address)
+    if (expected_address == OBJECT_NOT_FOUND)
+    {
+      LOG(LOG_ERROR, "T%u not present on chip", object_id);
+    }
+    else if (object_address != (int)expected_address)
     {
       LOG
       (
