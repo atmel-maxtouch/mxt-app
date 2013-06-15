@@ -114,6 +114,7 @@ int mxt_load_config_file(const char *cfg_file)
 
   char object[255];
   char tmp[255];
+  char *substr;
   int object_id;
   int instance;
   int object_address;
@@ -237,15 +238,23 @@ int mxt_load_config_file(const char *cfg_file)
 
     c = getc(fp);
 
-    /* Get object type ID number at end of object string (1 or 2 digits) */
-    if (sscanf(object + strlen(object) - 2, "%d", &object_id) != 1)
+
+    /* Find object type ID number at end of object string */
+    substr = strrchr(object, '_');
+    if (substr == NULL || (*(substr + 1) != 'T'))
     {
-      if (sscanf(object + strlen(object) - 1, "%d", &object_id) != 1)
-      {
-        LOG(LOG_ERROR, "Unable to get object type ID for %s", object);
-        return -1;
-      }
+      LOG(LOG_ERROR, "Parse error, could not find T number in %s", object);
+      return -1;
     }
+
+    if (sscanf(substr + 2, "%d", &object_id) != 1)
+    {
+      LOG(LOG_ERROR, "Unable to get object type ID for %s", object);
+      return -1;
+    }
+
+    LOG(LOG_DEBUG, "%s T%u OBJECT_ADDRESS=%d OBJECT_SIZE=%d",
+        object, object_id, object_address, object_size);
 
     /* Check the address of the object */
     expected_address = get_object_address((uint8_t)object_id, (uint8_t)instance);
