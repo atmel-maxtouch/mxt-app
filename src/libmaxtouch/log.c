@@ -30,7 +30,7 @@
 #include "log.h"
 
 /* Default log level */
-mxt_log_level log_level = LOG_SILENT;
+mxt_log_level log_level = LOG_ERROR;
 
 //******************************************************************************
 /// \brief  Returns the input log level as a human-readable string.
