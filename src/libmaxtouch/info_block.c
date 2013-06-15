@@ -367,7 +367,7 @@ uint8_t get_object_table_num(uint16_t object_type)
     }
   }
 
-  LOG(LOG_ERROR, "Specified object type not found by %s()", __func__);
+  LOG(LOG_WARN, "Could not find object type T%u in object table", object_type);
   return 255;
 }
 
