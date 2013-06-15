@@ -630,29 +630,29 @@ int main (int argc, char *argv[])
       ret = mxt_load_config_file(strbuf);
       if (ret < 0)
       {
-        LOG(LOG_ERROR, "Error loading the configuration\n");
+        LOG(LOG_ERROR, "Error loading the configuration");
       }
       else
       {
-        LOG(LOG_INFO, "Configuration loaded\n");
+        LOG(LOG_INFO, "Configuration loaded");
 
         ret = mxt_backup_config();
         if (ret < 0)
         {
-          LOG(LOG_ERROR, "Error backing up\n");
+          LOG(LOG_ERROR, "Error backing up");
         }
         else
         {
-          LOG(LOG_INFO, "Configuration backed up\n");
+          LOG(LOG_INFO, "Configuration backed up");
 
           ret = mxt_reset_chip(false);
           if (ret < 0)
           {
-            LOG(LOG_ERROR, "Error resetting\n");
+            LOG(LOG_ERROR, "Error resetting");
           }
           else
           {
-            LOG(LOG_INFO, "Chip reset\n");
+            LOG(LOG_INFO, "Chip reset");
           }
         }
       }

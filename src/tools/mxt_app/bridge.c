@@ -256,10 +256,10 @@ static int handle_cmd(int sockfd)
   LOG(LOG_VERBOSE, "%s", line);
 
   if (!strcmp(line, "SAT")) {
-    LOG(LOG_INFO, "Server attached\n");
+    LOG(LOG_INFO, "Server attached");
     ret = 0;
   } else if (!strcmp(line, "SDT")) {
-    LOG(LOG_INFO, "Server detached\n");
+    LOG(LOG_INFO, "Server detached");
     ret = 0;
   } else if (sscanf(line, "REA %" SCNu16 " %" SCNu16, &address, &count) == 2) {
     ret = bridge_rea_cmd(sockfd, address, count);
@@ -347,7 +347,7 @@ int mxt_socket_client(char *ip_address, uint16_t port)
 
   server = gethostbyname(ip_address);
   if (server == NULL) {
-    LOG(LOG_ERROR, "Error, no such host\n");
+    LOG(LOG_ERROR, "Error, no such host");
     return -1;
   }
 

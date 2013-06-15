@@ -299,7 +299,7 @@ void write_to_object(int obj_num, uint8_t instance)
   buffer = (uint8_t *)malloc(sizeof(char)*(info_block.objects[obj_tbl_num].size+1));
   if (buffer == NULL)
   {
-    LOG(LOG_ERROR, "Memory error\n");
+    LOG(LOG_ERROR, "Memory error");
     return;
   }
 

@@ -228,7 +228,7 @@ static int mxt_t68_load_file(struct t68_ctx *ctx)
     {
       if (fscanf(fp, "x%2su", (char *)&hexbuf) != 1)
       {
-        LOG(LOG_ERROR, "Parse error\n");
+        LOG(LOG_ERROR, "Parse error");
         ret = -1;
         goto fail;
       }
@@ -243,7 +243,7 @@ static int mxt_t68_load_file(struct t68_ctx *ctx)
     }
     else
     {
-      LOG(LOG_ERROR, "Unexpected character \"%c\"\n", c);
+      LOG(LOG_ERROR, "Unexpected character \"%c\"", c);
       ret = -1;
       goto fail;
     }
