@@ -438,8 +438,13 @@ int mxt_socket_server(uint16_t portno)
     return -errno;
   }
 
+  printf("CONNECTED\n");
+
   ret = bridge(clientsock);
 
   close(serversock);
+
+  printf("DISCONNECTED\n");
+
   return ret;
 }
