@@ -224,9 +224,9 @@ static int scan_driver_directory(const char *path, struct dirent *dir)
 
   /* Driver name must match otherwise return zero devices found */
   if (strcmp(dir->d_name, "qt602240_ts")
-      && strncasecmp(dir->d_name, "Atmel MXT", 9)
+      && strncasecmp(dir->d_name, "atmel mxt", 9)
+      && strncasecmp(dir->d_name, "atmel_mxt", 9)
       && strncasecmp(dir->d_name, "MXT", 3)
-      && strcmp(dir->d_name, "atmel_mxt_ts")
       && strcmp(dir->d_name, "sec_touch")
       && strcmp(dir->d_name, "maXTouch"))
   {
