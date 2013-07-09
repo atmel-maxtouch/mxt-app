@@ -75,3 +75,4 @@ int mxt_get_msg_count(void);
 char *mxt_get_msg_string(void);
 int mxt_get_msg_bytes(unsigned char *buf, size_t buflen);
 int mxt_msg_reset(void);
+int mxt_get_msg_poll_fd(void);

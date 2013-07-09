@@ -480,6 +480,7 @@ int mxt_get_msg_count(void)
 
     default:
       LOG(LOG_ERROR, "Device type not supported");
+      break;
   }
 
   return count;
@@ -512,11 +513,15 @@ char *mxt_get_msg_string(void)
     case E_I2C_DEV:
       msg_string = t44_get_msg_string();
       break;
+
     default:
       LOG(LOG_ERROR, "Device type not supported");
+      break;
   }
 
-  LOG(LOG_INFO, "%s", msg_string);
+  if (msg_string)
+    LOG(LOG_INFO, "%s", msg_string);
+
   return msg_string;
 }
 
@@ -601,7 +606,18 @@ int mxt_msg_reset(void)
 
     default:
       LOG(LOG_ERROR, "Device type not supported");
+      break;
   }
 
   return ret;
+}
+
+//******************************************************************************
+/// \brief  Get fd for message polling
+int mxt_get_msg_poll_fd(void)
+{
+  if (gDeviceType == E_SYSFS_DEBUG_NG)
+    return sysfs_get_debug_ng_fd();
+  else
+    return 0;
 }

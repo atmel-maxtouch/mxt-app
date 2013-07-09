@@ -41,7 +41,6 @@
 #include <poll.h>
 
 #include "libmaxtouch/libmaxtouch.h"
-#include "libmaxtouch/sysfs/sysfs_device.h"
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/utilfuncs.h"
 
@@ -110,6 +109,11 @@ static int handle_messages(int sockfd)
     for (i = 0; i < count; i++)
     {
       msg = mxt_get_msg_string();
+      if (msg == NULL) {
+        LOG(LOG_WARN, "failed to retrieve message");
+        return 0;
+      }
+
       ret = write(sockfd, msg, strlen(msg));
       if (ret < 0)
       {
@@ -291,27 +295,31 @@ static int bridge(int sockfd)
   int fopts = 0;
   int debug_ng_fd = 0;
   int numfds = 1;
+  int timeout;
 
   LOG(LOG_INFO, "Connected");
 
   ret = mxt_msg_reset();
   if (ret)
-    LOG(LOG_ERROR, "Failure to reset dmesg timestamp");
+    LOG(LOG_ERROR, "Failure to reset msgs");
 
   fds[0].fd = sockfd;
   fds[0].events = POLLRDNORM | POLLERR;
 
   while (1)
   {
-    if (sysfs_has_debug_ng())
+    debug_ng_fd = mxt_get_msg_poll_fd();
+    if (debug_ng_fd)
     {
-      debug_ng_fd = sysfs_get_debug_ng_fd();
       fds[1].fd = debug_ng_fd;
       fds[1].events = POLLPRI;
       numfds = 2;
+      timeout = -1;
+    } else {
+      timeout = 100; // milliseconds
     }
 
-    ret = poll(fds, numfds, -1);
+    ret = poll(fds, numfds, timeout);
     if (ret == -1 && errno == EINTR) {
       LOG(LOG_DEBUG, "interrupted");
       continue;
@@ -333,7 +341,8 @@ static int bridge(int sockfd)
         goto disconnect;
     }
 
-    if (fds[1].revents) {
+    /* If timeout or msg poll fd event */
+    if (ret == 0 || fds[1].revents) {
       ret = handle_messages(sockfd);
       if (ret < 0)
         goto disconnect;
