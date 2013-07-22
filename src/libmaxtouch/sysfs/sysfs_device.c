@@ -194,7 +194,7 @@ static int scan_sysfs_directory(struct dirent *i2c_dir,
   }
 
   /* If device found, store it and return success */
-  if (mem_access_found && debug_found)
+  if (mem_access_found && (debug_found || debug_ng_found))
   {
     sysfs_register_device(pszDirname, adapter, address, debug_ng_found);
     ret = 1;
