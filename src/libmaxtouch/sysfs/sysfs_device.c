@@ -563,6 +563,8 @@ static bool read_boolean_file(char *filename)
 /// \return 0 on success or negative error
 int sysfs_set_debug(bool debug_state)
 {
+  int ret;
+
   // Check device is initialised
   if (!gpDevice)
   {
@@ -572,12 +574,16 @@ int sysfs_set_debug(bool debug_state)
 
   if (gpDevice->debug_ng == true)
   {
-    return write_boolean_file(make_path("debug_v2_enable"), debug_state);
+    ret = write_boolean_file(make_path("debug_v2_enable"), debug_state);
+    if (ret == -1)
+      ret = write_boolean_file(make_path("debug_enable"), debug_state);
   }
   else
   {
-    return write_boolean_file(make_path("debug_enable"), debug_state);
+    ret = write_boolean_file(make_path("debug_enable"), debug_state);
   }
+
+  return ret;
 }
 
 //******************************************************************************
