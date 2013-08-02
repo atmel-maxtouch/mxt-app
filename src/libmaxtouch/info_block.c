@@ -101,11 +101,20 @@ static int info_block_checksum(uint32_t read_crc, uint8_t *idb_base_addr,
   calc_crc &= calc_crc & 0x00FFFFFF; /* Mask 32-bit calculated checksum to 24-bit */
 
   /* Compare the read checksum with calculated checksum */
-  if (read_crc != calc_crc)
+  if (calc_crc == 0)
   {
+    LOG(LOG_ERROR, "Information Block Checksum zero");
     return -1;
   }
 
+  if (read_crc != calc_crc)
+  {
+    LOG(LOG_ERROR, "Information Block Checksum error %06X != %06X",
+        calc_crc, read_crc);
+    return -1;
+  }
+
+  LOG(LOG_DEBUG, "Information Block Checksum verified %06X", calc_crc);
   return 0;
 }
 
@@ -184,10 +193,7 @@ int read_information_block()
   /* Calculate and compare Information Block Checksum */
   ret = info_block_checksum(read_crc, idb_base_addr, crc_area_size);
   if (ret < 0)
-  {
-    LOG(LOG_ERROR, "Information Block Checksum mismatch");
-    return -1;
-  }
+    return ret;
 
   LOG(LOG_VERBOSE, "Information Block read successfully");
 

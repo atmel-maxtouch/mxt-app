@@ -76,3 +76,5 @@ char *mxt_get_msg_string(void);
 int mxt_get_msg_bytes(unsigned char *buf, size_t buflen);
 int mxt_msg_reset(void);
 int mxt_get_msg_poll_fd(void);
+int mxt_bootloader_read(unsigned char *buf, int count);
+int mxt_bootloader_write(unsigned char const *buf, int count);

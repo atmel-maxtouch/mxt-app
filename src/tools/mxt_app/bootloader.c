@@ -39,6 +39,10 @@
 #include "libmaxtouch/i2c_dev/i2c_dev_device.h"
 #include "libmaxtouch/sysfs/sysfs_device.h"
 
+#ifdef HAVE_LIBUSB
+#include "libmaxtouch/usb/usb_device.h"
+#endif
+
 #include "mxt_app.h"
 
 #define MXT_UNLOCK_CMD_MSB      0xaa
@@ -56,7 +60,7 @@
 #define FIRMWARE_BUFFER_SIZE     1024
 
 #define MXT_RESET_TIME           2
-#define MXT_BOOTLOADER_DELAY     20000
+#define MXT_BOOTLOADER_DELAY     50000
 
 //******************************************************************************
 /// \brief Bootloader context object
@@ -73,6 +77,34 @@ struct bootloader_ctx
   const char *new_version;
 };
 
+static int wait_for_chg(void)
+{
+#ifdef HAVE_LIBUSB
+  int try = 0;
+  if (mxt_get_device_type() == E_USB)
+  {
+    while (usb_read_chg())
+    {
+      if (++try > 100)
+      {
+        LOG(LOG_WARN, "Timed out awaiting CHG");
+        return -1;
+      }
+
+      usleep(1000);
+    }
+
+    LOG(LOG_VERBOSE, "CHG line cycles %d", try);
+  }
+  else
+#endif
+  {
+    usleep(MXT_BOOTLOADER_DELAY);
+  }
+
+  return 0;
+}
+
 static int unlock_bootloader(void)
 {
   unsigned char buf[2];
@@ -80,8 +112,7 @@ static int unlock_bootloader(void)
   buf[0] = MXT_UNLOCK_CMD_LSB;
   buf[1] = MXT_UNLOCK_CMD_MSB;
 
-  usleep(MXT_BOOTLOADER_DELAY);
-  return i2c_dev_bootloader_write(buf, sizeof(buf));
+  return mxt_bootloader_write(buf, sizeof(buf));
 }
 
 static int mxt_check_bootloader(struct bootloader_ctx *ctx, unsigned int state)
@@ -92,13 +123,14 @@ static int mxt_check_bootloader(struct bootloader_ctx *ctx, unsigned int state)
     unsigned char bootloader_version;
 
 recheck:
-    usleep(MXT_BOOTLOADER_DELAY);
+    if (state != MXT_WAITING_BOOTLOAD_CMD)
+      wait_for_chg();
 
     if ((!ctx->have_bootloader_version) && ctx->extended_id_mode
         && (state == MXT_WAITING_FRAME_DATA))
     {
        LOG(LOG_INFO, "Attempting to retrieve bootloader version");
-       if (i2c_dev_bootloader_read(&buf[0], 3) != 0) {
+       if (mxt_bootloader_read(&buf[0], 3) != 0) {
            return -1;
        }
 
@@ -113,10 +145,12 @@ recheck:
     }
     else
     {
-      if (i2c_dev_bootloader_read(&val, 1) != 0) {
+      if (mxt_bootloader_read(&val, 1) != 0) {
         return -1;
       }
     }
+
+    LOG(LOG_VERBOSE, "Bootloader status %02X", val);
 
     switch (state) {
     case MXT_WAITING_BOOTLOAD_CMD:
@@ -124,7 +158,7 @@ recheck:
         val &= ~MXT_BOOT_STATUS_MASK;
 
         if (val == MXT_APP_CRC_FAIL) {
-            LOG(LOG_INFO, "CRC check for the currently stored application code failed");
+            LOG(LOG_INFO, "Bootloader reports APP CRC failure");
             goto recheck;
         } else if (val == MXT_WAITING_FRAME_DATA) {
             LOG(LOG_INFO, "Bootloader already unlocked");
@@ -133,11 +167,19 @@ recheck:
 
         break;
     case MXT_WAITING_FRAME_DATA:
+        if (val == MXT_FRAME_CRC_PASS) {
+          LOG(LOG_INFO, "Bootloader still giving CRC PASS");
+          goto recheck;
+        }
         val &= ~MXT_BOOT_STATUS_MASK;
         break;
     case MXT_FRAME_CRC_PASS:
-        if (val == MXT_FRAME_CRC_CHECK)
+        if (val == MXT_FRAME_CRC_CHECK) {
             goto recheck;
+        } else if (val == MXT_FRAME_CRC_FAIL) {
+            LOG(LOG_ERROR, "Bootloader reports FRAME_CRC_FAIL");
+            return -4;
+        }
         break;
     default:
         return -2;
@@ -222,7 +264,7 @@ static int send_frames(struct bootloader_ctx *ctx)
     return -1;
   }
 
-  printf("Flashing...\n");
+  printf("Sending frames...\n");
 
   frame = 1;
 
@@ -273,16 +315,15 @@ static int send_frames(struct bootloader_ctx *ctx)
     }
 
     /* Write one frame to device */
-    usleep(MXT_BOOTLOADER_DELAY);
-    i2c_dev_bootloader_write(buffer, frame_size);
+    mxt_bootloader_write(buffer, frame_size);
 
     // Check CRC
-    LOG(LOG_DEBUG, "Checking CRC");
+    LOG(LOG_VERBOSE, "Checking CRC");
     ret = mxt_check_bootloader(ctx, MXT_FRAME_CRC_PASS);
     if (ret) {
         if (frame_retry > 0) {
-          LOG(LOG_ERROR, "Frame %d: CRC fail, aborting", frame);
-          printf("ERROR: CRC fail, aborting\n");
+          LOG(LOG_ERROR, "Frame %d: fail, aborting", frame);
+          printf("ERROR: Failure sending frame, aborting\n");
           return -1;
         } else {
           frame_retry++;
@@ -348,12 +389,12 @@ static int mxt_bootloader_init_chip(struct bootloader_ctx *ctx,
     }
 
     ctx->appmode_address = i2c_address;
+
+    i2c_dev_set_address(ctx->i2c_adapter, ctx->appmode_address);
   }
   else
   {
-    /* Try to discover a maxtouch device under sysfs */
     ret = mxt_scan();
-
     if (ret < 1)
     {
       LOG(LOG_INFO, "Could not find a device");
@@ -361,12 +402,31 @@ static int mxt_bootloader_init_chip(struct bootloader_ctx *ctx,
     }
 
     printf("Chip detected\n");
-    LOG(LOG_INFO, "Switching to i2c-dev mode");
-    ctx->i2c_adapter = sysfs_get_i2c_adapter();
-    ctx->appmode_address = sysfs_get_i2c_address();
-  }
 
-  i2c_dev_set_address(ctx->i2c_adapter, ctx->appmode_address);
+    switch (mxt_get_device_type())
+    {
+    case E_SYSFS:
+    case E_SYSFS_DEBUG_NG:
+      LOG(LOG_INFO, "Switching to i2c-dev mode");
+      ctx->i2c_adapter = sysfs_get_i2c_adapter();
+      ctx->appmode_address = sysfs_get_i2c_address();
+
+      i2c_dev_set_address(ctx->i2c_adapter, ctx->appmode_address);
+      break;
+#ifdef HAVE_LIBUSB
+    case E_USB:
+      if (usb_is_bootloader())
+      {
+        LOG(LOG_INFO, "USB device in bootloader mode");
+        return 0;
+      }
+      break;
+#endif
+    default:
+      LOG(LOG_ERROR, "Unsupported device type");
+      return -1;
+    }
+  }
 
   ret = mxt_get_info();
   if (ret)
@@ -404,9 +464,12 @@ static int mxt_bootloader_init_chip(struct bootloader_ctx *ctx,
     sleep(MXT_RESET_TIME);
   }
 
-  ctx->bootloader_address = lookup_bootloader_addr(ctx->appmode_address);
+  if (mxt_get_device_type() == E_I2C_DEV)
+  {
+    ctx->bootloader_address = lookup_bootloader_addr(ctx->appmode_address);
+  }
 
-  i2c_dev_release();
+  mxt_release();
 
   return 0;
 }
@@ -443,18 +506,32 @@ int mxt_flash_firmware(const char *filename, const char *version,
   if (ret)
     return ret;
 
-  if (ctx.bootloader_address == -1)
+  if (mxt_get_device_type() == E_I2C_DEV)
   {
-    printf("No bootloader address!\n");
-    return -1;
+    if (ctx.bootloader_address == -1)
+    {
+      printf("No bootloader address!\n");
+      return -1;
+    }
+
+    LOG(LOG_DEBUG, "i2c_adapter:%d", ctx.i2c_adapter);
+    LOG(LOG_DEBUG, "appmode_address:%02X", ctx.appmode_address);
+    LOG(LOG_DEBUG, "bootloader_address:%02X", ctx.bootloader_address);
+
+    /* Change to slave address of bootloader */
+    i2c_dev_set_address(ctx.i2c_adapter, ctx.bootloader_address);
   }
-
-  LOG(LOG_DEBUG, "i2c_adapter:%d", ctx.i2c_adapter);
-  LOG(LOG_DEBUG, "appmode_address:%02X", ctx.appmode_address);
-  LOG(LOG_DEBUG, "bootloader_address:%02X", ctx.bootloader_address);
-
-  /* Change to slave address of bootloader */
-  i2c_dev_set_address(ctx.i2c_adapter, ctx.bootloader_address);
+#ifdef HAVE_LIBUSB
+  else if (mxt_get_device_type() == E_USB && !usb_is_bootloader())
+  {
+    ret = mxt_scan();
+    if (ret < 1)
+    {
+      LOG(LOG_INFO, "Could not find device in bootloader mode");
+      return -1;
+    }
+  }
+#endif
 
   ret = send_frames(&ctx);
   if (ret != 0)
@@ -468,7 +545,22 @@ int mxt_flash_firmware(const char *filename, const char *version,
 
   mxt_release();
 
-  i2c_dev_set_address(ctx.i2c_adapter, ctx.appmode_address);
+  if (mxt_get_device_type() == E_I2C_DEV)
+  {
+    i2c_dev_set_address(ctx.i2c_adapter, ctx.appmode_address);
+  }
+#ifdef HAVE_LIBUSB
+  else if (mxt_get_device_type() == E_USB)
+  {
+    ret = mxt_scan();
+    if (ret < 1)
+    {
+      LOG(LOG_INFO, "Could not find device in bootloader mode");
+      return -1;
+    }
+  }
+#endif
+
   ret = mxt_get_info();
   if (ret != 0)
   {

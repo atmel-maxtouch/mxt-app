@@ -621,3 +621,63 @@ int mxt_get_msg_poll_fd(void)
   else
     return 0;
 }
+
+//******************************************************************************
+/// \brief Read from bootloader
+int mxt_bootloader_read(unsigned char *buf, int count)
+{
+  int ret = -1;
+
+  switch (gDeviceType)
+  {
+    case E_UNCONNECTED:
+      LOG(LOG_ERROR, "Device uninitialised");
+      break;
+
+#ifdef HAVE_LIBUSB
+    case E_USB:
+      ret = usb_bootloader_read(buf, count);
+      break;
+#endif /* HAVE_LIBUSB */
+
+    case E_I2C_DEV:
+      ret = i2c_dev_bootloader_read(buf, count);
+      break;
+
+    default:
+      LOG(LOG_ERROR, "Device type not supported");
+      break;
+  }
+
+  return ret;
+}
+
+//******************************************************************************
+/// \brief Write to bootloader
+int mxt_bootloader_write(unsigned char const *buf, int count)
+{
+  int ret = -1;
+
+  switch (gDeviceType)
+  {
+    case E_UNCONNECTED:
+      LOG(LOG_ERROR, "Device uninitialised");
+      break;
+
+#ifdef HAVE_LIBUSB
+    case E_USB:
+      ret = usb_bootloader_write(buf, count);
+      break;
+#endif /* HAVE_LIBUSB */
+
+    case E_I2C_DEV:
+      ret = i2c_dev_bootloader_write(buf, count);
+      break;
+
+    default:
+      LOG(LOG_ERROR, "Device type not supported");
+      break;
+  }
+
+  return ret;
+}

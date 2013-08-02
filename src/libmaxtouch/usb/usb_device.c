@@ -29,6 +29,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <inttypes.h>
 #include <string.h>
 #include <libusb-1.0/libusb.h>
 
@@ -42,38 +43,21 @@
 #define ENDPOINT_1_IN  0x81
 #define ENDPOINT_2_OUT 0x02
 
-#define USB_TRANSFER_TIMEOUT 5000
+/* timeout in ms */
+#define USB_TRANSFER_TIMEOUT 2000
 
-#define REPORT_ID         0x01
-#define READ_WRITE_CMD_ID 0x51
-#define NO_OF_ADDR_BYTES     2
-#define SIZE_OF_CMD_HEADER   6
-#define MAX_CMD_DATA_LENGTH 58
-#define MAX_RES_DATA_LENGTH 61
+#define REPORT_ID            0x01
+#define IIC_DATA_1           0x51
+#define CMD_READ_PINS        0x82
+#define CMD_CONFIG           0x80
+#define CMD_CONFIG_I2C_RETRY_ON_NAK (1 << 7)
+#define CMD_FIND_IIC_ADDRESS 0xE0
 
 /* mXT command status codes */
-#define READ_DATA_RETURNED  0x00
-#define WRITE_COMPLETED     0x04
-
-//******************************************************************************
-/// \brief  Read/write memory map command packet format
-typedef struct usb_cmd_t {
-  unsigned char usb_report_id;
-  unsigned char command_id;
-  unsigned char bytes_to_write;
-  unsigned char bytes_to_read;
-  unsigned short address_pointer;
-  unsigned char write_data[MAX_CMD_DATA_LENGTH];
-} usb_command;
-
-//******************************************************************************
-/// \brief  Read/write memory map response packet format
-typedef struct usb_response_t {
-  unsigned char usb_report_id;
-  unsigned char result;
-  unsigned char bytes_read;
-  unsigned char read_data[MAX_RES_DATA_LENGTH];
-} usb_response;
+#define COMMS_STATUS_OK          0x00
+#define COMMS_STATUS_DATA_NACK   0x01
+#define COMMS_STATUS_ADDR_NACK   0x01
+#define COMMS_STATUS_WRITE_OK    0x04
 
 //******************************************************************************
 /// \brief  Device information
@@ -84,18 +68,22 @@ typedef struct usb_device_t {
   libusb_device_handle *device_handle;
   int ep1_in_max_packet_size;
   int interface;
+  bool bootloader;
+  int report_id;
+  bool bridge_chip;
 } usb_device;
 
 //******************************************************************************
 /// \brief  Detected devices
 usb_device gDevice;
 
-static int read_packet(unsigned char *buf, int start_register, int count);
-static int write_packet(unsigned char const *buf, int start_register, int count, bool ignore_response);
+static int usb_transfer(void *cmd, int cmd_size, void *response, int response_size, bool ignore_response);
+static int read_data(unsigned char *buf, uint16_t start_register, size_t count);
+static int write_data(unsigned char const *buf, uint16_t start_register, size_t count, bool ignore_response);
 
 //*****************************************************************************
 /// \brief  Debug USB transfers
-static void debug_usb(unsigned char *data, uint8_t count, bool tx)
+static void debug_usb(const unsigned char *data, uint8_t count, bool tx)
 {
   int i;
   char hexbuf[5];
@@ -117,12 +105,40 @@ static void debug_usb(unsigned char *data, uint8_t count, bool tx)
 }
 
 //******************************************************************************
-/// \brief  Try to connect device
-static void usb_scan_for_control_if(struct libusb_config_descriptor *config)
+/// \brief Try to find descriptor of QRG interface
+static int usb_scan_for_qrg_if(const struct libusb_device_descriptor *desc)
+{
+  int ret;
+  char buf[128];
+  const char qrg_if[] = "QRG-I/F";
+
+  ret = libusb_get_string_descriptor_ascii(gDevice.device_handle,
+                  desc->iProduct, (unsigned char *)buf, sizeof(buf));
+  if (ret < 0)
+  {
+    return -1;
+  }
+
+  if (!strncmp(buf, qrg_if, sizeof(qrg_if)))
+  {
+    LOG(LOG_DEBUG, "Found %s", qrg_if);
+
+    return 0;
+  }
+  else
+  {
+    return -1;
+  }
+}
+
+//******************************************************************************
+/// \brief  Try to find control interface
+static int usb_scan_for_control_if(struct libusb_config_descriptor *config)
 {
   int j,k,ret;
   char buf[128];
   const char control_if[] = "Atmel maXTouch Control";
+  const char bootloader_if[] = "Atmel maXTouch Bootloader";
 
   for (j = 0 ; j < config->bNumInterfaces; j++)
   {
@@ -140,37 +156,154 @@ static void usb_scan_for_control_if(struct libusb_config_descriptor *config)
           if (!strncmp(buf, control_if, sizeof(control_if)))
           {
             LOG(LOG_DEBUG, "Found %s at interface %d altsetting %d",
-              control_if, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
+              buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
 
-            gDevice.interface = altsetting->bInterfaceNumber;
-            return;
+            gDevice.bootloader = false;
+            return altsetting->bInterfaceNumber;
+          }
+          else if (!strncmp(buf, bootloader_if, sizeof(bootloader_if)))
+          {
+            LOG(LOG_DEBUG, "Found %s at interface %d altsetting %d",
+              buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
+
+            gDevice.bootloader = true;
+            return altsetting->bInterfaceNumber;
+          }
+          else
+          {
+            LOG(LOG_DEBUG, "Ignoring %s at interface %d altsetting %d",
+              buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
           }
         }
       }
     }
   }
+
+  return -1;
+}
+
+//******************************************************************************
+/// \brief  Device is bootloader
+/// \return true or false
+
+bool usb_is_bootloader()
+{
+  return gDevice.bootloader;
 }
 
 //******************************************************************************
 /// \brief  Scan configurations
-/// \return 0 = success, negative for error
-static void usb_scan_device_configs(libusb_device *dev, const struct libusb_device_descriptor desc)
+/// \return interface number, negative for error
+static int usb_scan_device_configs(libusb_device *dev,
+                                    const struct libusb_device_descriptor *desc)
 {
   int i, ret;
 
+  if (gDevice.bridge_chip && desc->bNumConfigurations == 1)
+  {
+    return usb_scan_for_qrg_if(desc);
+  }
+
   /* Scan through interfaces */
-  for (i = 0; i < desc.bNumConfigurations; ++i)
+  for (i = 0; i < desc->bNumConfigurations; ++i)
   {
     struct libusb_config_descriptor *config;
     ret = libusb_get_config_descriptor(dev, i, &config);
-    if (ret)
+    if (ret < 0)
     {
-      LOG(LOG_ERROR, "Couldn't get config description %d", i);
+      LOG(LOG_ERROR, "Couldn't get config descriptor %d", i);
     }
     else
     {
-      usb_scan_for_control_if(config);
+      ret = usb_scan_for_control_if(config);
+      if (ret >= 0)
+      {
+        // Found interface number
+        return ret;
+      }
     }
+  }
+
+  // not found
+  return -1;
+}
+
+//******************************************************************************
+/// \brief  Switch USB5030 to USB FS Bridge mode
+/// \return zero on success, negative error
+static int bridge_set_fs_mode(void)
+{
+  unsigned char pkt[gDevice.ep1_in_max_packet_size];
+  int ret;
+
+  memset(&pkt, 0, sizeof(pkt));
+  pkt[0] = 0;
+  pkt[1] = 0xFA;
+  pkt[2] = 0xE7;
+
+  ret = usb_transfer(&pkt, sizeof(pkt), &pkt, sizeof(pkt), true);
+  if (ret < 0)
+    return ret;
+
+  libusb_reset_device(gDevice.device_handle);
+
+  return 0;
+}
+
+//******************************************************************************
+/// \brief  Set the parameters for the comms mode on USB5030
+/// \return zero on success, negative error
+static int bridge_configure(void)
+{
+  int ret;
+  unsigned char pkt[gDevice.ep1_in_max_packet_size];
+
+  /* Command packet */
+  memset(&pkt, 0, sizeof(pkt));
+  pkt[0] = CMD_CONFIG;
+  /* 200kHz */
+  pkt[1] = 0x20;
+  pkt[2] = CMD_CONFIG_I2C_RETRY_ON_NAK;
+  /* I2C retry delay */
+  pkt[5] = 25 * 8;
+
+  LOG(LOG_VERBOSE, "Sending CMD_CONFIG");
+
+  ret = usb_transfer(&pkt, sizeof(pkt), &pkt, sizeof(pkt), false);
+
+  return (ret < 0) ? ret : 0;
+}
+
+//******************************************************************************
+/// \brief Hunt for I2C device using bridge chip
+/// \return zero on success, negative error
+static int bridge_find_i2c_address(void)
+{
+  int ret;
+  unsigned char pkt[gDevice.ep1_in_max_packet_size];
+  unsigned char response;
+
+  /* Command packet */
+  memset(&pkt, 0, sizeof(pkt));
+  pkt[0] = CMD_FIND_IIC_ADDRESS;
+
+  LOG(LOG_VERBOSE, "Sending CMD_FIND_IIC_ADDRESS");
+
+  ret = usb_transfer(&pkt, sizeof(pkt), &pkt, sizeof(pkt), false);
+  if (ret < 0)
+    return ret;
+
+  response = pkt[1];
+
+  if (response == 0x81)
+  {
+    LOG(LOG_ERROR, "No device found by bridge chip");
+    return -1;
+  }
+  else
+  {
+    LOG(LOG_INFO, "Bridge found I2C device at 0x%02X", response);
+    return 0;
   }
 }
 
@@ -184,16 +317,22 @@ static int usb_connect_device(libusb_device *dev, const struct libusb_device_des
   ret = libusb_open(dev, &gDevice.device_handle);
   if (ret != LIBUSB_SUCCESS)
   {
-    LOG(LOG_ERROR, "Unable to connect to device with VID=0x%04X PID=0x%04X"
-                   " ret=%d", desc.idVendor, desc.idProduct, ret);
+    LOG(LOG_ERROR, "%s opening device with VID=0x%04X PID=0x%04X",
+                   libusb_error_name(ret), desc.idVendor, desc.idProduct);
     return ret;
   }
 
-  usb_scan_device_configs(dev, desc);
+  gDevice.interface = -1;
 
-  if (gDevice.interface < 0)
+  ret = usb_scan_device_configs(dev, &desc);
+  if (ret < 0)
   {
     LOG(LOG_WARN, "Did not find control interface");
+    return ret;
+  }
+  else
+  {
+    gDevice.interface = ret;
   }
 
   /* Disconnect the kernel driver if it is active */
@@ -208,7 +347,8 @@ static int usb_connect_device(libusb_device *dev, const struct libusb_device_des
   }
 
   /* Claim the bInterfaceNumber 1 of the device */
-  ret = libusb_claim_interface(gDevice.device_handle, gDevice.interface); if (ret != LIBUSB_SUCCESS)
+  ret = libusb_claim_interface(gDevice.device_handle, gDevice.interface);
+  if (ret != LIBUSB_SUCCESS)
   {
     LOG
     (
@@ -218,28 +358,46 @@ static int usb_connect_device(libusb_device *dev, const struct libusb_device_des
     );
     return -1;
   }
-
-  LOG(LOG_VERBOSE, "Claimed the USB interface");
+  else
+  {
+    LOG(LOG_VERBOSE, "Claimed the USB interface");
+  }
 
   /* Get the maximum size of packets on endpoint 1 */
-  ret = libusb_get_max_packet_size
-  (
-    libusb_get_device (gDevice.device_handle),
-    ENDPOINT_1_IN
-  );
-
+  ret = libusb_get_max_packet_size(libusb_get_device(gDevice.device_handle),
+                                   ENDPOINT_1_IN);
   if (ret < LIBUSB_SUCCESS)
   {
-    LOG
-    (
-      LOG_ERROR,
-      "Unable to get maximum packet size on endpoint 1 IN, returned %s",
-      libusb_error_name(ret)
-    );
+    LOG(LOG_ERROR, "%s getting maximum packet size on endpoint 1 IN",
+        libusb_error_name(ret));
+    return -1;
   }
 
   gDevice.ep1_in_max_packet_size = ret;
-  LOG(LOG_VERBOSE, "Maximum packet size on endpoint 1 IN is %d bytes", gDevice.ep1_in_max_packet_size);
+  LOG(LOG_VERBOSE, "Maximum packet size on endpoint 1 IN is %d bytes",
+      gDevice.ep1_in_max_packet_size);
+
+  /* Configure bridge chip if necessary */
+  if (gDevice.bridge_chip)
+  {
+    gDevice.report_id = 0;
+    ret = bridge_set_fs_mode();
+    if (ret < 0)
+      return ret;
+
+    ret = bridge_configure();
+    if (ret < 0)
+      return ret;
+
+    ret = bridge_find_i2c_address();
+    if (ret < 0)
+      return ret;
+
+  }
+  else
+  {
+    gDevice.report_id = 1;
+  }
 
   gDevice.device_connected = true;
   LOG(LOG_INFO, "Registered USB device with VID=0x%04X PID=0x%04X Interface=%d",
@@ -304,16 +462,20 @@ int usb_scan()
 
     if (desc.idVendor == VENDOR_ID)
     {
-      if ((desc.idProduct >= 0x2126 && desc.idProduct <= 0x212D) ||
+      if (desc.idProduct == 0x211D ||
+          (desc.idProduct >= 0x2126 && desc.idProduct <= 0x212D) ||
           (desc.idProduct >= 0x2135 && desc.idProduct <= 0x2139) ||
           (desc.idProduct >= 0x213A && desc.idProduct <= 0x21FC) ||
           (desc.idProduct >= 0x8000 && desc.idProduct <= 0x8FFF))
       {
+        gDevice.bridge_chip = false;
         found = true;
       }
       else if (desc.idProduct == 0x6123)
       {
-        LOG(LOG_WARN, "libmaxtouch does not yet support 5030 bridge chip");
+        LOG(LOG_DEBUG, "Found 5030 bridge chip");
+        gDevice.bridge_chip = true;
+        found = true;
       }
     }
 
@@ -327,6 +489,10 @@ int usb_scan()
       {
         break;
       }
+    }
+    else
+    {
+      LOG(LOG_DEBUG, "Ignoring VID=%04X PID=%04X", desc.idVendor, desc.idProduct);
     }
   }
 
@@ -386,23 +552,24 @@ int usb_reset_chip(bool bootloader_mode)
   }
 
   /* Send write command to reset the chip */
-  ret = write_packet
+  ret = write_data
   (
     &write_value, t6_addr + RESET_OFFSET, 1, true
   );
 
-  if (ret != 0)
+  if (ret != 1)
   {
     LOG(LOG_ERROR, "Reset of the chip unsuccessful");
     return -1;
   }
 
   LOG(LOG_INFO, "Forced a reset of the chip");
-  usb_release();
 
   /* Chip will be unresponsive in bootloader mode so we cannot re-connect */
   if (!bootloader_mode)
   {
+    usb_release();
+
     /* We must wait for the chip to be ready to communicate again */
     LOG(LOG_DEBUG, "Waiting for the chip to re-connect");
 
@@ -424,122 +591,62 @@ int usb_reset_chip(bool bootloader_mode)
 //******************************************************************************
 /// \brief  Read register from MXT chip
 /// \return zero on success, negative error
-int usb_read_register(unsigned char *buf, int start_register, int count)
+int usb_read_register(unsigned char *buf, uint16_t start_register, size_t count)
 {
-  int ret = 0;
+  int ret;
+  size_t bytes_read = 0;
 
-  int transferred_bytes = 0;
-  int remaining_bytes = count;
-
-  /* Read whole packets */
-  while (remaining_bytes > MAX_RES_DATA_LENGTH && ret == 0)
+  while (bytes_read < count)
   {
-    ret = read_packet
-    (
-      buf + transferred_bytes, start_register + transferred_bytes,
-      MAX_RES_DATA_LENGTH
-    );
+    ret = read_data(buf + bytes_read, start_register + bytes_read,
+                    count - bytes_read);
+    if (ret < 0)
+      return ret;
 
-    transferred_bytes += MAX_RES_DATA_LENGTH;
-    remaining_bytes -= MAX_RES_DATA_LENGTH;
+    bytes_read += ret;
   }
 
-  if (ret == 0)
-  {
-    /* Read leftover bytes */
-    ret = read_packet
-    (
-      buf + transferred_bytes, start_register + transferred_bytes,
-      remaining_bytes
-    );
-  }
-
-  return ret;
+  return 0;
 }
 
 //******************************************************************************
 /// \brief  Write register to MXT chip
 /// \return zero on success, negative error
-int usb_write_register(unsigned char const *buf, int start_register, int count)
+int usb_write_register(unsigned char const *buf, uint16_t start_register, size_t count)
 {
   int ret = 0;
+  size_t bytes_written = 0;
 
-  int transferred_bytes = 0;
-  int remaining_bytes = count;
-
-  /* Write whole packets */
-  while (remaining_bytes > MAX_CMD_DATA_LENGTH && ret == 0)
+  while (bytes_written < count)
   {
-    ret = write_packet
-    (
-      buf + transferred_bytes, start_register + transferred_bytes,
-      MAX_CMD_DATA_LENGTH, false
-    );
+    ret = write_data(buf + bytes_written, start_register + bytes_written,
+                     count - bytes_written, false);
+    if (ret < 0)
+      return ret;
 
-    transferred_bytes += MAX_CMD_DATA_LENGTH;
-    remaining_bytes -= MAX_CMD_DATA_LENGTH;
+    bytes_written += ret;
   }
 
-  if (ret == 0)
-  {
-    /* Write leftover bytes */
-    ret = write_packet
-    (
-      buf + transferred_bytes, start_register + transferred_bytes,
-      remaining_bytes, false
-    );
-  }
-
-  return ret;
+  return 0;
 }
 
 //******************************************************************************
 /// \brief  Read a packet of data from the MXT chip
-/// \return zero on success, negative error
-static int read_packet(unsigned char *buf, int start_register, int count)
+/// \return number of bytes read, negative error
+static int usb_transfer(void *cmd, int cmd_size, void *response,
+                        int response_size, bool ignore_response)
 {
-  int ret = -1;
-
-  static const int command_size = SIZE_OF_CMD_HEADER;
-  usb_command command;
-
-  /* Try to read a whole packet - otherwise we get LIBUSB_ERROR_OVERFLOW error */
-  int response_size = gDevice.ep1_in_max_packet_size;
-  usb_response response;
-
-  int bytes_transferred = 0;
-
-  /* Check a device is present before trying to read from it */
-  if (!gDevice.library_initialised || !gDevice.device_connected)
-  {
-    LOG(LOG_ERROR, "Device uninitialised");
-    return -1;
-  }
-
-  /* Check input parameters */
-  if (count > MAX_RES_DATA_LENGTH)
-  {
-    LOG(LOG_ERROR, "Cannot read %d bytes (max %d bytes)", count, MAX_RES_DATA_LENGTH);
-    return ret;
-  }
-
-  LOG(LOG_VERBOSE, "Reading %d bytes starting from address 0x%04X", count, start_register);
-
-  /* Command packet */
-  command.usb_report_id = REPORT_ID;
-  command.command_id = READ_WRITE_CMD_ID;
-  command.bytes_to_write = NO_OF_ADDR_BYTES;
-  command.bytes_to_read = count;
-  command.address_pointer = start_register;
+  int bytes_transferred;
+  int ret;
 
   /* Send command to request read */
   ret = libusb_interrupt_transfer
   (
-    gDevice.device_handle, ENDPOINT_2_OUT, (unsigned char *)&command,
-    command_size, &bytes_transferred, USB_TRANSFER_TIMEOUT
+    gDevice.device_handle, ENDPOINT_2_OUT, cmd,
+    cmd_size, &bytes_transferred, USB_TRANSFER_TIMEOUT
   );
 
-  if (ret != LIBUSB_SUCCESS || bytes_transferred != command_size)
+  if (ret != LIBUSB_SUCCESS || bytes_transferred != cmd_size)
   {
     LOG
     (
@@ -551,13 +658,19 @@ static int read_packet(unsigned char *buf, int start_register, int count)
   }
   else
   {
-    debug_usb((unsigned char *)&command, bytes_transferred, true);
+    debug_usb(cmd, cmd_size, true);
+  }
+
+  if (ignore_response)
+  {
+    LOG(LOG_VERBOSE, "Ignoring response command");
+    return bytes_transferred;
   }
 
   /* Read response from read request */
   ret = libusb_interrupt_transfer
   (
-    gDevice.device_handle, ENDPOINT_1_IN, (unsigned char *)&response,
+    gDevice.device_handle, ENDPOINT_1_IN, response,
     response_size, &bytes_transferred, USB_TRANSFER_TIMEOUT
   );
 
@@ -573,42 +686,106 @@ static int read_packet(unsigned char *buf, int start_register, int count)
   }
   else
   {
-    debug_usb((unsigned char *)&response, bytes_transferred, false);
+    debug_usb(response, response_size, false);
   }
 
+  return bytes_transferred;
+}
+
+//******************************************************************************
+/// \brief  Read a packet of data from the MXT chip
+/// \return number of bytes read, negative error
+static int read_data(unsigned char *buf, uint16_t start_register, size_t count)
+{
+  unsigned char pkt[gDevice.ep1_in_max_packet_size];
+  size_t cmd_size;
+  size_t max_count;
+  off_t response_ofs;
+  int ret;
+
+  /* Check a device is present before trying to read from it */
+  if (!gDevice.library_initialised || !gDevice.device_connected)
+  {
+    LOG(LOG_ERROR, "Device uninitialised");
+    return -1;
+  }
+
+  memset(&pkt, 0, sizeof(pkt));
+
+  /* Command packet */
+  if (gDevice.bridge_chip)
+  {
+    cmd_size = 5;
+    max_count = gDevice.ep1_in_max_packet_size - cmd_size;
+
+    if (count > max_count)
+      count = max_count;
+
+    pkt[0] = IIC_DATA_1;
+    pkt[1] = 2;
+    pkt[2] = count;
+    pkt[3] = start_register & 0xFF;
+    pkt[4] = (start_register & 0xFF00) >> 8;
+
+    response_ofs = 0;
+  }
+  else
+  {
+    cmd_size = 6;
+    max_count = gDevice.ep1_in_max_packet_size - cmd_size;
+
+    if (count > max_count)
+      count = max_count;
+
+    pkt[0] = REPORT_ID;
+    pkt[1] = IIC_DATA_1;
+    pkt[2] = 2;
+    pkt[3] = count;
+    pkt[4] = start_register & 0xFF;
+    pkt[5] = (start_register & 0xFF00) >> 8;
+
+    response_ofs = 1;
+  }
+
+  LOG(LOG_VERBOSE, "Reading %" PRIuPTR " bytes starting from address %d",
+      count, start_register);
+
+  /* Command packet */
+
+  ret = usb_transfer(&pkt, cmd_size, &pkt, sizeof(pkt), false);
+  if (ret < 0)
+    return ret;
+
   /* Check the result in the response */
-  if (response.result != READ_DATA_RETURNED)
+  if (pkt[response_ofs] != COMMS_STATUS_OK)
   {
     LOG
     (
       LOG_ERROR,
       "Wrong result in read response - expected 0x%02X got 0x%02X",
-      READ_DATA_RETURNED, response.result
+      COMMS_STATUS_OK, pkt[response_ofs]
     );
     return -1;
   }
 
   /* Output the data read from the registers */
-  (void)memcpy(buf, response.read_data, count);
+  (void)memcpy(buf, &pkt[response_ofs + 2], count);
 
-  return 0;
+  return count;
 }
 
 //******************************************************************************
 /// \brief  Write a packet of data to the MXT chip
-/// \return zero on success, negative error
-static int write_packet(unsigned char const *buf, int start_register, int count, bool ignore_response)
+/// \return bytes written, negative error
+static int write_data(unsigned char const *buf, uint16_t start_register,
+                      size_t count, bool ignore_response)
 {
-  int ret = -1;
-
-  int command_size = SIZE_OF_CMD_HEADER + count;
-  usb_command command;
-
-  /* Try to read a whole packet - otherwise we get LIBUSB_ERROR_OVERFLOW error */
-  int response_size = gDevice.ep1_in_max_packet_size;
-  usb_response response;
-
-  int bytes_transferred = 0;
+  unsigned char pkt[gDevice.ep1_in_max_packet_size];
+  int ret;
+  size_t max_count;
+  size_t cmd_size;
+  int packet_size;
+  off_t response_ofs;
 
   /* Check a device is present before trying to write to it */
   if (!gDevice.library_initialised || !gDevice.device_connected)
@@ -617,86 +794,160 @@ static int write_packet(unsigned char const *buf, int start_register, int count,
     return -1;
   }
 
-  /* Check input parameters */
-  if (count > MAX_CMD_DATA_LENGTH)
-  {
-    LOG(LOG_ERROR, "Cannot write %d bytes (max %d bytes)", count, MAX_CMD_DATA_LENGTH);
-    return -1;
-  }
-
-  LOG(LOG_VERBOSE, "Writing %d bytes to address 0x%04X", count, start_register);
+  memset(&pkt, 0, sizeof(pkt));
 
   /* Command packet */
-  command.usb_report_id = REPORT_ID;
-  command.command_id = READ_WRITE_CMD_ID;
-  command.bytes_to_write = NO_OF_ADDR_BYTES + count;
-  command.bytes_to_read = 0;
-  command.address_pointer = start_register;
-  (void)memcpy(command.write_data, buf, count);
+  if (gDevice.bridge_chip)
+  {
+    cmd_size = 5;
+    max_count = gDevice.ep1_in_max_packet_size - cmd_size;
 
-  /* Send command to request write */
-  ret = libusb_interrupt_transfer
-  (
-    gDevice.device_handle, ENDPOINT_2_OUT, (unsigned char *)&command,
-    command_size, &bytes_transferred, USB_TRANSFER_TIMEOUT
-  );
+    if (count > max_count)
+      count = max_count;
 
-  if (ret != LIBUSB_SUCCESS || bytes_transferred != command_size)
+    pkt[0] = IIC_DATA_1;
+    pkt[1] = 2 + count;
+    pkt[2] = 0;
+    pkt[3] = start_register & 0xFF;
+    pkt[4] = (start_register & 0xFF00) >> 8;
+
+    response_ofs = 0;
+  }
+  else
+  {
+    cmd_size = 6;
+    max_count = gDevice.ep1_in_max_packet_size - cmd_size;
+
+    if (count > max_count)
+      count = max_count;
+
+    pkt[0] = REPORT_ID;
+    pkt[1] = IIC_DATA_1;
+    pkt[2] = 2 + count;
+    pkt[3] = 0;
+    pkt[4] = start_register & 0xFF;
+    pkt[5] = (start_register & 0xFF00) >> 8;
+
+    response_ofs = 1;
+  }
+
+  packet_size = cmd_size + count;
+
+  (void)memcpy(pkt + cmd_size, buf, count);
+
+  LOG(LOG_VERBOSE, "Writing %" PRIuPTR " bytes to address %d",
+      count, start_register);
+
+  ret = usb_transfer(pkt, packet_size, pkt, sizeof(pkt), ignore_response);
+  if (ret < 0)
+    return ret;
+
+  /* Check the result in the response */
+  if (!ignore_response && pkt[response_ofs] != COMMS_STATUS_WRITE_OK)
   {
     LOG
     (
       LOG_ERROR,
-      "Write request failed - %d bytes transferred, returned %s",
-      bytes_transferred, libusb_error_name(ret)
+      "Wrong result in write response - expected 0x%02X got 0x%02X",
+      COMMS_STATUS_WRITE_OK, pkt[response_ofs]
     );
     return -1;
   }
-  else
-  {
-    debug_usb((unsigned char *)&command, bytes_transferred, true);
-  }
 
-  /* Some write requests have no response e.g. chip reset */
-  if (ignore_response)
-  {
-    LOG(LOG_VERBOSE, "Ignoring response command");
-  }
-  else
-  {
-    /* Read response from write request */
-    ret = libusb_interrupt_transfer
-    (
-      gDevice.device_handle, ENDPOINT_1_IN, (unsigned char *)&response,
-      response_size, &bytes_transferred, USB_TRANSFER_TIMEOUT
-    );
+  return count;
+}
 
-    if (ret != LIBUSB_SUCCESS || bytes_transferred != response_size)
-    {
-      LOG
-      (
-        LOG_ERROR,
-        "Write response failed - %d bytes transferred, returned %s",
-        bytes_transferred, libusb_error_name(ret)
-      );
-      return -1;
-    }
-    else
-    {
-      debug_usb((unsigned char *)&response, bytes_transferred, false);
-    }
+//******************************************************************************
+/// \brief  Read from bootloader
+int usb_bootloader_read(unsigned char *buf, size_t count)
+{
+  unsigned char pkt[gDevice.ep1_in_max_packet_size];
+  const off_t data_offset = 2;
+  size_t max_count = gDevice.ep1_in_max_packet_size - data_offset;
+  int ret;
 
-    /* Check the result in the response */
-    if (response.result != WRITE_COMPLETED)
-    {
-      LOG
-      (
-        LOG_ERROR,
-        "Wrong result in write response - expected 0x%02X got 0x%02X",
-        WRITE_COMPLETED, response.result
-      );
-      return -1;
-    }
+  if (count > max_count)
+    return -1;
+
+  memset(&pkt, 0, sizeof(pkt));
+  pkt[0] = IIC_DATA_1;
+  pkt[1] = 0x00;
+  pkt[2] = (uint8_t)count;
+
+  ret = usb_transfer(pkt, sizeof(pkt), pkt, sizeof(pkt), false);
+  if (ret < 0)
+    return ret;
+
+  /* Output the data read from the registers */
+  (void)memcpy(buf, &pkt[data_offset], count);
+
+  return 0;
+}
+
+//******************************************************************************
+/// \brief  Write packet to bootloader
+/// \return Numbers of bytes written or negative error
+static int usb_bootloader_write_packet(unsigned char const *buf, size_t count)
+{
+  unsigned char pkt[gDevice.ep1_in_max_packet_size];
+  int ret;
+  const off_t data_offset = 3;
+  size_t max_count = gDevice.ep1_in_max_packet_size - data_offset;
+
+  if (count > max_count)
+    count = max_count;
+
+  memset(&pkt, 0, sizeof(pkt));
+  pkt[0] = IIC_DATA_1;
+  pkt[1] = (uint8_t)count;
+  pkt[2] = 0x00;
+
+  (void)memcpy(&pkt[data_offset], buf, count);
+
+  ret = usb_transfer(pkt, sizeof(pkt), pkt, sizeof(pkt), false);
+  if (ret < 0)
+    return ret;
+
+  return count;
+}
+
+//******************************************************************************
+/// \brief  Write to bootloader
+int usb_bootloader_write(unsigned char const *buf, size_t count)
+{
+  int ret;
+  size_t bytes = 0;
+
+  while (bytes < count)
+  {
+    ret = usb_bootloader_write_packet(buf + bytes, count - bytes);
+    if (ret < 0)
+      return ret;
+
+    bytes += ret;
   }
 
   return 0;
+}
+
+//******************************************************************************
+/// \brief Read CHG line
+bool usb_read_chg()
+{
+  unsigned char pkt[gDevice.ep1_in_max_packet_size];
+  bool chg;
+  int ret;
+
+  memset(&pkt, 0, sizeof(pkt));
+  pkt[0] = CMD_READ_PINS;
+
+  ret = usb_transfer(pkt, sizeof(pkt), pkt, sizeof(pkt), false);
+  if (ret < 0)
+    return ret;
+
+  chg = pkt[2] & 0x4;
+
+  LOG(LOG_VERBOSE, "CHG line %s", chg ? "HIGH" : "LOW");
+
+  return chg;
 }

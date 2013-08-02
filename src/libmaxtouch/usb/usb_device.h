@@ -31,5 +31,9 @@
 int usb_scan(void);
 void usb_release(void);
 int usb_reset_chip(bool bootloader_mode);
-int usb_read_register(unsigned char *buf, int start_register, int count);
-int usb_write_register(unsigned char const *buf, int start_register, int count);
+int usb_read_register(unsigned char *buf, uint16_t start_register, size_t count);
+int usb_write_register(unsigned char const *buf, uint16_t start_register, size_t count);
+int usb_bootloader_read(unsigned char *buf, size_t count);
+int usb_bootloader_write(unsigned char const *buf, size_t count);
+bool usb_is_bootloader(void);
+bool usb_read_chg(void);
