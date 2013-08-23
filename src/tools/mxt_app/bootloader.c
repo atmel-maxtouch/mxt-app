@@ -285,9 +285,7 @@ static int send_frames(struct bootloader_ctx *ctx)
 
         LOG(LOG_DEBUG, "Frame %d: size %d", frame, frame_size);
 
-        /* We should add 2 at frame size as the the firmware data is not
-         * included the CRC bytes.
-         */
+        /* Allow for CRC bytes at end of frame */
         frame_size += 2;
 
         if (frame_size > FIRMWARE_BUFFER_SIZE) {
