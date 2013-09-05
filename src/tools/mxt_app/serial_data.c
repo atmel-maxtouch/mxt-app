@@ -76,13 +76,14 @@ struct t68_ctx
 /// \brief Print T68 status messages
 static void mxt_t68_print_status(uint8_t status)
 {
-  printf("T68 status: %02X %s%s%s%s%s%s\n",
+  printf("T68 status: %02X %s%s%s%s%s%s%s\n",
       status,
       (status == 0x00) ? "Success/No error" : "",
       (status == 0x01) ? "Command supplied in CMD.COMMAND is out of sequence" : "",
       (status == 0x02) ? "Supplied DATATYPE value is not supported" : "",
       (status == 0x03) ? "Supplied LENGTH value exceeds length of DATA[] array" : "",
       (status == 0x04) ? "More bytes supplied than can be accommodated by this data type" : "",
+      (status == 0x05) ? "Data content is invalid" : "",
       (status == 0x0F) ? "The action could not be completed due to an error outside of this object" : "");
 }
 
@@ -95,9 +96,9 @@ static int mxt_t68_get_status(void)
   time_t now;
   time_t start_time = time(NULL);
   uint8_t buf[10];
-  size_t len;
   unsigned int object_type;
   uint8_t status;
+  int ret;
 
   while (true)
   {
@@ -114,27 +115,30 @@ static int mxt_t68_get_status(void)
     {
       for (i = 0; i < count; i++)
       {
-        len = mxt_get_msg_bytes(buf, sizeof(buf));
+        ret = mxt_get_msg_bytes(buf, sizeof(buf));
 
-        if (len > 0)
+        if (ret < 0)
         {
-          object_type = report_id_to_type(buf[0]);
+          LOG(LOG_ERROR, "Error %u", ret);
+          return ret;
+        }
 
-          LOG(LOG_VERBOSE, "Received message from T%u", object_type);
+        object_type = report_id_to_type(buf[0]);
 
-          if (object_type == SERIAL_DATA_COMMAND_T68)
-          {
-            /* mask off reserved bits */
-            status = buf[1] & 0x0F;
+        LOG(LOG_VERBOSE, "Received message from T%u", object_type);
 
-            mxt_t68_print_status(status);
+        if (object_type == SERIAL_DATA_COMMAND_T68)
+        {
+          /* mask off reserved bits */
+          status = buf[1] & 0x0F;
 
-            return (status == 0) ? 0 : -1;
-          }
-          else if (object_type == GEN_COMMANDPROCESSOR_T6)
-          {
-            print_t6_state(buf[1]);
-          }
+          mxt_t68_print_status(status);
+
+          return (status == 0) ? 0 : -1;
+        }
+        else if (object_type == GEN_COMMANDPROCESSOR_T6)
+        {
+          print_t6_state(buf[1]);
         }
       }
     }

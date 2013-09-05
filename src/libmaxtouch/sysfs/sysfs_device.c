@@ -702,6 +702,8 @@ int sysfs_get_msg_count_ng()
 close:
   close(fd);
 
+  LOG(LOG_DEBUG, "count = %d", gpDevice->debug_ng_msg_count);
+
   return gpDevice->debug_ng_msg_count;
 }
 
