@@ -304,7 +304,7 @@ static int bridge(int sockfd)
     LOG(LOG_ERROR, "Failure to reset msgs");
 
   fds[0].fd = sockfd;
-  fds[0].events = POLLRDNORM | POLLERR;
+  fds[0].events = POLLIN | POLLERR;
 
   while (1)
   {
