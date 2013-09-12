@@ -76,12 +76,12 @@ static int mxt_init_chip(int adapter, int address)
 
   if (adapter >= 0 && address > 0)
   {
-    LOG(LOG_DEBUG, "i2c_address:%u", address);
-    LOG(LOG_DEBUG, "i2c_adapter:%u", adapter);
+    LOG(LOG_VERBOSE, "i2c_address:%u", address);
+    LOG(LOG_VERBOSE, "i2c_adapter:%u", adapter);
     ret = i2c_dev_set_address(adapter, address);
     if (ret < 0)
     {
-      printf("Failed to init device - exiting the application\n");
+      LOG(LOG_ERROR, "Failed to init device");
       return -1;
     }
   }
@@ -90,19 +90,19 @@ static int mxt_init_chip(int adapter, int address)
     ret = mxt_scan();
     if (ret == 0)
     {
-      printf("Unable to find any maXTouch devices - exiting the application\n");
+      LOG(LOG_ERROR, "Unable to find a device");
       return -1;
     }
     else if (ret < 0)
     {
-      printf("Failed to init device - exiting the application\n");
+      LOG(LOG_ERROR, "Failed to init device");
       return -1;
     }
   }
 
   if (mxt_get_info() < 0)
   {
-    printf("Error reading info block, exiting...\n");
+    LOG(LOG_ERROR, "Failed to read info block");
     return -1;
   }
 
@@ -352,12 +352,13 @@ int main (int argc, char *argv[])
         }
         else if (!strcmp(long_options[option_index].name, "version"))
         {
-          printf("mxt-app %s\n", __GIT_VERSION);
+          LOG(LOG_INFO, "mxt-app %s", __GIT_VERSION);
           return 0;
         }
         else
         {
-          printf("Unknown option %s\n", long_options[option_index].name);
+          fprintf(stderr, "Unknown option %s\n",
+                  long_options[option_index].name);
         }
         break;
 
@@ -471,7 +472,7 @@ int main (int argc, char *argv[])
         if (optarg) {
           verbose = strtol(optarg, NULL, 0);
           mxt_set_verbose(verbose);
-          LOG(LOG_DEBUG, "verbose:%u", verbose);
+          LOG(LOG_VERBOSE, "verbose:%u", verbose);
         }
         break;
 
@@ -486,7 +487,7 @@ int main (int argc, char *argv[])
 
       default:
         /* Output newline to create space under getopt error output */
-        printf("\n\n");
+        fprintf(stderr, "\n\n");
         print_usage(argv[0]);
         return -1;
     }
@@ -497,11 +498,11 @@ int main (int argc, char *argv[])
 
   if (cmd == CMD_WRITE || cmd == CMD_READ)
   {
-    LOG(LOG_DEBUG, "instance:%u", instance);
-    LOG(LOG_DEBUG, "count:%u", count);
-    LOG(LOG_DEBUG, "address:%u", address);
-    LOG(LOG_DEBUG, "object_type:%u", object_type);
-    LOG(LOG_DEBUG, "format:%s", format ? "true" : "false");
+    LOG(LOG_VERBOSE, "instance:%u", instance);
+    LOG(LOG_VERBOSE, "count:%u", count);
+    LOG(LOG_VERBOSE, "address:%u", address);
+    LOG(LOG_VERBOSE, "object_type:%u", object_type);
+    LOG(LOG_VERBOSE, "format:%s", format ? "true" : "false");
   }
 
   /* initialise chip, bootloader mode handles this itself */
@@ -517,17 +518,17 @@ int main (int argc, char *argv[])
 
   switch (cmd) {
     case CMD_WRITE:
-      LOG(LOG_DEBUG, "Write command");
+      LOG(LOG_VERBOSE, "Write command");
 
       if (object_type > 0) {
         object_address = get_object_address(object_type, instance);
         if (object_address == OBJECT_NOT_FOUND) {
-          printf("No such object\n");
+          fprintf(stderr, "No such object\n");
           ret = -1;
           break;
         }
 
-        LOG(LOG_DEBUG, "T%u address:%u offset:%u", object_type,
+        LOG(LOG_VERBOSE, "T%u address:%u offset:%u", object_type,
             object_address, address);
         address = object_address + address;
 
@@ -535,98 +536,98 @@ int main (int argc, char *argv[])
           count = get_object_size(object_type);
         }
       } else if (count == 0) {
-        printf("Not enough arguments!\n");
+        fprintf(stderr, "Not enough arguments!\n");
         return -1;
       }
 
       if (optind != (argc - 1)) {
-        printf("Must give hex input\n");
+        fprintf(stderr, "Must give hex input\n");
         return -1;
       }
 
       ret = mxt_convert_hex(argv[optind], &databuf[0], &count, sizeof(databuf));
       if (ret < 0) {
-        printf("Hex convert error\n");
+        fprintf(stderr, "Hex convert error\n");
       } else {
         ret = mxt_write_register(&databuf[0], address, count);
         if (ret < 0) {
-          printf("Write error\n");
+          fprintf(stderr, "Write error\n");
         }
       }
       break;
 
     case CMD_READ:
-      LOG(LOG_DEBUG, "Read command");
+      LOG(LOG_VERBOSE, "Read command");
       ret = read_object(object_type, instance, address, count, format);
       break;
 
     case CMD_INFO:
-      LOG(LOG_DEBUG, "CMD_INFO");
+      LOG(LOG_VERBOSE, "CMD_INFO");
       print_info_block();
       break;
 
     case CMD_GOLDEN_REFERENCES:
-      LOG(LOG_DEBUG, "CMD_GOLDEN_REFERENCES");
+      LOG(LOG_VERBOSE, "CMD_GOLDEN_REFERENCES");
       ret = mxt_store_golden_refs();
       break;
 
     case CMD_BRIDGE_SERVER:
-      LOG(LOG_DEBUG, "CMD_BRIDGE_SERVER");
-      LOG(LOG_DEBUG, "port:%u", port);
+      LOG(LOG_VERBOSE, "CMD_BRIDGE_SERVER");
+      LOG(LOG_VERBOSE, "port:%u", port);
       ret = mxt_socket_server(port);
       break;
 
     case CMD_BRIDGE_CLIENT:
-      LOG(LOG_DEBUG, "CMD_BRIDGE_CLIENT");
+      LOG(LOG_VERBOSE, "CMD_BRIDGE_CLIENT");
       ret = mxt_socket_client(strbuf, port);
       break;
 
     case CMD_SERIAL_DATA:
-      LOG(LOG_DEBUG, "CMD_SERIAL_DATA");
-      LOG(LOG_DEBUG, "t68_datatype:%u", t68_datatype);
+      LOG(LOG_VERBOSE, "CMD_SERIAL_DATA");
+      LOG(LOG_VERBOSE, "t68_datatype:%u", t68_datatype);
       ret = mxt_serial_data_upload(strbuf, t68_datatype);
       break;
 
     case CMD_TEST:
-      LOG(LOG_DEBUG, "CMD_TEST");
+      LOG(LOG_VERBOSE, "CMD_TEST");
       ret = run_self_tests(SELF_TEST_ALL);
       break;
 
     case CMD_FLASH:
-      LOG(LOG_DEBUG, "CMD_FLASH");
+      LOG(LOG_VERBOSE, "CMD_FLASH");
       ret = mxt_flash_firmware(strbuf, strbuf2, i2c_adapter, i2c_address);
       break;
 
     case CMD_RESET:
-      LOG(LOG_DEBUG, "CMD_RESET");
+      LOG(LOG_VERBOSE, "CMD_RESET");
       ret = mxt_reset_chip(false);
       break;
 
     case CMD_RESET_BOOTLOADER:
-      LOG(LOG_DEBUG, "CMD_RESET_BOOTLOADER");
+      LOG(LOG_VERBOSE, "CMD_RESET_BOOTLOADER");
       ret = mxt_reset_chip(true);
       break;
 
     case CMD_BACKUP:
-      LOG(LOG_DEBUG, "CMD_BACKUP");
+      LOG(LOG_VERBOSE, "CMD_BACKUP");
       ret = mxt_backup_config();
       break;
 
     case CMD_CALIBRATE:
-      LOG(LOG_DEBUG, "CMD_CALIBRATE");
+      LOG(LOG_VERBOSE, "CMD_CALIBRATE");
       ret = mxt_calibrate_chip();
       break;
 
     case CMD_DEBUG_DUMP:
-      LOG(LOG_DEBUG, "CMD_DEBUG_DUMP");
-      LOG(LOG_DEBUG, "mode:%u", t37_mode);
-      LOG(LOG_DEBUG, "frames:%u", t37_frames);
+      LOG(LOG_VERBOSE, "CMD_DEBUG_DUMP");
+      LOG(LOG_VERBOSE, "mode:%u", t37_mode);
+      LOG(LOG_VERBOSE, "frames:%u", t37_frames);
       ret = mxt_debug_dump(t37_mode, strbuf, t37_frames);
       break;
 
     case CMD_LOAD_CFG:
-      LOG(LOG_DEBUG, "CMD_LOAD_CFG");
-      LOG(LOG_DEBUG, "filename:%s", strbuf);
+      LOG(LOG_VERBOSE, "CMD_LOAD_CFG");
+      LOG(LOG_VERBOSE, "filename:%s", strbuf);
       ret = mxt_load_config_file(strbuf);
       if (ret < 0)
       {
@@ -659,14 +660,14 @@ int main (int argc, char *argv[])
       break;
 
     case CMD_SAVE_CFG:
-      LOG(LOG_DEBUG, "CMD_SAVE_CFG");
-      LOG(LOG_DEBUG, "filename:%s", strbuf);
+      LOG(LOG_VERBOSE, "CMD_SAVE_CFG");
+      LOG(LOG_VERBOSE, "filename:%s", strbuf);
       ret = mxt_save_config_file(strbuf);
       break;
 
     case CMD_NONE:
     default:
-      LOG(LOG_DEBUG, "cmd: %d", cmd);
+      LOG(LOG_VERBOSE, "cmd: %d", cmd);
       ret = mxt_menu();
       break;
   }

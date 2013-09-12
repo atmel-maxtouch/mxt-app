@@ -330,6 +330,10 @@ static int mxt_send_reset_command(bool bootloader_mode)
     LOG(LOG_INFO, "Resetting in bootloader mode");
     write_value = BOOTLOADER_COMMAND;
   }
+  else
+  {
+    LOG(LOG_INFO, "Sending reset command");
+  }
 
   /* Write to command processor register to perform command */
   ret = mxt_write_register
@@ -520,7 +524,7 @@ char *mxt_get_msg_string(void)
   }
 
   if (msg_string)
-    LOG(LOG_INFO, "%s", msg_string);
+    LOG(LOG_DEBUG, "%s", msg_string);
 
   return msg_string;
 }
@@ -571,7 +575,7 @@ int mxt_get_msg_bytes(unsigned char *buf, size_t buflen)
                          "%02X ", buf[byte]);
     }
 
-    LOG(LOG_INFO, "%s", msg_string);
+    LOG(LOG_DEBUG, "%s", msg_string);
   }
   return count;
 }

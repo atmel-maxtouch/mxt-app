@@ -28,9 +28,11 @@
 //------------------------------------------------------------------------------
 
 #include <stdint.h>
+#include <stdbool.h>
 
 void print_info_block(void);
 const char *objname(uint8_t objtype);
 void write_to_object(int obj_num, uint8_t instance);
 int read_object(uint16_t object_type, uint8_t instance, uint16_t offset, size_t count, bool format);
 int mxt_convert_hex(char *hex, unsigned char *databuf, uint16_t *count, unsigned int buf_size);
+void mxt_print_timestamp(FILE *stream);

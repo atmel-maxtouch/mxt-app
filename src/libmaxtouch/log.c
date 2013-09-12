@@ -27,37 +27,38 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-#include "log.h"
+#include "stdio.h"
+
+#include "libmaxtouch/log.h"
+#include "libmaxtouch/utilfuncs.h"
 
 /* Default log level */
-mxt_log_level log_level = LOG_ERROR;
+mxt_log_level log_level = LOG_INFO;
 
 //******************************************************************************
 /// \brief  Returns the input log level as a human-readable string.
 /// \return Log level string
-const char* get_log_level_string(mxt_log_level level)
+static const char get_log_level_string(mxt_log_level level)
 {
   switch (level)
   {
     case LOG_SILENT:
-      return "Silent";
+      return 'S';
     case LOG_FATAL:
-      return "Fatal";
+      return 'F';
     case LOG_ERROR:
-      return "Error";
+      return 'E';
     case LOG_WARN:
-      return "Warning";
+      return 'W';
     case LOG_INFO:
-      return "Info";
+      return 'I';
     case LOG_DEBUG:
-      return "Debug";
+      return 'D';
     case LOG_VERBOSE:
-      return "Verbose";
     case LOG_DEFAULT:
-      return "Default";
     case LOG_UNKNOWN:
     default:
-      return "Unknown";
+      return 'V';
   }
 }
 
@@ -84,4 +85,22 @@ void mxt_set_verbose(uint8_t verbose)
       log_level = LOG_VERBOSE;
       break;
   }
+}
+
+//******************************************************************************
+/// \brief Output log message to stdout, with optional timestamp
+void mxt_log_message(mxt_log_level level, const char *fmt, ...)
+{
+  va_list args;
+
+  va_start(args, fmt);
+
+  if (log_level < LOG_INFO)
+  {
+    mxt_print_timestamp(stdout);
+    printf(" %c: ", get_log_level_string(level));
+  }
+
+  vprintf(fmt, args);
+  printf("\n");
 }

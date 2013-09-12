@@ -29,6 +29,7 @@
 //------------------------------------------------------------------------------
 
 #include <stdint.h>
+#include <stdarg.h>
 
 #define DEBUG 1
 
@@ -52,13 +53,9 @@ typedef enum mxt_log_level {
 extern mxt_log_level log_level;
 
 void mxt_set_verbose(uint8_t verbose);
-
+void mxt_log_message(mxt_log_level level, const char *fmt, ...);
 
 #if DEBUG
-
-#include <stdio.h>
-
-const char* get_log_level_string(mxt_log_level level);
 
 #if ANDROID
 /* Log using Android API */
@@ -66,7 +63,7 @@ const char* get_log_level_string(mxt_log_level level);
 
 #define LOG(level, format, ...) \
   if (level >= log_level) { \
-    printf("%s: " format "\n", get_log_level_string(level), ##__VA_ARGS__); \
+    mxt_log_message(level, format, ##__VA_ARGS__); \
   } else if (level >= LOG_ERROR) { \
     __android_log_print(ANDROID_ ## level, LOG_TAG, format, ##__VA_ARGS__); \
   }
@@ -75,7 +72,7 @@ const char* get_log_level_string(mxt_log_level level);
 #define LOG(level, format, ...) \
   if (level >= log_level) \
   { \
-    printf("%s: " format "\n", get_log_level_string(level), ##__VA_ARGS__); \
+    mxt_log_message(level, format, ##__VA_ARGS__); \
   }
 
 #endif

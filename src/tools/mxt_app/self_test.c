@@ -39,6 +39,7 @@
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/info_block.h"
 #include "libmaxtouch/utilfuncs.h"
+#include "libmaxtouch/log.h"
 
 #include "mxt_app.h"
 
@@ -47,7 +48,7 @@
 static int self_test_handle_messages(void)
 {
    bool done = false;
-   uint16_t count, i, byte;
+   uint16_t count, i;
    time_t now;
    time_t start_time = time(NULL);
    static const uint8_t TIMEOUT = 10; // seconds
@@ -61,7 +62,7 @@ static int self_test_handle_messages(void)
       now = time(NULL);
       if ((now - start_time) > TIMEOUT)
       {
-         printf("Timeout\n");
+         LOG(LOG_ERROR, "Timeout");
          return -2;
       }
 
@@ -77,44 +78,38 @@ static int self_test_handle_messages(void)
             {
                object_type = report_id_to_type(buf[0]);
 
-               printf("Received message from T%u\n", object_type);
+               LOG(LOG_VERBOSE, "Received message from T%u", object_type);
                
                if (object_type == SPT_SELFTEST_T25)
                {
-                  for (byte = 1; byte < len; byte++)
-                  {
-                     printf("%02X ", buf[byte]);
-                  }
-                  printf("\n\n");
-
                   switch (buf[1])
                   {
                   case SELF_TEST_ALL:
-                     printf("PASS: All tests passed\n");
+                     LOG(LOG_INFO, "PASS: All tests passed");
                      ret = 0;
                      break;
                   case SELF_TEST_INVALID:
-                     printf("FAIL: Invalid test command\n");
+                     LOG(LOG_ERROR, "FAIL: Invalid test command");
                      ret = -2;
                      break;
                   case SELF_TEST_ANALOG:
-                     printf("FAIL: AVdd is not present\n");
+                     LOG(LOG_ERROR, "FAIL: AVdd is not present");
                      ret = -3;
                      break;
                   case SELF_TEST_PIN_FAULT:
-                     printf("FAIL: Pin fault\n");
+                     LOG(LOG_ERROR, "FAIL: Pin fault");
                      ret = -4;
                      break;
                   case SELF_TEST_SIGNAL_LIMIT:
-                     printf("FAIL: Signal limit fault\n");
+                     LOG(LOG_ERROR, "FAIL: Signal limit fault");
                      ret = -5;
                      break;
                   case SELF_TEST_GAIN:
-                     printf("FAIL: Gain error\n");
+                     LOG(LOG_ERROR, "FAIL: Gain error");
                      ret = -6;
                      break;
                   default:
-                     printf("FAIL: Unrecognised error\n");
+                     LOG(LOG_ERROR, "FAIL: Unrecognised error");
                      ret = -7;
                      break;
                   }
@@ -163,7 +158,7 @@ static void print_t25_limits(uint16_t t25_addr)
          {
             mxt_read_register((uint8_t *)&buf, get_start_position(element, instance), 1);
 
-            printf("%s[%d] %s\n",
+            LOG(LOG_INFO, "%s[%d] %s",
                    objname(element.object_type),
                    instance,
                    buf[0] & 0x01 ? "enabled":"disabled");
@@ -174,8 +169,8 @@ static void print_t25_limits(uint16_t t25_addr)
             upsiglim = (uint16_t)((buf[1] << 8u) | buf[0]);
             losiglim = (uint16_t)((buf[3] << 8u) | buf[2]);
 
-            printf("  UPSIGLIM:%d\n", upsiglim);
-            printf("  LOSIGLIM:%d\n\n", losiglim);
+            LOG(LOG_INFO, "  UPSIGLIM:%d", upsiglim);
+            LOG(LOG_INFO, "  LOSIGLIM:%d", losiglim);
 
             touch_object++;
          }
@@ -230,15 +225,15 @@ int run_self_tests(uint8_t cmd)
 
    // Enable self test object & reporting
    t25_addr = get_object_address(SPT_SELFTEST_T25, 0);
-   printf("Enabling self test object\n");
+   LOG(LOG_INFO, "Enabling self test object");
    mxt_write_register(&enable, t25_addr, 1);
 
-   printf("Disabling noise suppression\n\n");
+   LOG(LOG_INFO, "Disabling noise suppression");
    disable_noise_suppression();
 
    print_t25_limits(t25_addr);
 
-   printf("Running tests\n");
+   LOG(LOG_INFO, "Running tests");
    mxt_write_register(&cmd, t25_addr + 1, 1);
 
    return self_test_handle_messages();

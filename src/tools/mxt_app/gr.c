@@ -71,7 +71,7 @@
 /// \brief Handle status messages from the T66 golden references object
 static void mxt_gr_print_state(uint8_t state)
 {
-  printf("T66 state: %02X %s%s%s%s%s%s%s%s%s\n",
+  LOG(LOG_INFO, "T66 state: %02X %s%s%s%s%s%s%s%s%s",
       state,
       (state & GR_STATE_FCALFAIL) ? "FCALFAIL " : "",
       (state & GR_STATE_FCALPASS) ? "FCALPASS " : "",
@@ -100,7 +100,7 @@ static int mxt_gr_get_status(uint8_t *state, int timeout_seconds)
     now = time(NULL);
     if ((now - start_time) > timeout_seconds)
     {
-      printf("Timeout\n");
+      LOG(LOG_ERROR, "Timeout");
       return -1;
     }
 
@@ -162,7 +162,7 @@ static int mxt_gr_run_command(uint16_t addr, uint8_t cmd,
   }
   else
   {
-    printf("Failed to enter correct state\n");
+    LOG(LOG_ERROR, "Failed to enter correct state");
     return -1;
   }
 }
@@ -182,24 +182,24 @@ int mxt_store_golden_refs()
   if (addr == OBJECT_NOT_FOUND)
     return -1;
 
-  printf("Priming\n");
+  LOG(LOG_INFO, "Priming");
   ret = mxt_gr_run_command(addr, GR_FCALCMD_PRIME,
                            GR_STATE_PRIMED, GR_STATE_PRIMED);
   if (ret < 0)
     return ret;
 
-  printf("Generating\n");
+  LOG(LOG_INFO, "Generating");
   ret = mxt_gr_run_command(addr, GR_FCALCMD_GENERATE,
                            GR_STATE_GENERATED, GR_STATE_FCALPASS);
   if (ret < 0)
     return ret;
 
-  printf("Storing\n");
+  LOG(LOG_INFO, "Storing");
   ret = mxt_gr_run_command(addr, GR_FCALCMD_STORE,
                           GR_STATE_IDLE, GR_STATE_FCALSEQDONE);
   if (ret < 0)
     return ret;
 
-  printf("Done\n");
+  LOG(LOG_INFO, "Done");
   return 0;
 }

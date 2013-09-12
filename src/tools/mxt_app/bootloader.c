@@ -187,7 +187,6 @@ recheck:
 
     if (val != state) {
         LOG(LOG_ERROR, "Invalid bootloader mode state %X", val);
-        printf("ERROR: Invalid bootloader mode\n");
         return -2;
     }
 
@@ -243,28 +242,26 @@ static int send_frames(struct bootloader_ctx *ctx)
   ret = mxt_check_bootloader(ctx, MXT_WAITING_BOOTLOAD_CMD);
   if (ret == 0)
   {
-    printf("Unlocking bootloader\n");
+    LOG(LOG_INFO, "Unlocking bootloader");
 
     if (unlock_bootloader() < 0) {
       LOG(LOG_ERROR, "Failure to unlock bootloader");
-      printf("ERROR: Bootloader not unlocked!\n");
       return -1;
     }
 
-    printf("Bootloader unlocked\n");
+    LOG(LOG_INFO, "Bootloader unlocked");
   }
   else if (ret == -3)
   {
-    printf("Bootloader found\n");
+    LOG(LOG_INFO, "Bootloader found");
   }
   else
   {
     LOG(LOG_ERROR, "Bootloader not found");
-    printf("ERROR: Bootloader not found!\n");
     return -1;
   }
 
-  printf("Sending frames...\n");
+  LOG(LOG_INFO, "Sending frames...");
 
   frame = 1;
 
@@ -277,7 +274,6 @@ static int send_frames(struct bootloader_ctx *ctx)
 
         if (get_hex_value(ctx, &buffer[1]) == EOF) {
             LOG(LOG_ERROR, "Unexpected end of firmware file");
-            printf("ERROR: Unexpected end of firmware file!\n");
             return -1;
         }
 
@@ -290,7 +286,6 @@ static int send_frames(struct bootloader_ctx *ctx)
 
         if (frame_size > FIRMWARE_BUFFER_SIZE) {
                 LOG(LOG_ERROR, "Frame too big");
-                printf("ERROR: Frame too big!\n");
                 return -1;
             }
 
@@ -301,7 +296,6 @@ static int send_frames(struct bootloader_ctx *ctx)
             if (ret == EOF)
             {
                 LOG(LOG_ERROR, "Unexpected end of firmware file");
-                printf("ERROR: Unexpected end of firmware file!\n");
                 return -1;
             }
         }
@@ -320,26 +314,26 @@ static int send_frames(struct bootloader_ctx *ctx)
     ret = mxt_check_bootloader(ctx, MXT_FRAME_CRC_PASS);
     if (ret) {
         if (frame_retry > 0) {
-          LOG(LOG_ERROR, "Frame %d: fail, aborting", frame);
-          printf("ERROR: Failure sending frame, aborting\n");
+          LOG(LOG_ERROR, "Failure sending frame %d - aborting", frame);
           return -1;
         } else {
           frame_retry++;
           LOG(LOG_ERROR, "Frame %d: CRC fail, retry %d", frame, frame_retry);
-          printf("  Frame %d retry\n", frame);
         }
     } else {
-        LOG(LOG_INFO, "Frame %d: Sent %d bytes, CRC pass", frame, frame_size);
+        LOG(LOG_DEBUG, "CRC pass");
         frame++;
         if (frame % 20 == 0) {
-          printf("  Frame %d\n", frame);
+          LOG(LOG_INFO, "Frame %d: Sent %d bytes", frame, frame_size);
+        } else {
+          LOG(LOG_VERBOSE, "Frame %d: Sent %d bytes", frame, frame_size);
         }
     }
   }
 
   fclose(ctx->fp);
 
-  printf("Done\n");
+  LOG(LOG_INFO, "Done");
 
   sleep(MXT_RESET_TIME);
 
@@ -399,7 +393,7 @@ static int mxt_bootloader_init_chip(struct bootloader_ctx *ctx,
       return -1;
     }
 
-    printf("Chip detected\n");
+    LOG(LOG_INFO, "Chip detected");
 
     switch (mxt_get_device_type())
     {
@@ -429,7 +423,7 @@ static int mxt_bootloader_init_chip(struct bootloader_ctx *ctx,
   ret = mxt_get_info();
   if (ret)
   {
-    printf("ERROR: could not read info block!\n");
+    LOG(LOG_ERROR, "Could not read info block!");
     return -1;
   }
 
@@ -438,7 +432,8 @@ static int mxt_bootloader_init_chip(struct bootloader_ctx *ctx,
 
   if (ctx->check_version && !strcmp((char *)&ctx->curr_version, ctx->new_version))
   {
-    printf("Firmware already requested version %s, exiting\n", ctx->curr_version);
+    LOG(LOG_INFO, "Version already %s, exiting",
+        ctx->curr_version);
     return -1;
   }
   else
@@ -447,14 +442,10 @@ static int mxt_bootloader_init_chip(struct bootloader_ctx *ctx,
   }
 
   /* Change to the bootloader mode */
-  printf("Resetting chip\n");
-  LOG(LOG_INFO, "Attempting to reset chip");
-
   ret = mxt_reset_chip(true);
   if (ret < 0)
   {
     LOG(LOG_ERROR, "Reset failure - aborting");
-    printf("ERROR: could not reset chip\n");
     return -1;
   }
   else
@@ -483,8 +474,7 @@ int mxt_flash_firmware(const char *filename, const char *version,
   ctx.fp = fopen(filename, "r");
   if (ctx.fp == NULL)
   {
-    LOG(LOG_ERROR, "Error opening %s!", filename);
-    printf("ERROR: cannot open firmware file\n");
+    LOG(LOG_ERROR, "Cannot open firmware file %s!", filename);
     return -1;
   }
 
@@ -508,7 +498,7 @@ int mxt_flash_firmware(const char *filename, const char *version,
   {
     if (ctx.bootloader_address == -1)
     {
-      printf("No bootloader address!\n");
+      LOG(LOG_ERROR, "No bootloader address!");
       return -1;
     }
 
@@ -537,7 +527,7 @@ int mxt_flash_firmware(const char *filename, const char *version,
 
   if (ctx.appmode_address < 0)
   {
-    printf("Sent all firmware frames\n");
+    LOG(LOG_INFO, "Sent all firmware frames");
     return 0;
   }
 
@@ -562,7 +552,7 @@ int mxt_flash_firmware(const char *filename, const char *version,
   ret = mxt_get_info();
   if (ret != 0)
   {
-    printf("FAILURE - chip did not reset\n");
+    LOG(LOG_ERROR, "FAILURE - chip did not reset");
     return -1;
   }
 
@@ -570,18 +560,18 @@ int mxt_flash_firmware(const char *filename, const char *version,
 
   if (!ctx.check_version)
   {
-    printf("SUCCESS - version is %s\n", ctx.curr_version);
+    LOG(LOG_INFO, "SUCCESS - version is %s", ctx.curr_version);
     return 0;
   }
 
   if (!strcmp(ctx.curr_version, ctx.new_version))
   {
-    printf("SUCCESS - version %s verified\n", ctx.curr_version);
+    LOG(LOG_INFO, "SUCCESS - version %s verified", ctx.curr_version);
     return 0;
   }
   else
   {
-    printf("FAILURE - detected version is %s\n", ctx.curr_version);
+    LOG(LOG_ERROR, "FAILURE - detected version is %s", ctx.curr_version);
     return -1;
   }
 }

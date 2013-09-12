@@ -28,6 +28,7 @@
 //------------------------------------------------------------------------------
 
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "log.h"
 #include "libmaxtouch.h"

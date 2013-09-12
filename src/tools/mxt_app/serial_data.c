@@ -76,7 +76,7 @@ struct t68_ctx
 /// \brief Print T68 status messages
 static void mxt_t68_print_status(uint8_t status)
 {
-  printf("T68 status: %02X %s%s%s%s%s%s%s\n",
+  LOG(LOG_DEBUG, "T68 status: %02X %s%s%s%s%s%s%s",
       status,
       (status == 0x00) ? "Success/No error" : "",
       (status == 0x01) ? "Command supplied in CMD.COMMAND is out of sequence" : "",
@@ -105,7 +105,7 @@ static int mxt_t68_get_status(void)
     now = time(NULL);
     if ((now - start_time) > T68_TIMEOUT)
     {
-      printf("Timeout\n");
+      LOG(LOG_ERROR, "Timeout");
       return -1;
     }
 
@@ -298,7 +298,7 @@ static int mxt_t68_send_frames(struct t68_ctx *ctx)
   {
     frame_size = MIN(ctx->buf.size - offset, ctx->t68_data_size);
 
-    printf("Writing frame %u, %u bytes\n", frame_number, frame_size);
+    LOG(LOG_DEBUG, "Writing frame %u, %u bytes", frame_number, frame_size);
 
     if (frame_size > UCHAR_MAX)
     {
@@ -361,10 +361,10 @@ static int mxt_t68_check_power_cfg(void)
 
   if ((buf[0] == 0) || (buf[1] == 0))
   {
-    printf("Warning: The T7 power configuration object shows that the chip\n"
-           "is in deep sleep, and so will not process T68 serial data\n"
-           "commands. Please set the T7 power configuration idle acquisition\n"
-           "interval to a non-zero value and try again.\n");
+    LOG(LOG_ERROR, "Warning: The T7 power configuration object shows that the chip "
+           "is in deep sleep, and so will not process T68 serial data "
+           "commands. Please set the T7 power configuration idle acquisition "
+           "interval to a non-zero value and try again.");
 
     return -1;
   }
@@ -385,7 +385,7 @@ int mxt_serial_data_upload(const char *filename, uint16_t datatype)
   if (ret < 0)
     return ret;
 
-  printf("Checking T7 Power Config\n");
+  LOG(LOG_INFO, "Checking T7 Power Config");
   ret = mxt_t68_check_power_cfg();
   if (ret < 0)
     return ret;
@@ -420,27 +420,27 @@ int mxt_serial_data_upload(const char *filename, uint16_t datatype)
   if (ret < 0)
     return ret;
 
-  printf("Configuring T68\n");
+  LOG(LOG_INFO, "Configuring T68");
   ret = mxt_t68_write_datatype(&ctx, datatype);
   if (ret < 0)
     goto release;
 
-  printf("Sending start command\n");
+  LOG(LOG_INFO, "Sending start command");
   ret = mxt_t68_command(&ctx, T68_CMD_START);
   if (ret < 0)
     goto release;
 
-  printf("Sending data\n");
+  LOG(LOG_INFO, "Sending data");
   ret = mxt_t68_send_frames(&ctx);
   if (ret < 0)
     goto release;
 
-  printf("Sending end command\n");
+  LOG(LOG_INFO, "Sending end command");
   ret = mxt_t68_command(&ctx, T68_CMD_END);
   if (ret < 0)
     goto release;
 
-  printf("Done\n");
+  LOG(LOG_INFO, "Done");
   ret = 0;
 
 release:

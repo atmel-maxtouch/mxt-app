@@ -32,6 +32,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <inttypes.h>
+#include <time.h>
+#include <sys/time.h>
 
 #include "libmaxtouch.h"
 #include "info_block.h"
@@ -452,4 +454,19 @@ int mxt_convert_hex(char *hex, unsigned char *databuf, uint16_t *count, unsigned
 
   *count = datapos;
   return 0;
+}
+
+void mxt_print_timestamp(FILE *stream)
+{
+  struct timeval tv;
+  time_t nowtime;
+  struct tm *nowtm;
+  char tmbuf[64];
+
+  gettimeofday(&tv, NULL);
+  nowtime = tv.tv_sec;
+  nowtm = localtime(&nowtime);
+  strftime(tmbuf, sizeof tmbuf, "%H:%M:%S", nowtm);
+
+  fprintf(stream, "%s.%06ld", tmbuf, tv.tv_usec);
 }

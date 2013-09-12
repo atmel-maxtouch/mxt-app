@@ -230,7 +230,7 @@ static int scan_driver_directory(const char *path, struct dirent *dir)
       && strcmp(dir->d_name, "sec_touch")
       && strcmp(dir->d_name, "maXTouch"))
   {
-    LOG(LOG_DEBUG, "Ignoring device %s", dir->d_name);
+    LOG(LOG_VERBOSE, "Ignoring device %s", dir->d_name);
     return 0;
   }
 
@@ -238,7 +238,7 @@ static int scan_driver_directory(const char *path, struct dirent *dir)
 
   if ((pszDirname = (char *)malloc(length)) == NULL)
   {
-    LOG(LOG_DEBUG, "malloc failure");
+    LOG(LOG_ERROR, "malloc failure");
     return -1;
   }
 
@@ -294,7 +294,7 @@ static int sysfs_scan_tree(const char *root)
   if (!pDirectory)
     return 0;
 
-  LOG(LOG_DEBUG, "Scanning %s", root);
+  LOG(LOG_VERBOSE, "Scanning %s", root);
 
   while (ret == 0)
   {

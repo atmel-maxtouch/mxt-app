@@ -33,16 +33,16 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <time.h>
 #include <ctype.h>
 #include <fcntl.h>
-#include <time.h>
 #include <sys/types.h>
-#include <sys/time.h>
 #include <sys/stat.h>
 
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/info_block.h"
 #include "libmaxtouch/log.h"
+#include "libmaxtouch/utilfuncs.h"
 
 #include "mxt_app.h"
 
@@ -146,7 +146,6 @@ static int mxt_debug_dump_page(struct t37_ctx *mxt_dd)
       if (failures > 500)
       {
         LOG(LOG_ERROR, "Timeout waiting for command to be actioned");
-        printf("Timeout\n");
         return -1;
       }
     }
@@ -267,21 +266,6 @@ static int mxt_debug_print(struct t37_ctx *mxt_dd)
 }
 #endif
 
-static void mxt_print_timestamp(struct t37_ctx *mxt_dd)
-{
-  struct timeval tv;
-  time_t nowtime;
-  struct tm *nowtm;
-  char tmbuf[64];
-
-  gettimeofday(&tv, NULL);
-  nowtime = tv.tv_sec;
-  nowtm = localtime(&nowtime);
-  strftime(tmbuf, sizeof tmbuf, "%H:%M:%S", nowtm);
-
-  fprintf(mxt_dd->hawkeye, "%s.%06ld,", tmbuf, tv.tv_usec);
-}
-
 static void mxt_hawkeye_generate_control_file(struct t37_ctx *mxt_dd)
 {
   int x;
@@ -290,7 +274,7 @@ static void mxt_hawkeye_generate_control_file(struct t37_ctx *mxt_dd)
 
   fp = fopen("control.txt","w");
   if (!fp) {
-    LOG(LOG_ERROR, "Failed to open file!");
+    LOG(LOG_WARN, "Failed to save control.txt!");
     return;
   }
 
@@ -315,10 +299,10 @@ static int mxt_hawkeye_output(struct t37_ctx *mxt_dd)
   int ofs;
   int16_t value;
 
-  mxt_print_timestamp(mxt_dd);
+  mxt_print_timestamp(mxt_dd->hawkeye);
 
   /* print frame number */
-  fprintf(mxt_dd->hawkeye, "%u,", mxt_dd->frame);
+  fprintf(mxt_dd->hawkeye, ",%u,", mxt_dd->frame);
 
   /* iterate through columns */
   for (x = 0; x < mxt_dd->x_size; x++)
@@ -432,14 +416,14 @@ int mxt_debug_dump(int mode, const char *csv_file,
   /* Open Hawkeye output file */
   mxt_dd.hawkeye = fopen(csv_file,"w");
   if (!mxt_dd.hawkeye) {
-    printf("Failed to open file!\n");
+    LOG(LOG_ERROR, "Failed to open file!");
     ret = -1;
     goto free;
   }
 
   mxt_generate_hawkeye_header(&mxt_dd);
 
-  printf("Reading %u frames\n", frames);
+  LOG(LOG_INFO, "Reading %u frames", frames);
 
   t1 = time(NULL);
 
@@ -458,7 +442,8 @@ int mxt_debug_dump(int mode, const char *csv_file,
       {
         mxt_dd.page = pages_per_stripe * mxt_dd.stripe + page;
 
-        LOG(LOG_DEBUG, "Stripe %d Page %d", mxt_dd.stripe, mxt_dd.page);
+        LOG(LOG_DEBUG, "Frame %d Stripe %d Page %d",
+            mxt_dd.frame, mxt_dd.stripe, mxt_dd.page);
 
         ret = mxt_debug_dump_page(&mxt_dd);
         if (ret < 0)
@@ -479,7 +464,7 @@ int mxt_debug_dump(int mode, const char *csv_file,
   mxt_hawkeye_generate_control_file(&mxt_dd);
 
   t2 = time(NULL);
-  printf("%u frames in %d seconds\n", frames, (int)(t2-t1));
+  LOG(LOG_INFO, "%u frames in %d seconds", frames, (int)(t2-t1));
 
   ret = 0;
 
