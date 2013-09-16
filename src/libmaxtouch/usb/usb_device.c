@@ -28,6 +28,7 @@
 //------------------------------------------------------------------------------
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <inttypes.h>
 #include <string.h>
