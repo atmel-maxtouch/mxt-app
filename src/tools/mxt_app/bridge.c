@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <netdb.h>
 #include <inttypes.h>
 #include <poll.h>
@@ -405,6 +406,7 @@ int mxt_socket_server(uint16_t portno)
   int serversock;
   int clientsock;
   int ret;
+  int one = 1;
   struct sockaddr_in server_addr, client_addr;
   socklen_t sin_size = sizeof(client_addr);
 
@@ -427,6 +429,15 @@ int mxt_socket_server(uint16_t portno)
   if (ret < 0)
   {
     LOG(LOG_ERROR, "bind returned %d (%s)", errno, strerror(errno));
+    close(serversock);
+    return -errno;
+  }
+
+  ret = setsockopt(serversock, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+  if (ret < 0)
+  {
+    LOG(LOG_ERROR, "setsockopt returned %d (%s)", errno, strerror(errno));
+    close(serversock);
     return -errno;
   }
 
@@ -435,6 +446,7 @@ int mxt_socket_server(uint16_t portno)
   if (ret < 0)
   {
     LOG(LOG_DEBUG, "listen returned %d (%s)", errno, strerror(errno));
+    close(serversock);
     return -errno;
   }
 
@@ -444,6 +456,7 @@ int mxt_socket_server(uint16_t portno)
   if (clientsock < 0)
   {
     LOG(LOG_DEBUG, "accept returned %d (%s)", errno, strerror(errno));
+    close(serversock);
     return -errno;
   }
 
