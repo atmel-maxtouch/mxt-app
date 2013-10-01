@@ -282,8 +282,8 @@ void display_chip_info()
   mxt_get_firmware_version((char *)&firmware_version);
 
   /* Display ID information */
-  LOG(LOG_INFO, "Family ID = 0x%02X", info_block.id->family_id);
-  LOG(LOG_INFO, "Variant ID = 0x%02X", info_block.id->variant_id);
+  LOG(LOG_INFO, "Family ID = %u (0x%02X)", info_block.id->family_id, info_block.id->family_id);
+  LOG(LOG_INFO, "Variant ID = %u (0x%02X)", info_block.id->variant_id, info_block.id->variant_id);
   LOG(LOG_INFO, "Firmware Version = %s", firmware_version);
   LOG(LOG_INFO, "Matrix X Size = %d", info_block.id->matrix_x_size);
   LOG(LOG_INFO, "Matrix Y Size = %d", info_block.id->matrix_y_size);
