@@ -377,6 +377,7 @@ static int mxt_bootloader_init_chip(struct bootloader_ctx *ctx,
 
       ctx->bootloader_address = i2c_address;
       ctx->appmode_address = -1;
+      i2c_dev_set_address(ctx->i2c_adapter, ctx->bootloader_address);
       return 0;
     }
 
