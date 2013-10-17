@@ -215,7 +215,7 @@ static int usb_scan_for_control_if(struct libusb_config_descriptor *config)
           }
           else
           {
-            LOG(LOG_DEBUG, "Ignoring %s at interface %d altsetting %d",
+            LOG(LOG_VERBOSE, "Ignoring %s at interface %d altsetting %d",
               buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
           }
         }
@@ -536,7 +536,7 @@ int usb_scan()
     }
     else
     {
-      LOG(LOG_DEBUG, "Ignoring VID=%04X PID=%04X", desc.idVendor, desc.idProduct);
+      LOG(LOG_VERBOSE, "Ignoring VID=%04X PID=%04X", desc.idVendor, desc.idProduct);
     }
   }
 
