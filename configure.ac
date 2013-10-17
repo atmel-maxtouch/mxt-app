@@ -14,6 +14,7 @@ AC_PROG_LIBTOOL
 
 # Check for usb support
 AC_CHECK_LIB([usb-1.0], [libusb_init], [libusb=true])
+AC_CHECK_LIB([usb-1.0], [libusb_error_name], AC_DEFINE([HAVE_LIBUSB_ERROR_NAME], [1], [ ]))
 AM_CONDITIONAL([HAVE_LIBUSB], [test x$libusb = xtrue])
 
 # Checks for header files.

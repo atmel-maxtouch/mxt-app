@@ -32,6 +32,7 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include <string.h>
+#include <config.h>
 #include <libusb-1.0/libusb.h>
 
 #include "libmaxtouch/log.h"
@@ -81,6 +82,48 @@ usb_device gDevice;
 static int usb_transfer(void *cmd, int cmd_size, void *response, int response_size, bool ignore_response);
 static int read_data(unsigned char *buf, uint16_t start_register, size_t count);
 static int write_data(unsigned char const *buf, uint16_t start_register, size_t count, bool ignore_response);
+
+#ifndef HAVE_LIBUSB_ERROR_NAME
+//******************************************************************************
+/// \brief Converts a libusb error code into a string
+/// \return Error string
+static const char * libusb_error_name(int errcode)
+{
+  switch (errcode)
+  {
+    case LIBUSB_SUCCESS:
+      return "LIBUSB_SUCCESS";
+    case LIBUSB_ERROR_IO:
+      return "LIBUSB_ERROR_IO";
+    case LIBUSB_ERROR_INVALID_PARAM:
+      return "LIBUSB_ERROR_INVALID_PARAM";
+    case LIBUSB_ERROR_ACCESS:
+      return "LIBUSB_ERROR_ACCESS";
+    case LIBUSB_ERROR_NO_DEVICE:
+      return "LIBUSB_ERROR_NO_DEVICE";
+    case LIBUSB_ERROR_NOT_FOUND:
+      return "LIBUSB_ERROR_NOT_FOUND";
+    case LIBUSB_ERROR_BUSY:
+      return "LIBUSB_ERROR_BUSY";
+    case LIBUSB_ERROR_TIMEOUT:
+      return "LIBUSB_ERROR_TIMEOUT";
+    case LIBUSB_ERROR_OVERFLOW:
+      return "LIBUSB_ERROR_OVERFLOW";
+    case LIBUSB_ERROR_PIPE:
+      return "LIBUSB_ERROR_PIPE";
+    case LIBUSB_ERROR_INTERRUPTED:
+      return "LIBUSB_ERROR_INTERRUPTED";
+    case LIBUSB_ERROR_NO_MEM:
+      return "LIBUSB_ERROR_NO_MEM";
+    case LIBUSB_ERROR_NOT_SUPPORTED:
+      return "LIBUSB_ERROR_NOT_SUPPORTED";
+    case LIBUSB_ERROR_OTHER:
+      return "LIBUSB_ERROR_OTHER";
+    default:
+      return "unrecognised error code";
+  }
+}
+#endif
 
 //*****************************************************************************
 /// \brief  Debug USB transfers
