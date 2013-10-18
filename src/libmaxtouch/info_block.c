@@ -135,7 +135,7 @@ int read_information_block()
    */
   const uint8_t ID_OBJECTS_OFFSET = 6;
 
-  uint8_t no_of_bytes;
+  size_t info_block_size;
   const uint8_t NUM_ID_BYTES = 7; /* Number of bytes of information in ID block */
   uint8_t num_declared_objects;
 
@@ -158,18 +158,20 @@ int read_information_block()
   crc_area_size = NUM_ID_BYTES + num_declared_objects * sizeof(object_t);
 
   /* Allocate space to read Information Block AND Checksum from the chip */
-  no_of_bytes = crc_area_size + CRC_LENGTH;
+  info_block_size = crc_area_size + CRC_LENGTH;
 
-  info_block_shadow = (unsigned char *) malloc(no_of_bytes);
+  info_block_shadow = (unsigned char *) malloc(info_block_size);
   if (info_block_shadow == NULL)
   {
-    LOG(LOG_ERROR, "Failed to allocate %d bytes for the Information Block data", no_of_bytes);
+    LOG(LOG_ERROR, "Failed to allocate %d bytes for the Information Block data",
+        info_block_size);
     return -1;
   }
-  LOG(LOG_VERBOSE, "Allocated %d bytes to store Information Block data", no_of_bytes);
+  LOG(LOG_VERBOSE, "Allocated %d bytes to store Information Block data",
+      info_block_size);
 
   /* Read the Information Block from the chip */
-  ret = mxt_read_register(info_block_shadow, memory_offset, no_of_bytes);
+  ret = mxt_read_register(info_block_shadow, memory_offset, info_block_size);
   if (ret < 0)
   {
     LOG(LOG_ERROR, "Failed to read the Information Block");
