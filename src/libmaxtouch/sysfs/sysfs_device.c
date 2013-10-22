@@ -121,6 +121,10 @@ static void sysfs_register_device(const char *dirname, int adapter,
     sysfs_open_notify_fd();
     gpDevice->debug_ng = true;
   }
+  else
+  {
+    gpDevice->debug_ng = false;
+  }
 
   LOG(LOG_INFO, "Registered sysfs adapter:%d address:%x path:%s",
         gpDevice->adapter, gpDevice->address, gpDevice->path);
