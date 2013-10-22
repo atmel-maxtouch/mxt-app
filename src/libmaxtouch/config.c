@@ -69,7 +69,7 @@ int mxt_save_config_file(const char *cfg_file)
     object = &(info_block.objects[obj_idx]);
     num_bytes = object->size + 1;
 
-    temp = (uint8_t *)malloc(sizeof(char)*(num_bytes));
+    temp = (uint8_t *)calloc(num_bytes, sizeof(char));
     if (temp == NULL)
     {
       LOG(LOG_ERROR, "Failed to allocate memory");
@@ -128,7 +128,7 @@ int mxt_load_config_file(const char *cfg_file)
   int i, j;
   int bytes_read;
 
-  mem = malloc(255);
+  mem = calloc(255, sizeof(uint8_t));
   if (mem == NULL) {
     LOG(LOG_ERROR, "Error allocating memory");
     return -1;

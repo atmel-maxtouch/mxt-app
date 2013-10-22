@@ -95,7 +95,7 @@ JNIEXPORT jbyteArray JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_ReadRegister
   unsigned char* buf;
   jbyteArray jb = 0;
 
-  buf = (char *)malloc(count * sizeof(char));
+  buf = (unsigned char *)calloc(count, sizeof(unsigned char));
 
   if (buf == NULL)
     return NULL;
@@ -123,7 +123,7 @@ JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_WriteRegister
 
   /* transfer contents of byte array into buffer */
   count=(*env)->GetArrayLength(env, data);
-  buf = (unsigned char *)malloc(count * sizeof(unsigned char));
+  buf = (unsigned char *)calloc(count, sizeof(unsigned char));
 
   if (buf == NULL)
     return -1;

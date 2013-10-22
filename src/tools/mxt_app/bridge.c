@@ -146,7 +146,7 @@ static int bridge_rea_cmd(int sockfd, uint16_t address, uint16_t count)
   size_t response_len;
   int i;
 
-  databuf = malloc(count);
+  databuf = calloc(count, sizeof(uint8_t));
   if (!databuf)
   {
     LOG(LOG_ERROR, "Failed to allocate memory");
@@ -155,7 +155,7 @@ static int bridge_rea_cmd(int sockfd, uint16_t address, uint16_t count)
 
   /* Allow for newline/null byte */
   response_len = strlen(PREFIX) + count*2 + 1;
-  response = malloc(response_len);
+  response = calloc(response_len, sizeof(uint8_t));
   if (!response)
   {
     LOG(LOG_ERROR, "Failed to allocate memory");
@@ -203,7 +203,7 @@ static int bridge_wri_cmd(int sockfd, uint16_t address,
   const char *response;
   uint8_t *databuf;
 
-  databuf = malloc(bytes);
+  databuf = calloc(bytes, sizeof(uint8_t));
   if (!databuf)
   {
     LOG(LOG_ERROR, "Failed to allocate memory");

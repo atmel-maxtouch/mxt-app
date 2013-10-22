@@ -160,7 +160,7 @@ int read_information_block()
   /* Allocate space to read Information Block AND Checksum from the chip */
   info_block_size = crc_area_size + CRC_LENGTH;
 
-  info_block_shadow = (unsigned char *) malloc(info_block_size);
+  info_block_shadow = (unsigned char *)calloc(info_block_size, sizeof(unsigned char));
   if (info_block_shadow == NULL)
   {
     LOG(LOG_ERROR, "Failed to allocate %d bytes for the Information Block data",
@@ -217,7 +217,6 @@ int calc_report_ids()
   int element_index;
   int instance_index;
   int report_index;
-  int no_of_bytes;
 
   object_t element;
 
@@ -229,14 +228,12 @@ int calc_report_ids()
   }
 
   /* Allocate memory for report ID look-up table */
-  no_of_bytes = num_report_ids * sizeof(report_id_map_t);
-  report_id_map = malloc(no_of_bytes);
+  report_id_map = calloc(num_report_ids, sizeof(report_id_map_t));
   if (report_id_map == NULL)
   {
-    LOG(LOG_ERROR, "Failed to allocate %d bytes for the Report ID LUT", no_of_bytes);
+    LOG(LOG_ERROR, "calloc failure");
     return -1;
   }
-  LOG(LOG_VERBOSE, "Allocated %d bytes to store the Report ID LUT", no_of_bytes);
 
   /* Store the object and instance for each report ID */
   for (element_index = 0; element_index < info_block.id->num_declared_objects; element_index++)

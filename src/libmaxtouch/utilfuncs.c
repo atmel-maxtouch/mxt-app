@@ -298,7 +298,7 @@ void write_to_object(int obj_num, uint8_t instance)
     return;
   }
 
-  buffer = (uint8_t *)malloc(sizeof(char)*(info_block.objects[obj_tbl_num].size+1));
+  buffer = (uint8_t *)calloc(info_block.objects[obj_tbl_num].size + 1, sizeof(char));
   if (buffer == NULL)
   {
     LOG(LOG_ERROR, "Memory error");
@@ -368,7 +368,7 @@ int read_object(uint16_t object_type, uint8_t instance, uint16_t address, size_t
     return -1;
   }
 
-  databuf = (uint8_t *)malloc(sizeof(uint8_t)*count);
+  databuf = (uint8_t *)calloc(count, sizeof(uint8_t));
   if (databuf == NULL)
   {
     LOG(LOG_ERROR, "Memory allocation failure");

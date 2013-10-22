@@ -102,9 +102,9 @@ static void sysfs_reopen_notify_fd(void)
 static void sysfs_register_device(const char *dirname, int adapter,
                                   int address, bool debug_ng)
 {
-  gpDevice = (sysfs_device *)malloc(sizeof(sysfs_device));
-  gpDevice->path = (char *)malloc(strlen(dirname) + 1);
-  gpDevice->mem_access_path = (char *)malloc(strlen(dirname) + 20);
+  gpDevice = (sysfs_device *)calloc(1, sizeof(sysfs_device));
+  gpDevice->path = (char *)calloc(strlen(dirname) + 1, sizeof(char));
+  gpDevice->mem_access_path = (char *)calloc(strlen(dirname) + 20, sizeof(char));
 
   gpDevice->adapter = adapter;
   gpDevice->address = address;
@@ -157,7 +157,7 @@ static int scan_sysfs_directory(struct dirent *i2c_dir,
 
   length = strlen(dirname) + strlen(i2c_dir->d_name) + 2;
 
-  if ((pszDirname = (char *)malloc(length)) == NULL)
+  if ((pszDirname = (char *)calloc(length, sizeof(char))) == NULL)
   {
     ret = -1;
     goto free;
@@ -236,9 +236,9 @@ static int scan_driver_directory(const char *path, struct dirent *dir)
 
   length = strlen(path) + strlen(dir->d_name) + 1;
 
-  if ((pszDirname = (char *)malloc(length)) == NULL)
+  if ((pszDirname = (char *)calloc(length, sizeof(char))) == NULL)
   {
-    LOG(LOG_ERROR, "malloc failure");
+    LOG(LOG_ERROR, "calloc failure");
     return -1;
   }
 

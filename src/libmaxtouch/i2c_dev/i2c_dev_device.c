@@ -60,7 +60,7 @@ i2c_dev_device *gpDevDevice = NULL;
 /// \return 1 = device found, 0 = not found, negative for error
 int i2c_dev_set_address(int adapter, int address)
 {
-  gpDevDevice = (i2c_dev_device *)malloc(sizeof(i2c_dev_device));
+  gpDevDevice = (i2c_dev_device *)calloc(1, sizeof(i2c_dev_device));
 
   gpDevDevice->adapter = adapter;
   gpDevDevice->address = address;
@@ -168,7 +168,7 @@ int i2c_dev_write_register(unsigned char const *val, int start_register, int dat
     return fd;
 
   count = datalength + 2;
-  buf = (unsigned char *)malloc(count * sizeof(unsigned char));
+  buf = (unsigned char *)calloc(count, sizeof(unsigned char));
 
   buf[0] = start_register & 0xff;
   buf[1] = (start_register >> 8) & 0xff;

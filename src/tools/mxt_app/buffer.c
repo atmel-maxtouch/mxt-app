@@ -43,7 +43,7 @@ int mxt_buf_init(struct mxt_buffer *ctx)
 
   ctx->capacity = BUFFER_BLOCKSIZE;
   ctx->size = 0;
-  ptr = malloc(ctx->capacity*sizeof(uint8_t));
+  ptr = calloc(ctx->capacity, sizeof(uint8_t));
 
   if (ptr)
   {
@@ -52,7 +52,7 @@ int mxt_buf_init(struct mxt_buffer *ctx)
   }
   else
   {
-    LOG(LOG_ERROR, "malloc failed");
+    LOG(LOG_ERROR, "calloc failed");
     return -1;
   }
 }

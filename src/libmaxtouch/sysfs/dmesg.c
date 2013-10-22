@@ -58,7 +58,7 @@ unsigned long mtimestamp = 0;
 static void dmesg_list_add(unsigned long sec, unsigned long msec, char *msg)
 {
   // create new node
-  dmesg_item* new_node = (dmesg_item *) malloc(sizeof(dmesg_item));
+  dmesg_item* new_node = (dmesg_item *)calloc(1, sizeof(dmesg_item));
 
   if (!new_node) return;
 

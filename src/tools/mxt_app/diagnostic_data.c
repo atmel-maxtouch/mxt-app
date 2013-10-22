@@ -399,16 +399,15 @@ int mxt_debug_dump(int mode, const char *csv_file,
   LOG(LOG_DEBUG, "Y size: %d", mxt_dd.y_size);
 
   /* allocate page/data buffers */
-  mxt_dd.page_buf = (uint8_t *)malloc(sizeof(uint8_t) * mxt_dd.page_size);
+  mxt_dd.page_buf = (uint8_t *)calloc(mxt_dd.page_size, sizeof(uint8_t));
   if (!mxt_dd.page_buf) {
-    LOG(LOG_ERROR, "malloc failure");
+    LOG(LOG_ERROR, "calloc failure");
     return -1;
   }
 
-  mxt_dd.data_buf = (uint16_t *)malloc(sizeof(uint16_t)
-                                     * mxt_dd.x_size * mxt_dd.y_size);
+  mxt_dd.data_buf = (uint16_t *)calloc(mxt_dd.x_size * mxt_dd.y_size, sizeof(uint16_t));
   if (!mxt_dd.data_buf) {
-    LOG(LOG_ERROR, "malloc failure");
+    LOG(LOG_ERROR, "calloc failure");
     ret = -1;
     goto free_page_buf;
   }
