@@ -13,7 +13,6 @@ LOCAL_SRC_FILES := \
   sysfs/dmesg.c \
   sysfs/sysinfo.c \
   i2c_dev/i2c_dev_device.c
-LOCAL_LDLIBS := -llog
 LOCAL_MODULE := libmaxtouch
 
 include $(BUILD_STATIC_LIBRARY)
