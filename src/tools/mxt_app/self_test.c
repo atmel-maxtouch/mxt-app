@@ -90,27 +90,39 @@ static int self_test_handle_messages(void)
                      break;
                   case SELF_TEST_INVALID:
                      LOG(LOG_ERROR, "FAIL: Invalid test command");
-                     ret = -2;
+                     ret = -SELF_TEST_INVALID;
+                     break;
+                  case SELF_TEST_TIMEOUT:
+                     LOG(LOG_ERROR, "FAIL: Test timeout");
+                     ret = -SELF_TEST_TIMEOUT;
                      break;
                   case SELF_TEST_ANALOG:
-                     LOG(LOG_ERROR, "FAIL: AVdd is not present");
-                     ret = -3;
+                     LOG(LOG_ERROR, "FAIL: AVdd Analog power is not present");
+                     ret = -SELF_TEST_ANALOG;
                      break;
                   case SELF_TEST_PIN_FAULT:
                      LOG(LOG_ERROR, "FAIL: Pin fault");
-                     ret = -4;
+                     ret = -SELF_TEST_PIN_FAULT;
+                     break;
+                  case SELF_TEST_PIN_FAULT_2:
+                     LOG(LOG_ERROR, "FAIL: Pin fault 2");
+                     ret = -SELF_TEST_PIN_FAULT_2;
+                     break;
+                  case SELF_TEST_AND_GATE:
+                     LOG(LOG_ERROR, "FAIL: AND Gate Fault");
+                     ret = -SELF_TEST_AND_GATE;
                      break;
                   case SELF_TEST_SIGNAL_LIMIT:
                      LOG(LOG_ERROR, "FAIL: Signal limit fault");
-                     ret = -5;
+                     ret = -SELF_TEST_SIGNAL_LIMIT;
                      break;
                   case SELF_TEST_GAIN:
                      LOG(LOG_ERROR, "FAIL: Gain error");
-                     ret = -6;
+                     ret = -SELF_TEST_GAIN;
                      break;
                   default:
-                     LOG(LOG_ERROR, "FAIL: Unrecognised error");
-                     ret = -7;
+                     LOG(LOG_ERROR, "Unrecognised status %02X", buf[1]);
+                     ret = -1;
                      break;
                   }
 
@@ -253,9 +265,11 @@ uint8_t self_test_handler()
       printf("Self-test menu:\n\
       Enter 1 for running Analog power test\n\
       Enter 2 for running Pin fault test\n\
-      Enter 3 for running Signal Limit test\n\
-      Enter 4 for running Gain test\n\
-      Enter 5 for running all the above tests\n\
+      Enter 3 for running Pin fault 2 test\n\
+      Enter 4 for running AND Gate test\n\
+      Enter 5 for running Signal Limit test\n\
+      Enter 6 for running Gain test\n\
+      Enter 7 for running all the above tests\n\
       Enter 255 to get out of the self-test menu\n");
 
       if (scanf("%d", &self_test) != 1)
@@ -273,12 +287,18 @@ uint8_t self_test_handler()
         cmd = SELF_TEST_PIN_FAULT;
         break;
       case 3:
-        cmd = SELF_TEST_SIGNAL_LIMIT;
+        cmd = SELF_TEST_PIN_FAULT_2;
         break;
       case 4:
-        cmd = SELF_TEST_GAIN;
+        cmd = SELF_TEST_AND_GATE;
         break;
       case 5:
+        cmd = SELF_TEST_SIGNAL_LIMIT;
+        break;
+      case 6:
+        cmd = SELF_TEST_GAIN;
+        break;
+      case 7:
         cmd = SELF_TEST_ALL;
         break;
       case 255:

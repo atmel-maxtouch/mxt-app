@@ -41,11 +41,15 @@
 
 /* T25 Self Test Commands */
 #define SELF_TEST_ANALOG       0x01
-#define SELF_TEST_PIN_FAULT    0x12
+#define SELF_TEST_PIN_FAULT    0x11
+#define SELF_TEST_PIN_FAULT_2  0x12
+#define SELF_TEST_AND_GATE     0x13
 #define SELF_TEST_SIGNAL_LIMIT 0x17
 #define SELF_TEST_GAIN         0x20
+#define SELF_TEST_OFFSET       0x21
 #define SELF_TEST_ALL          0xFE
 #define SELF_TEST_INVALID      0xFD
+#define SELF_TEST_TIMEOUT      0xFC
 
 int mxt_flash_firmware(const char *filename, const char *new_version,
                        int adapter, int bootloader_address);
