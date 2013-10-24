@@ -60,3 +60,11 @@ mxt_app_SOURCES =\
 	src/tools/mxt_app/gr.c \
 	src/tools/mxt_app/serial_data.c \
 	src/tools/mxt_app/buffer.c
+
+man1_MANS = mxt-app.1
+
+mxt-app.1: README.md
+	-pandoc -s -t man README.md -o mxt-app.1
+
+clean-local:
+	-rm mxt-app.1
