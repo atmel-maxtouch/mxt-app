@@ -75,8 +75,8 @@ static uint32_t crc24(uint32_t crc, uint8_t firstbyte, uint8_t secondbyte)
  * @brief  Calculates and reports the Information Block Checksum.
  * @return Zero on success, negative for error.
  */
-static int info_block_checksum(uint32_t read_crc, uint8_t *idb_base_addr,
-                               uint16_t crc_area_size)
+static int info_block_checksum(uint32_t read_crc, uint8_t *base_addr,
+                               size_t size)
 {
   uint32_t calc_crc = 0; /* Checksum calculated by the driver code */
   uint16_t crc_byte_index = 0;
@@ -85,18 +85,18 @@ static int info_block_checksum(uint32_t read_crc, uint8_t *idb_base_addr,
    * passing it two characters at a time.
    */
 
-  while (crc_byte_index < ((crc_area_size % 2) ? (crc_area_size - 1) : crc_area_size))
+  while (crc_byte_index < ((size % 2) ? (size - 1) : size))
   {
-    calc_crc = crc24(calc_crc, *(idb_base_addr + crc_byte_index), *(idb_base_addr + crc_byte_index + 1));
+    calc_crc = crc24(calc_crc, *(base_addr + crc_byte_index), *(base_addr + crc_byte_index + 1));
     crc_byte_index += 2;
   }
 
   /* Call crc24() for the final byte, plus an extra
    *  0 value byte to make the sequence even if it's odd
    */
-  if (crc_area_size % 2)
+  if (size % 2)
   {
-    calc_crc = crc24(calc_crc, *(idb_base_addr + crc_byte_index), 0);
+    calc_crc = crc24(calc_crc, *(base_addr + crc_byte_index), 0);
   }
 
   calc_crc &= calc_crc & 0x00FFFFFF; /* Mask 32-bit calculated checksum to 24-bit */
@@ -110,7 +110,7 @@ static int info_block_checksum(uint32_t read_crc, uint8_t *idb_base_addr,
 
   if (read_crc != calc_crc)
   {
-    LOG(LOG_ERROR, "Information Block Checksum error %06X != %06X",
+    LOG(LOG_ERROR, "Information Block Checksum error calc=%06X read=%06X",
         calc_crc, read_crc);
     return -1;
   }
@@ -129,22 +129,15 @@ int read_information_block()
 
   int memory_offset = 0;
 
-  /*
-   * Offset to the member of ID Information block containing
-   * information about number of objects in object table
-   */
-  const uint8_t ID_OBJECTS_OFFSET = 6;
+  const uint8_t ID_OBJECTS_OFFSET = 6; /* Offset to number of objects */
+  const uint8_t NUM_ID_BYTES = 7; /* Number of bytes of information in ID block */
+  static const int CRC_LENGTH = 3; /* Number of CRC bytes */
 
   size_t info_block_size;
-  const uint8_t NUM_ID_BYTES = 7; /* Number of bytes of information in ID block */
+  size_t crc_area_size; /* Size of data for CRC calculation */
   uint8_t num_declared_objects;
-
-  static const int CRC_LENGTH = 3;
   uint32_t read_crc = 0; /* Checksum value as read from the chip */
-  uint16_t crc_area_size; /* Size of data for CRC calculation */
-  uint8_t *idb_base_addr;
-
-  unsigned char *info_block_shadow;
+  uint8_t *info_block_shadow;
 
   /* Read "num_declared_objects" field of ID Information block */
   ret = mxt_read_register((unsigned char *)&num_declared_objects, ID_OBJECTS_OFFSET, 1);
@@ -183,18 +176,15 @@ int read_information_block()
    * to the memory areas storing these values from the chip
    */
   info_block.id = (info_id_t *) info_block_shadow;
-  info_block.objects = (object_t *) ((uint8_t *)(info_block_shadow) + NUM_ID_BYTES);
-  info_block.crc = (crc_t *) ((uint8_t *)(info_block_shadow) + crc_area_size);
+  info_block.objects = (object_t *) (info_block_shadow + NUM_ID_BYTES);
+  info_block.crc = (crc_t *) (info_block_shadow + crc_area_size);
 
   /* Read CRC for checksum comparision */
   read_crc = ((uint32_t)info_block.crc->CRC);
   read_crc += ((uint32_t)info_block.crc->CRC_hi << 16u);
 
-  /* assign byte pointer the base address of Information Block */
-  idb_base_addr = (uint8_t *)info_block.id;
-
   /* Calculate and compare Information Block Checksum */
-  ret = info_block_checksum(read_crc, idb_base_addr, crc_area_size);
+  ret = info_block_checksum(read_crc, info_block_shadow, crc_area_size);
   if (ret < 0)
     return ret;
 
