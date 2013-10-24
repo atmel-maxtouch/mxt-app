@@ -5,7 +5,7 @@ all: doxygen
 
 doxygen.cfg: $(srcdir)/doxygen.cfg.in
 	-rm -f $@
-	sed 's|@SRCDIR@|$(srcdir)|g; s|@TOP_SRCDIR@|$(top_srcdir)|g' $< > $@
+	sed 's|@TOP_SRCDIR@|$(top_srcdir)|g' $< > $@
 
 .PHONY: doxygen
 doxygen: doxygen.cfg
