@@ -175,6 +175,32 @@ const char* mxt_get_input_event_file()
   return NULL;
 }
 
+//*****************************************************************************
+/// \brief Debug buffer
+static void debug_buffer(const unsigned char *data, size_t count, bool tx)
+{
+  unsigned int i;
+  char *hexbuf;
+  size_t strsize = count*3 + 1;
+
+  if (log_level > LOG_VERBOSE)
+    return;
+
+  hexbuf = (char *)calloc(strsize, sizeof(char));
+  if (hexbuf == NULL)
+  {
+    LOG(LOG_ERROR, "%s: calloc failure", __func__);
+    return;
+  }
+
+  for (i = 0; i < count; i++)
+    sprintf(&hexbuf[3 * i], "%02X ", data[i]);
+
+  LOG(LOG_VERBOSE, "%s: %s", tx ? "TX": "RX", hexbuf);
+
+  free(hexbuf);
+}
+
 //******************************************************************************
 /// \brief  Read register from MXT chip
 /// \return 0 = success, negative = fail
@@ -206,6 +232,9 @@ int mxt_read_register(unsigned char *buf, int start_register, int count)
     default:
       LOG(LOG_ERROR, "Device type not supported");
   }
+
+  if (ret == 0)
+    debug_buffer(buf, count, false);
 
   return (ret);
 }
@@ -241,6 +270,9 @@ int mxt_write_register(unsigned char const *buf, int start_register, int count)
     default:
       LOG(LOG_ERROR, "Device type not supported");
   }
+
+  if (ret == 0)
+    debug_buffer(buf, count, true);
 
   return ret;
 }
