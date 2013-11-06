@@ -280,6 +280,8 @@ static int mxt_t68_zero_data(struct t68_ctx *ctx)
 
   LOG(LOG_DEBUG, "Zeroing DATA");
 
+  memset(&zeros, 0, sizeof(zeros));
+
   ret = mxt_write_register(zeros,
                            ctx->t68_addr + T68_DATA,
                            sizeof(zeros));
