@@ -70,6 +70,7 @@ struct t68_ctx
   uint8_t t68_size;
   uint16_t t68_cmd_addr;
   uint16_t t68_data_size;
+  uint16_t t68_datatype;
 };
 
 //******************************************************************************
@@ -189,7 +190,7 @@ static int mxt_t68_load_file(struct t68_ctx *ctx)
   uint8_t value = 0;
   FILE *fp;
   bool file_read = false;
-  char hexbuf[3];
+  char buf[256];
   uint16_t hexcount;
   int c;
 
@@ -221,6 +222,29 @@ static int mxt_t68_load_file(struct t68_ctx *ctx)
     /* Ignore comment lines */
     else if (c == '[')
     {
+      // Grab comment key
+      if (fscanf(fp, "%255[^]]", buf) != 1)
+      {
+        ret = -1;
+        goto fail;
+      }
+
+      LOG(LOG_VERBOSE, "[%s]", buf);
+
+      if (!strncasecmp(buf, "datatype=", 9))
+      {
+        if (sscanf(buf + 9, "%d", &c) != 1)
+        {
+          LOG(LOG_WARN, "Unable to parse datatype");
+        }
+        else
+        {
+          ctx->t68_datatype = c;
+          LOG(LOG_INFO, "DATATYPE set to %u by file", ctx->t68_datatype);
+        }
+      }
+
+      // Read until end of line
       while (c != '\n')
       {
         c = getc(fp);
@@ -230,14 +254,14 @@ static int mxt_t68_load_file(struct t68_ctx *ctx)
     /* A value looks like "0xABu," */
     else if (c == '0')
     {
-      if (fscanf(fp, "x%2su", (char *)&hexbuf) != 1)
+      if (fscanf(fp, "x%2su", (char *)&buf) != 1)
       {
         LOG(LOG_ERROR, "Parse error");
         ret = -1;
         goto fail;
       }
 
-      ret = mxt_convert_hex(hexbuf, &value, &hexcount, 3);
+      ret = mxt_convert_hex(buf, &value, &hexcount, 3);
       if (ret < 0)
         goto fail;
 
@@ -342,14 +366,14 @@ static int mxt_t68_send_frames(struct t68_ctx *ctx)
 
 //******************************************************************************
 /// \brief Write DATATYPE
-static int mxt_t68_write_datatype(struct t68_ctx *ctx, uint16_t datatype)
+static int mxt_t68_write_datatype(struct t68_ctx *ctx)
 {
   uint8_t buf[2];
 
-  buf[0] = (datatype & 0xFF);
-  buf[1] = (datatype & 0xFF00) >> 8;
+  buf[0] = (ctx->t68_datatype & 0xFF);
+  buf[1] = (ctx->t68_datatype & 0xFF00) >> 8;
 
-  LOG(LOG_INFO, "Writing %u to DATATYPE register", datatype);
+  LOG(LOG_INFO, "Writing %u to DATATYPE register", ctx->t68_datatype);
   return mxt_write_register(&buf[0], ctx->t68_addr + T68_DATATYPE, sizeof(buf));
 }
 
@@ -414,6 +438,9 @@ int mxt_serial_data_upload(const char *filename, uint16_t datatype)
   /* Calculate frame size */
   ctx.t68_data_size = ctx.t68_size - 9;
 
+  /* Set datatype from command line */
+  ctx.t68_datatype = datatype;
+
   /* Read input file */
   ctx.filename = filename;
   ret = mxt_t68_load_file(&ctx);
@@ -433,7 +460,7 @@ int mxt_serial_data_upload(const char *filename, uint16_t datatype)
     return ret;
 
   LOG(LOG_INFO, "Configuring T68");
-  ret = mxt_t68_write_datatype(&ctx, datatype);
+  ret = mxt_t68_write_datatype(&ctx);
   if (ret < 0)
     goto release;
 
