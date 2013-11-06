@@ -102,6 +102,8 @@ static int mxt_t68_get_status(void)
 
   while (true)
   {
+    mxt_msg_wait(100);
+
     now = time(NULL);
     if ((now - start_time) > T68_TIMEOUT)
     {
@@ -142,8 +144,6 @@ static int mxt_t68_get_status(void)
         }
       }
     }
-
-    sleep(1);
   }
 }
 

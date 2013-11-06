@@ -78,3 +78,4 @@ int mxt_msg_reset(void);
 int mxt_get_msg_poll_fd(void);
 int mxt_bootloader_read(unsigned char *buf, int count);
 int mxt_bootloader_write(unsigned char const *buf, int count);
+void mxt_msg_wait(int timeout_ms);

@@ -97,6 +97,8 @@ static int mxt_gr_get_status(uint8_t *state, int timeout_seconds)
 
   while (true)
   {
+    mxt_msg_wait(100);
+
     now = time(NULL);
     if ((now - start_time) > timeout_seconds)
     {
@@ -131,8 +133,6 @@ static int mxt_gr_get_status(uint8_t *state, int timeout_seconds)
         }
       }
     }
-
-    sleep(1);
   }
 }
 

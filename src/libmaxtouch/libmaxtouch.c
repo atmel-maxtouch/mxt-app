@@ -31,6 +31,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <poll.h>
+#include <errno.h>
 
 #include "log.h"
 #include "libmaxtouch.h"
@@ -656,6 +658,35 @@ int mxt_get_msg_poll_fd(void)
     return sysfs_get_debug_ng_fd();
   else
     return 0;
+}
+
+//******************************************************************************
+/// \brief  Wait for messages
+void mxt_msg_wait(int timeout_ms)
+{
+  int ret;
+  int fd = 0;
+  int numfds = 0;
+  struct pollfd fds[1];
+
+  fd = mxt_get_msg_poll_fd();
+  if (fd)
+  {
+    fds[0].fd = fd;
+    fds[0].events = POLLPRI;
+    numfds = 1;
+  }
+
+  ret = poll(fds, numfds, timeout_ms);
+  if (ret == -1 && errno == EINTR)
+  {
+    LOG(LOG_DEBUG, "Interrupted");
+  }
+  else if (ret == -1)
+  {
+    ret = -errno;
+    LOG(LOG_ERROR, "poll returned %d (%s)", errno, strerror(errno));
+  }
 }
 
 //******************************************************************************

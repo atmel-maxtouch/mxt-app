@@ -59,6 +59,8 @@ static int self_test_handle_messages(void)
 
    while (!done)
    {
+      mxt_msg_wait(100);
+
       now = time(NULL);
       if ((now - start_time) > TIMEOUT)
       {
@@ -131,8 +133,6 @@ static int self_test_handle_messages(void)
             }
          }
       }
-
-      sleep(1);
    }
 
    return ret;
