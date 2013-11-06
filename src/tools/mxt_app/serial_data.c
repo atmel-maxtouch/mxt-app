@@ -76,7 +76,7 @@ struct t68_ctx
 /// \brief Print T68 status messages
 static void mxt_t68_print_status(uint8_t status)
 {
-  LOG(LOG_DEBUG, "T68 status: %02X %s%s%s%s%s%s%s",
+  LOG(LOG_INFO, "T68 status: %02X %s%s%s%s%s%s%s",
       status,
       (status == 0x00) ? "Success/No error" : "",
       (status == 0x01) ? "Command supplied in CMD.COMMAND is out of sequence" : "",
@@ -154,7 +154,7 @@ static int mxt_t68_command(struct t68_ctx *ctx, uint8_t cmd)
 {
   int ret;
 
-  LOG(LOG_INFO, "Writing %u to CMD register", cmd);
+  LOG(LOG_VERBOSE, "Writing %u to CMD register", cmd);
   ret = mxt_write_register(&cmd, ctx->t68_cmd_addr, 1);
   if (ret < 0)
     return ret;
@@ -253,6 +253,8 @@ static int mxt_t68_load_file(struct t68_ctx *ctx)
     }
   }
 
+  LOG(LOG_INFO, "Loaded file %s, %u bytes", ctx->filename, ctx->buf.size);
+
   return 0;
 
 fail:
@@ -298,7 +300,7 @@ static int mxt_t68_send_frames(struct t68_ctx *ctx)
   {
     frame_size = MIN(ctx->buf.size - offset, ctx->t68_data_size);
 
-    LOG(LOG_DEBUG, "Writing frame %u, %u bytes", frame_number, frame_size);
+    LOG(LOG_INFO, "Writing frame %u, %u bytes", frame_number, frame_size);
 
     if (frame_size > UCHAR_MAX)
     {
@@ -433,7 +435,10 @@ int mxt_serial_data_upload(const char *filename, uint16_t datatype)
   LOG(LOG_INFO, "Sending data");
   ret = mxt_t68_send_frames(&ctx);
   if (ret < 0)
+  {
+    LOG(LOG_ERROR, "Error sending data");
     goto release;
+  }
 
   LOG(LOG_INFO, "Sending end command");
   ret = mxt_t68_command(&ctx, T68_CMD_END);
