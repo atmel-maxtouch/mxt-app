@@ -296,13 +296,14 @@ static int mxt_t68_send_frames(struct t68_ctx *ctx)
   int ret;
   size_t offset = 0;
   uint16_t frame_size;
-  uint16_t frame_number = 1;
+  int frame = 1;
+  uint8_t cmd;
 
   while (offset < ctx->buf.size)
   {
     frame_size = MIN(ctx->buf.size - offset, ctx->t68_data_size);
 
-    LOG(LOG_INFO, "Writing frame %u, %u bytes", frame_number, frame_size);
+    LOG(LOG_INFO, "Writing frame %u, %u bytes", frame, frame_size);
 
     if (frame_size > UCHAR_MAX)
     {
@@ -320,13 +321,20 @@ static int mxt_t68_send_frames(struct t68_ctx *ctx)
     if (ret < 0)
       return ret;
 
-    /* for each frame */
-    ret = mxt_t68_command(ctx, T68_CMD_CONTINUE);
+    offset += frame_size;
+
+    if (frame == 1)
+      cmd = T68_CMD_START;
+    else if (offset >= ctx->buf.size)
+      cmd = T68_CMD_END;
+    else
+      cmd = T68_CMD_CONTINUE;
+
+    ret = mxt_t68_command(ctx, cmd);
     if (ret < 0)
       return ret;
 
-    offset += frame_size;
-    frame_number++;
+    frame++;
   }
 
   return 0;
@@ -429,11 +437,6 @@ int mxt_serial_data_upload(const char *filename, uint16_t datatype)
   if (ret < 0)
     goto release;
 
-  LOG(LOG_INFO, "Sending start command");
-  ret = mxt_t68_command(&ctx, T68_CMD_START);
-  if (ret < 0)
-    goto release;
-
   LOG(LOG_INFO, "Sending data");
   ret = mxt_t68_send_frames(&ctx);
   if (ret < 0)
@@ -441,11 +444,6 @@ int mxt_serial_data_upload(const char *filename, uint16_t datatype)
     LOG(LOG_ERROR, "Error sending data");
     goto release;
   }
-
-  LOG(LOG_INFO, "Sending end command");
-  ret = mxt_t68_command(&ctx, T68_CMD_END);
-  if (ret < 0)
-    goto release;
 
   LOG(LOG_INFO, "Done");
   ret = 0;
