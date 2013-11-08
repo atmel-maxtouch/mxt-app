@@ -45,20 +45,12 @@
 
 #include "dmesg.h"
 
-int dmesg_count = 0;
-dmesg_item *dmesg_head = NULL;
-dmesg_item *dmesg_ptr = NULL;
-dmesg_item *dmesg_tail = NULL;
-
-unsigned long timestamp = 0;
-unsigned long mtimestamp = 0;
-
 //******************************************************************************
 /// \brief  Add new node to linked list of dmesg items
-static void dmesg_list_add(unsigned long sec, unsigned long msec, char *msg)
+static void dmesg_list_add(struct mxt_device *mxt, unsigned long sec, unsigned long msec, char *msg)
 {
   // create new node
-  dmesg_item* new_node = (dmesg_item *)calloc(1, sizeof(dmesg_item));
+  struct dmesg_item* new_node = (struct dmesg_item *)calloc(1, sizeof(struct dmesg_item));
 
   if (!new_node) return;
 
@@ -69,35 +61,35 @@ static void dmesg_list_add(unsigned long sec, unsigned long msec, char *msg)
   new_node->next = NULL;
 
   // find node
-  if(dmesg_head != NULL)
+  if (mxt->sysfs.dmesg_head != NULL)
   {
-    dmesg_tail->next = new_node;
-    dmesg_tail = new_node;
+    mxt->sysfs.dmesg_tail->next = new_node;
+    mxt->sysfs.dmesg_tail = new_node;
   }
   else
   {
-    dmesg_head = new_node;
-    dmesg_tail = new_node;
+    mxt->sysfs.dmesg_head = new_node;
+    mxt->sysfs.dmesg_tail = new_node;
   }
 
-  dmesg_count++;
+  mxt->sysfs.dmesg_count++;
 }
 
 //******************************************************************************
 /// \brief  Remove all items from the linked list
-static void dmesg_list_empty(void)
+static void dmesg_list_empty(struct mxt_device *mxt)
 {
-  if (dmesg_head == NULL)
+  if (mxt->sysfs.dmesg_head == NULL)
     return;
 
   // reset
-  dmesg_item *old_node = dmesg_head;
-  dmesg_head = NULL;
-  dmesg_tail = NULL;
-  dmesg_count = 0;
+  struct dmesg_item *old_node = mxt->sysfs.dmesg_head;
+  mxt->sysfs.dmesg_head = NULL;
+  mxt->sysfs.dmesg_tail = NULL;
+  mxt->sysfs.dmesg_count = 0;
 
   // release memory
-  dmesg_item *next_node = NULL;
+  struct dmesg_item *next_node = NULL;
   while (old_node->next != NULL)
   {
     next_node = old_node->next;
@@ -113,7 +105,7 @@ static void dmesg_list_empty(void)
 //******************************************************************************
 /// \brief  Get debug messages
 /// \return Number of messages
-int sysfs_get_msg_count(void)
+int sysfs_get_msg_count(struct mxt_device *mxt)
 {
   char buffer[KLOG_BUF_LEN + 1];
   char msg[BUFFERSIZE];
@@ -134,7 +126,7 @@ int sysfs_get_msg_count(void)
   buffer[op] = 0;
   sp = 0;
 
-  dmesg_list_empty();
+  dmesg_list_empty(mxt);
 
   // Search for next new line character
   while((lineptr = strstr(buffer+sp, "\n" )) != NULL)
@@ -153,20 +145,21 @@ int sysfs_get_msg_count(void)
     {
       // Timestamp must be greater than previous messages, slightly complicated by
       // seconds and microseconds
-      if ((sec > timestamp) || ((sec == timestamp) && (msec > mtimestamp)))
+      if ((sec > mxt->sysfs.timestamp) ||
+          ((sec == mxt->sysfs.timestamp) && (msec > mxt->sysfs.mtimestamp)))
       {
         msg[sizeof(msg) - 1] = '\0';
         msgptr = strstr(msg, "MXT MSG");
 
         if (msgptr)
         {
-            dmesg_list_add(sec, msec, msgptr);
+            dmesg_list_add(mxt, sec, msec, msgptr);
         }
       }
     }
 
     // Only 500 at a time, otherwise we overrun JNI reference limit.
-    if (dmesg_count > 500)
+    if (mxt->sysfs.dmesg_count > 500)
       break;
 
     // end of buffer
@@ -175,28 +168,28 @@ int sysfs_get_msg_count(void)
   }
 
   // Set the timestamp to the last message
-  timestamp = sec;
-  mtimestamp = msec;
+  mxt->sysfs.timestamp = sec;
+  mxt->sysfs.mtimestamp = msec;
 
   // Reset pointer to first record
-  dmesg_ptr = dmesg_head;
+  mxt->sysfs.dmesg_ptr = mxt->sysfs.dmesg_head;
 
-  return dmesg_count;
+  return mxt->sysfs.dmesg_count;
 }
 
 //******************************************************************************
 /// \brief  Get the next debug message
 /// \return Message string
-char *sysfs_get_msg_string()
+char *sysfs_get_msg_string(struct mxt_device *mxt)
 {
   char *msg_string;
 
-  msg_string = dmesg_ptr->msg;
+  msg_string = mxt->sysfs.dmesg_ptr->msg;
 
-  if (dmesg_ptr != NULL)
+  if (mxt->sysfs.dmesg_ptr != NULL)
   {
     // Get next record in linked list
-    dmesg_ptr = dmesg_ptr->next;
+    mxt->sysfs.dmesg_ptr = mxt->sysfs.dmesg_ptr->next;
   }
 
   return msg_string;
@@ -207,13 +200,13 @@ char *sysfs_get_msg_string()
 /// \param  buf  Pointer to buffer
 /// \param  buflen  Length of buffer
 /// \return number of bytes read
-int sysfs_get_msg_bytes(unsigned char *buf, size_t buflen)
+int sysfs_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen)
 {
    unsigned int bufidx = 0;
    int offset;
    char *message;
 
-   message = sysfs_get_msg_string();
+   message = sysfs_get_msg_string(mxt);
 
    /* Check message begins with prefix */
    if (strncmp(MSG_PREFIX, message, strlen(MSG_PREFIX)))
@@ -237,12 +230,12 @@ int sysfs_get_msg_bytes(unsigned char *buf, size_t buflen)
 
 //******************************************************************************
 /// \brief  Reset the timestamp counter
-int sysfs_msg_reset()
+int sysfs_msg_reset(struct mxt_device *mxt)
 {
   int ret;
 
-  mtimestamp = 0;
-  ret = get_uptime(&timestamp);
+  mxt->sysfs.mtimestamp = 0;
+  ret = get_uptime(&mxt->sysfs.timestamp);
 
   return ret;
 }

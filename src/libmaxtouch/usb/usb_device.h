@@ -28,12 +28,46 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-int usb_scan(void);
-void usb_release(void);
-int usb_reset_chip(bool bootloader_mode);
-int usb_read_register(unsigned char *buf, uint16_t start_register, size_t count);
-int usb_write_register(unsigned char const *buf, uint16_t start_register, size_t count);
-int usb_bootloader_read(unsigned char *buf, size_t count);
-int usb_bootloader_write(unsigned char const *buf, size_t count);
-bool usb_is_bootloader(void);
-bool usb_read_chg(void);
+#include <libusb-1.0/libusb.h>
+
+//******************************************************************************
+/// \brief USB library context
+struct usb_context
+{
+  libusb_context *libusb_ctx;
+};
+
+//******************************************************************************
+/// \brief USB library context
+struct usb_conn_info
+{
+  int bus;
+  int device;
+};
+
+//******************************************************************************
+/// \brief USB device information
+struct usb_device
+{
+  bool device_connected;
+  bool bridge_chip;
+  libusb_device *device;
+  libusb_device_handle *handle;
+  struct libusb_device_descriptor desc;
+  int ep1_in_max_packet_size;
+  int interface;
+  bool bootloader;
+  int report_id;
+};
+
+int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn);
+int usb_open(struct mxt_device *mxt);
+int usb_close(struct usb_context *ctx);
+void usb_release(struct mxt_device *mxt);
+int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode);
+int usb_read_register(struct mxt_device *mxt, unsigned char *buf, uint16_t start_register, size_t count);
+int usb_write_register(struct mxt_device *mxt, unsigned char const *buf, uint16_t start_register, size_t count);
+int usb_bootloader_read(struct mxt_device *mxt, unsigned char *buf, size_t count);
+int usb_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, size_t count);
+bool usb_is_bootloader(struct mxt_device *mxt);
+bool usb_read_chg(struct mxt_device *mxt);

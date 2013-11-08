@@ -28,22 +28,57 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-int sysfs_scan(void);
-void sysfs_release(void);
-int sysfs_read_register(unsigned char *buf, int start_register, int count);
-int sysfs_write_register(unsigned char const *buf, int start_register, int count);
-int sysfs_set_debug(bool debug_state);
-bool sysfs_get_debug(void);
-int sysfs_get_i2c_adapter(void);
-int sysfs_get_i2c_address(void);
-char *sysfs_get_directory(void);
-int sysfs_get_msg_count(void);
-char *sysfs_get_msg_string(void);
-int sysfs_get_msg_bytes(unsigned char *buf, size_t buflen);
-int sysfs_msg_reset(void);
-bool sysfs_has_debug_ng(void);
-char *sysfs_get_msg_string_ng(void);
-int sysfs_get_msg_bytes_ng(unsigned char *buf, size_t buflen);
-int sysfs_get_msg_count_ng(void);
-int sysfs_msg_reset_ng(void);
-int sysfs_get_debug_ng_fd(void);
+struct dmesg_item;
+
+//******************************************************************************
+/// \brief sysfs device connection information
+struct sysfs_conn_info
+{
+  int adapter;
+  int address;
+  char *path;
+  bool debug_ng;
+};
+
+//******************************************************************************
+/// \brief sysfs device
+struct sysfs_device
+{
+  struct sysfs_conn_info conn;
+  char *mem_access_path;
+
+  uint16_t debug_ng_msg_count;
+  uint16_t debug_ng_msg_ptr;
+  uint8_t *debug_ng_msg_buf;
+  int debug_notify_fd;
+  size_t debug_ng_size;
+
+  int dmesg_count;
+  struct dmesg_item *dmesg_head;
+  struct dmesg_item *dmesg_ptr;
+  struct dmesg_item *dmesg_tail;
+
+  unsigned long timestamp;
+  unsigned long mtimestamp;
+};
+
+int sysfs_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn);
+int sysfs_open(struct mxt_device *mxt);
+void sysfs_release(struct mxt_device *mxt);
+int sysfs_read_register(struct mxt_device *mxt, unsigned char *buf, int start_register, int count);
+int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf, int start_register, int count);
+int sysfs_set_debug(struct mxt_device *mxt, bool debug_state);
+bool sysfs_get_debug(struct mxt_device *mxt);
+int sysfs_get_i2c_adapter(struct mxt_device *mxt);
+int sysfs_get_i2c_address(struct mxt_device *mxt);
+char *sysfs_get_directory(struct mxt_device *mxt);
+int sysfs_get_msg_count(struct mxt_device *mxt);
+char *sysfs_get_msg_string(struct mxt_device *mxt);
+int sysfs_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen);
+int sysfs_msg_reset(struct mxt_device *mxt);
+bool sysfs_has_debug_ng(struct mxt_device *mxt);
+char *sysfs_get_msg_string_ng(struct mxt_device *mxt);
+int sysfs_get_msg_bytes_ng(struct mxt_device *mxt, unsigned char *buf, size_t buflen);
+int sysfs_get_msg_count_ng(struct mxt_device *mxt);
+int sysfs_msg_reset_ng(struct mxt_device *mxt);
+int sysfs_get_debug_ng_fd(struct mxt_device *mxt);

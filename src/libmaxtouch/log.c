@@ -28,9 +28,11 @@
 //------------------------------------------------------------------------------
 
 #include "stdio.h"
+#include "stdint.h"
 
-#include "libmaxtouch/log.h"
+#include "libmaxtouch.h"
 #include "libmaxtouch/utilfuncs.h"
+#include "libmaxtouch/log.h"
 
 /* Default log level */
 mxt_log_level log_level = LOG_INFO;

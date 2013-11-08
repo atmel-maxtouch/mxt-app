@@ -32,6 +32,8 @@
 
 #include "info_block_driver.h"
 
+struct mxt_device;
+
 /*! Object types */
 enum mxt_object_type {
   RESERVED_T0 = 0,
@@ -134,16 +136,16 @@ enum mxt_object_type {
 #define MXT_FW_VER_LEN     10u
 
 /* Function prototypes */
-int read_information_block(void);
-int calc_report_ids(void);
-void display_chip_info(void);
-uint16_t get_object_address(uint16_t object_type, uint8_t instance);
-uint8_t get_object_size(uint16_t object_type);
-uint8_t get_object_table_num(uint16_t object_type);
-uint16_t get_start_position(object_t element, uint8_t instance);
-int mxt_get_firmware_version(char *version_str);
-uint32_t info_block_crc(crc_t *);
-uint16_t report_id_to_type(int report_id);
+int read_information_block(struct mxt_device *dev);
+int calc_report_ids(struct mxt_device *dev);
+void display_chip_info(struct mxt_device *dev);
+uint16_t get_object_address(struct mxt_device *dev, uint16_t object_type, uint8_t instance);
+uint8_t get_object_size(struct mxt_device *dev, uint16_t object_type);
+uint8_t get_object_table_num(struct mxt_device *dev, uint16_t object_type);
+uint16_t get_start_position(struct object obj, uint8_t instance);
+int mxt_get_firmware_version(struct mxt_device *dev, char *version_str);
+uint32_t info_block_crc(struct raw_crc *crc);
+uint16_t report_id_to_type(struct mxt_device *dev, int report_id);
 
 /*!
  * @brief Struct holding the object type / instance info.
@@ -152,11 +154,8 @@ uint16_t report_id_to_type(int report_id);
  * report id's to object type / instance (array index = report id).  Note
  * that the report ID number 0 is reserved.
  */
-typedef struct
+struct report_id_map
 {
    uint16_t object_type;  /*!< Object type. */
    uint8_t instance;      /*!< Instance number. */
-} report_id_map_t;
-
-/* Global variables - documented in the .c file */
-extern info_block_t info_block;
+};

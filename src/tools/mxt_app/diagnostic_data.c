@@ -59,6 +59,8 @@
 //******************************************************************************
 /// \brief T37 Diagnostic Data context object
 struct t37_ctx {
+  struct mxt_device *mxt;
+
   int x_size;
   int y_size;
 
@@ -85,29 +87,29 @@ struct t37_ctx {
   FILE *hawkeye;
 };
 
-static int get_objects_addr(struct t37_ctx *mxt_dd)
+static int get_objects_addr(struct t37_ctx *ctx)
 {
   int t6_addr;
 
   /* Obtain command processor's address */
-  t6_addr = get_object_address(GEN_COMMANDPROCESSOR_T6, 0);
+  t6_addr = get_object_address(ctx->mxt, GEN_COMMANDPROCESSOR_T6, 0);
   if (t6_addr == OBJECT_NOT_FOUND) return -1;
 
   /* T37 commands address */
-  mxt_dd->diag_cmd_addr = t6_addr + MXT_CP_T6_DIAGNOSTIC_OFFSET;
+  ctx->diag_cmd_addr = t6_addr + MXT_CP_T6_DIAGNOSTIC_OFFSET;
 
   /* Obtain Debug Diagnostic object's address */
-  mxt_dd->t37_addr = get_object_address(DEBUG_DIAGNOSTIC_T37, 0);
-  if (mxt_dd->t37_addr == OBJECT_NOT_FOUND) return -1;
+  ctx->t37_addr = get_object_address(ctx->mxt, DEBUG_DIAGNOSTIC_T37, 0);
+  if (ctx->t37_addr == OBJECT_NOT_FOUND) return -1;
 
   /* Obtain Debug Diagnostic object's size */
-  mxt_dd->t37_size = get_object_size(DEBUG_DIAGNOSTIC_T37);
-  if (mxt_dd->t37_size == OBJECT_NOT_FOUND) return -1;
+  ctx->t37_size = get_object_size(ctx->mxt, DEBUG_DIAGNOSTIC_T37);
+  if (ctx->t37_size == OBJECT_NOT_FOUND) return -1;
 
   return 0;
 }
 
-static int mxt_debug_dump_page(struct t37_ctx *mxt_dd)
+static int mxt_debug_dump_page(struct t37_ctx *ctx)
 {
   int failures;
   int ret;
@@ -116,14 +118,14 @@ static int mxt_debug_dump_page(struct t37_ctx *mxt_dd)
   uint8_t read_page;
   uint8_t page_up_cmd = PAGE_UP;
 
-  if (mxt_dd->page == 0)
+  if (ctx->page == 0)
   {
     LOG(LOG_VERBOSE, "Writing mode command");
-    mxt_write_register(&mxt_dd->mode, mxt_dd->diag_cmd_addr, 1);
+    mxt_write_register(ctx->mxt, &ctx->mode, ctx->diag_cmd_addr, 1);
   }
   else
   {
-    mxt_write_register(&page_up_cmd, mxt_dd->diag_cmd_addr, 1);
+    mxt_write_register(ctx->mxt, &page_up_cmd, ctx->diag_cmd_addr, 1);
   }
 
   /* Read back diagnostic register in T6 command processor until is has been
@@ -132,7 +134,7 @@ static int mxt_debug_dump_page(struct t37_ctx *mxt_dd)
 
   while (read_command)
   {
-    ret = mxt_read_register(&read_command, mxt_dd->diag_cmd_addr, 1);
+    ret = mxt_read_register(ctx->mxt, &read_command, ctx->diag_cmd_addr, 1);
     if (ret < 0)
     {
       LOG(LOG_ERROR, "Failed to read the status of diagnostic mode command");
@@ -151,28 +153,28 @@ static int mxt_debug_dump_page(struct t37_ctx *mxt_dd)
     }
   }
 
-  ret = mxt_read_register(&read_mode, mxt_dd->t37_addr, 1);
+  ret = mxt_read_register(ctx->mxt, &read_mode, ctx->t37_addr, 1);
   if (ret < 0)
   {
     LOG(LOG_ERROR, "Failed to read current mode");
     return -1;
   }
 
-  ret = mxt_read_register(&read_page, mxt_dd->t37_addr + 1, 1);
+  ret = mxt_read_register(ctx->mxt, &read_page, ctx->t37_addr + 1, 1);
   if (ret < 0)
   {
     LOG(LOG_ERROR, "Failed to read page number");
     return -1;
   }
 
-  if ((read_mode != mxt_dd->mode) || (read_page != mxt_dd->page))
+  if ((read_mode != ctx->mode) || (read_page != ctx->page))
   {
     LOG(LOG_ERROR, "Bad page/mode in diagnostic data read");
     return -1;
   }
 
-  ret = mxt_read_register(mxt_dd->page_buf,
-                          mxt_dd->t37_addr + 2, mxt_dd->page_size);
+  ret = mxt_read_register(ctx->mxt, ctx->page_buf,
+                          ctx->t37_addr + 2, ctx->page_size);
   if (ret < 0)
   {
     LOG(LOG_ERROR, "Failed to read page");
@@ -182,55 +184,55 @@ static int mxt_debug_dump_page(struct t37_ctx *mxt_dd)
   return 0;
 }
 
-static void mxt_generate_hawkeye_header(struct t37_ctx *mxt_dd)
+static void mxt_generate_hawkeye_header(struct t37_ctx *ctx)
 {
   int x;
   int y;
 
-  fprintf(mxt_dd->hawkeye, "Frame,");
+  fprintf(ctx->hawkeye, "Frame,");
 
-  for (x = 0; x < mxt_dd->x_size; x++)
+  for (x = 0; x < ctx->x_size; x++)
   {
-    for (y = 0; y < mxt_dd->y_size; y++)
+    for (y = 0; y < ctx->y_size; y++)
     {
-      fprintf(mxt_dd->hawkeye, "X%dY%d_%s16,", x, y,
-        (mxt_dd->mode == DELTAS_MODE) ? "Delta" : "Reference");
+      fprintf(ctx->hawkeye, "X%dY%d_%s16,", x, y,
+        (ctx->mode == DELTAS_MODE) ? "Delta" : "Reference");
     }
   }
 
-  fprintf(mxt_dd->hawkeye, "\n");
+  fprintf(ctx->hawkeye, "\n");
 }
 
-static int mxt_debug_insert_data(struct t37_ctx *mxt_dd)
+static int mxt_debug_insert_data(struct t37_ctx *ctx)
 {
   int i;
   uint16_t value;
   int ofs;
 
-  for (i = 0; i < mxt_dd->page_size; i += 2)
+  for (i = 0; i < ctx->page_size; i += 2)
   {
-    if (mxt_dd->x_ptr > mxt_dd->x_size)
+    if (ctx->x_ptr > ctx->x_size)
     {
       LOG(LOG_ERROR, "x pointer overrun");
       return -1;
     }
 
-    value = (mxt_dd->page_buf[i+1] << 8) | mxt_dd->page_buf[i];
+    value = (ctx->page_buf[i+1] << 8) | ctx->page_buf[i];
 
-    ofs = mxt_dd->y_ptr + mxt_dd->x_ptr * mxt_dd->y_size;
+    ofs = ctx->y_ptr + ctx->x_ptr * ctx->y_size;
 
     /* The last page may overlap the end of the matrix */
-    if (ofs >= (mxt_dd->x_size * mxt_dd->y_size))
+    if (ofs >= (ctx->x_size * ctx->y_size))
       return 0;
 
-    mxt_dd->data_buf[ofs] = value;
+    ctx->data_buf[ofs] = value;
 
-    mxt_dd->y_ptr++;
+    ctx->y_ptr++;
 
-    if (mxt_dd->y_ptr > mxt_dd->stripe_endy)
+    if (ctx->y_ptr > ctx->stripe_endy)
     {
-      mxt_dd->y_ptr = mxt_dd->stripe_starty;
-      mxt_dd->x_ptr++;
+      ctx->y_ptr = ctx->stripe_starty;
+      ctx->x_ptr++;
     }
   }
 
@@ -238,7 +240,7 @@ static int mxt_debug_insert_data(struct t37_ctx *mxt_dd)
 }
 
 #if 0
-static int mxt_debug_print(struct t37_ctx *mxt_dd)
+static int mxt_debug_print(struct t37_ctx *ctx)
 {
   int x;
   int y;
@@ -248,13 +250,13 @@ static int mxt_debug_print(struct t37_ctx *mxt_dd)
   /* clear screen */
   printf("\e[1;1H\e[2J");
 
-  for (x = 0; x < mxt_dd->x_size; x++)
+  for (x = 0; x < ctx->x_size; x++)
   {
-    for (y = 0; y < mxt_dd->y_size; y++)
+    for (y = 0; y < ctx->y_size; y++)
     {
-      ofs = y + x * mxt_dd->y_size;
+      ofs = y + x * ctx->y_size;
 
-      value = (int16_t)mxt_dd->data_buf[ofs];
+      value = (int16_t)ctx->data_buf[ofs];
 
       printf("%6d ", value);
 
@@ -266,7 +268,7 @@ static int mxt_debug_print(struct t37_ctx *mxt_dd)
 }
 #endif
 
-static void mxt_hawkeye_generate_control_file(struct t37_ctx *mxt_dd)
+static void mxt_hawkeye_generate_control_file(struct t37_ctx *ctx)
 {
   int x;
   int y;
@@ -280,43 +282,43 @@ static void mxt_hawkeye_generate_control_file(struct t37_ctx *mxt_dd)
 
   fprintf(fp, "uint16_lsb_msb,1,1,FRAME\n");
 
-  for (x = 0; x < mxt_dd->x_size; x++)
+  for (x = 0; x < ctx->x_size; x++)
   {
-    for (y = 0; y < mxt_dd->y_size; y++)
+    for (y = 0; y < ctx->y_size; y++)
     {
       fprintf(fp, "int16_lsb_msb,%d,%d,X%dY%d_%s16\n", y+1, x+3, x, y,
-        (mxt_dd->mode == DELTAS_MODE) ? "Delta" : "Reference");
+        (ctx->mode == DELTAS_MODE) ? "Delta" : "Reference");
     }
   }
 
   fclose(fp);
 }
 
-static int mxt_hawkeye_output(struct t37_ctx *mxt_dd)
+static int mxt_hawkeye_output(struct t37_ctx *ctx)
 {
   int x;
   int y;
   int ofs;
   int16_t value;
 
-  mxt_print_timestamp(mxt_dd->hawkeye);
+  mxt_print_timestamp(ctx->hawkeye);
 
   /* print frame number */
-  fprintf(mxt_dd->hawkeye, ",%u,", mxt_dd->frame);
+  fprintf(ctx->hawkeye, ",%u,", ctx->frame);
 
   /* iterate through columns */
-  for (x = 0; x < mxt_dd->x_size; x++)
+  for (x = 0; x < ctx->x_size; x++)
   {
-    for (y = 0; y < mxt_dd->y_size; y++)
+    for (y = 0; y < ctx->y_size; y++)
     {
-      ofs = y + x * mxt_dd->y_size;
+      ofs = y + x * ctx->y_size;
 
-      value = (int16_t)mxt_dd->data_buf[ofs];
+      value = (int16_t)ctx->data_buf[ofs];
 
-      fprintf(mxt_dd->hawkeye, "%d,", value);
+      fprintf(ctx->hawkeye, "%d,", value);
     }
   }
-  fprintf(mxt_dd->hawkeye, "\n");
+  fprintf(ctx->hawkeye, "\n");
 
   return 0;
 }
@@ -336,10 +338,10 @@ static uint16_t get_num_frames(void)
   return frames;
 }
 
-int mxt_debug_dump(int mode, const char *csv_file,
+int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
                           uint16_t frames)
 {
-  struct t37_ctx mxt_dd;
+  struct t37_ctx ctx;
   int x_size, y_size;
   int pages_per_stripe;
   int num_stripes;
@@ -355,28 +357,28 @@ int mxt_debug_dump(int mode, const char *csv_file,
      frames = 1;
   }
 
-  x_size = info_block.id->matrix_x_size;
-  y_size = info_block.id->matrix_y_size;
+  x_size = mxt->info_block.id->matrix_x_size;
+  y_size = mxt->info_block.id->matrix_y_size;
 
-  mxt_dd.mode = mode;
+  ctx.mode = mode;
 
-  ret = get_objects_addr(&mxt_dd);
+  ret = get_objects_addr(&ctx);
   if (ret)
   {
     LOG(LOG_ERROR, "Failed to get object information");
     return -1;
   }
 
-  LOG(LOG_DEBUG, "t37_size: %d", mxt_dd.t37_size);
-  mxt_dd.page_size = mxt_dd.t37_size - 2;
-  LOG(LOG_DEBUG, "page_size: %d", mxt_dd.page_size);
+  LOG(LOG_DEBUG, "t37_size: %d", ctx.t37_size);
+  ctx.page_size = ctx.t37_size - 2;
+  LOG(LOG_DEBUG, "page_size: %d", ctx.page_size);
 
-  if (info_block.id->family_id == 0xA0 && info_block.id->variant_id == 0x00)
+  if (mxt->info_block.id->family_id == 0xA0 && mxt->info_block.id->variant_id == 0x00)
   {
     /* mXT1386 */
     num_stripes = 3;
     pages_per_stripe = 8;
-    mxt_dd.x_size = 27;
+    ctx.x_size = 27;
   }
   else
   {
@@ -384,83 +386,83 @@ int mxt_debug_dump(int mode, const char *csv_file,
     LOG(LOG_DEBUG, "num_debug_bytes: %d", num_debug_bytes);
 
     num_stripes = 1;
-    pages_per_stripe = (num_debug_bytes + (mxt_dd.page_size - 1)) / mxt_dd.page_size;
-    mxt_dd.x_size = x_size;
+    pages_per_stripe = (num_debug_bytes + (ctx.page_size - 1)) / ctx.page_size;
+    ctx.x_size = x_size;
   }
 
-  mxt_dd.num_stripes = num_stripes;
-  mxt_dd.stripe_width = y_size / num_stripes;
-  mxt_dd.y_size = y_size;
+  ctx.num_stripes = num_stripes;
+  ctx.stripe_width = y_size / num_stripes;
+  ctx.y_size = y_size;
 
   LOG(LOG_DEBUG, "Number of stripes: %d", num_stripes);
   LOG(LOG_DEBUG, "Pages per stripe: %d", pages_per_stripe);
-  LOG(LOG_DEBUG, "Stripe width: %d", mxt_dd.stripe_width);
-  LOG(LOG_DEBUG, "X size: %d", mxt_dd.x_size);
-  LOG(LOG_DEBUG, "Y size: %d", mxt_dd.y_size);
+  LOG(LOG_DEBUG, "Stripe width: %d", ctx.stripe_width);
+  LOG(LOG_DEBUG, "X size: %d", ctx.x_size);
+  LOG(LOG_DEBUG, "Y size: %d", ctx.y_size);
 
   /* allocate page/data buffers */
-  mxt_dd.page_buf = (uint8_t *)calloc(mxt_dd.page_size, sizeof(uint8_t));
-  if (!mxt_dd.page_buf) {
+  ctx.page_buf = (uint8_t *)calloc(ctx.page_size, sizeof(uint8_t));
+  if (!ctx.page_buf) {
     LOG(LOG_ERROR, "calloc failure");
     return -1;
   }
 
-  mxt_dd.data_buf = (uint16_t *)calloc(mxt_dd.x_size * mxt_dd.y_size, sizeof(uint16_t));
-  if (!mxt_dd.data_buf) {
+  ctx.data_buf = (uint16_t *)calloc(ctx.x_size * ctx.y_size, sizeof(uint16_t));
+  if (!ctx.data_buf) {
     LOG(LOG_ERROR, "calloc failure");
     ret = -1;
     goto free_page_buf;
   }
 
   /* Open Hawkeye output file */
-  mxt_dd.hawkeye = fopen(csv_file,"w");
-  if (!mxt_dd.hawkeye) {
+  ctx.hawkeye = fopen(csv_file,"w");
+  if (!ctx.hawkeye) {
     LOG(LOG_ERROR, "Failed to open file!");
     ret = -1;
     goto free;
   }
 
-  mxt_generate_hawkeye_header(&mxt_dd);
+  mxt_generate_hawkeye_header(&ctx);
 
   LOG(LOG_INFO, "Reading %u frames", frames);
 
   t1 = time(NULL);
 
-  for (mxt_dd.frame = 1; mxt_dd.frame <= frames; mxt_dd.frame++)
+  for (ctx.frame = 1; ctx.frame <= frames; ctx.frame++)
   {
     /* iterate through stripes */
-    for (mxt_dd.stripe = 0; mxt_dd.stripe < num_stripes; mxt_dd.stripe++)
+    for (ctx.stripe = 0; ctx.stripe < num_stripes; ctx.stripe++)
     {
       /* Select stripe */
-      mxt_dd.stripe_starty = mxt_dd.stripe_width * mxt_dd.stripe;
-      mxt_dd.stripe_endy = mxt_dd.stripe_starty + mxt_dd.stripe_width - 1;
-      mxt_dd.x_ptr = 0;
-      mxt_dd.y_ptr = mxt_dd.stripe_starty;
+      ctx.stripe_starty = ctx.stripe_width * ctx.stripe;
+      ctx.stripe_endy = ctx.stripe_starty + ctx.stripe_width - 1;
+      ctx.x_ptr = 0;
+      ctx.y_ptr = ctx.stripe_starty;
 
       for (page = 0; page < pages_per_stripe; page++)
       {
-        mxt_dd.page = pages_per_stripe * mxt_dd.stripe + page;
+        ctx.page = pages_per_stripe * ctx.stripe + page;
 
         LOG(LOG_DEBUG, "Frame %d Stripe %d Page %d",
-            mxt_dd.frame, mxt_dd.stripe, mxt_dd.page);
+            ctx.frame, ctx.stripe, ctx.page);
 
-        ret = mxt_debug_dump_page(&mxt_dd);
+        ret = mxt_debug_dump_page(&ctx);
         if (ret < 0)
         {
           LOG(LOG_ERROR, "Quitting...");
           goto free;
         }
 
-        mxt_debug_insert_data(&mxt_dd);
+        mxt_debug_insert_data(&ctx);
       }
     }
 
-    mxt_hawkeye_output(&mxt_dd);
+    mxt_hawkeye_output(&ctx);
   }
 
-  fclose(mxt_dd.hawkeye);
+  fclose(ctx.hawkeye);
 
-  mxt_hawkeye_generate_control_file(&mxt_dd);
+  mxt_hawkeye_generate_control_file(&ctx);
 
   t2 = time(NULL);
   LOG(LOG_INFO, "%u frames in %d seconds", frames, (int)(t2-t1));
@@ -468,11 +470,11 @@ int mxt_debug_dump(int mode, const char *csv_file,
   ret = 0;
 
 free:
-  free(mxt_dd.data_buf);
-  mxt_dd.data_buf = NULL;
+  free(ctx.data_buf);
+  ctx.data_buf = NULL;
 free_page_buf:
-  free(mxt_dd.page_buf);
-  mxt_dd.page_buf = NULL;
+  free(ctx.page_buf);
+  ctx.page_buf = NULL;
 
   return ret;
 }
@@ -481,7 +483,7 @@ free_page_buf:
  * @brief
  * @return Zero.
  */
-static void mxt_dd_cmd(char selection, const char *csv_file)
+static void mxt_dd_cmd(struct mxt_device *mxt, char selection, const char *csv_file)
 {
   uint16_t frames;
 
@@ -490,12 +492,12 @@ static void mxt_dd_cmd(char selection, const char *csv_file)
     case 'd':
     case 'D':
       frames = get_num_frames();
-      mxt_debug_dump(DELTAS_MODE, csv_file, frames);
+      mxt_debug_dump(mxt, DELTAS_MODE, csv_file, frames);
       break;
     case 'r':
     case 'R':
       frames = get_num_frames();
-      mxt_debug_dump(REFS_MODE, csv_file, frames);
+      mxt_debug_dump(mxt, REFS_MODE, csv_file, frames);
       break;
     case 'q':
     case 'Q':
@@ -511,7 +513,7 @@ static void mxt_dd_cmd(char selection, const char *csv_file)
  * @brief  Menu function for the debug dump utility.
  * @return Zero.
  */
-void mxt_dd_menu(void)
+void mxt_dd_menu(struct mxt_device *mxt)
 {
   char menu_input;
   char csv_file_in[MAX_FILENAME_LENGTH + 1];
@@ -542,6 +544,6 @@ void mxt_dd_menu(void)
       return;
     }
 
-    mxt_dd_cmd(menu_input, csv_file_in);
+    mxt_dd_cmd(mxt, menu_input, csv_file_in);
   }
 }

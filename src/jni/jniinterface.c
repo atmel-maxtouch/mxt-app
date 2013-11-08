@@ -28,11 +28,16 @@
 //------------------------------------------------------------------------------
 
 #include <string.h>
+#include <stdint.h>
 #include <stdbool.h>
 
 #include "com_atmel_Maxtouch_MaxtouchJni.h"
 #include "jni.h"
 #include "libmaxtouch/libmaxtouch.h"
+
+struct libmaxtouch_ctx *ctx;
+struct mxt_conn_info conn;
+struct mxt_device *mxt;
 
 //******************************************************************************
 /// \brief  JNI initialisation function
@@ -54,7 +59,11 @@ JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_Scan
 {
   int ret;
 
-  ret = mxt_scan();
+  ret = mxt_init(&ctx);
+  if (ret < 0)
+    return JNI_FALSE;
+
+  ret = mxt_scan(ctx, &conn, false);
 
   if (ret != 1)
   {
@@ -74,7 +83,11 @@ JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetInfo
 {
   int ret;
 
-  ret = mxt_get_info();
+  ret = mxt_open(ctx, conn, &mxt);
+  if (ret < 0)
+    return JNI_FALSE;
+
+  ret = mxt_get_info(mxt);
 
   if (ret == 0)
   {
@@ -100,7 +113,7 @@ JNIEXPORT jbyteArray JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_ReadRegister
   if (buf == NULL)
     return NULL;
 
-  ret = mxt_read_register(buf, start_register, count);
+  ret = mxt_read_register(mxt, buf, start_register, count);
 
   if (ret == 0)
   {
@@ -130,7 +143,7 @@ JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_WriteRegister
 
   (*env)->GetByteArrayRegion(env, data, 0, count, buf);
 
-  ret = mxt_write_register(buf, start_register, count);
+  ret = mxt_write_register(mxt, buf, start_register, count);
 
   free(buf);
   return ret;
@@ -145,7 +158,7 @@ JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_SetDebugEnable
 
   bDebugState = debugState == JNI_TRUE ? true : false;
 
-  return mxt_set_debug(bDebugState);
+  return mxt_set_debug(mxt, bDebugState);
 }
 
 //******************************************************************************
@@ -155,7 +168,7 @@ JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetDebugEnable
 {
   bool bDebugState;
 
-  bDebugState = mxt_get_debug();
+  bDebugState = mxt_get_debug(mxt);
 
   return (bDebugState == true ? JNI_TRUE : JNI_FALSE);
 }
@@ -168,7 +181,7 @@ JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_LoadConfigFile
   const char *szFilename = (*env)->GetStringUTFChars(env, filename, 0);
   int ret;
 
-  ret = mxt_load_config_file(szFilename);
+  ret = mxt_load_config_file(mxt, szFilename);
 
   (*env)->ReleaseStringUTFChars(env, filename, szFilename);
 
@@ -183,7 +196,7 @@ JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_SaveConfigFile
   const char *szFilename = (*env)->GetStringUTFChars(env, filename, 0);
   int ret;
 
-  ret = mxt_save_config_file(szFilename);
+  ret = mxt_save_config_file(mxt, szFilename);
 
   (*env)->ReleaseStringUTFChars(env, filename, szFilename);
 
@@ -201,7 +214,7 @@ JNIEXPORT jobjectArray JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetDebugMessa
   jclass stringClass;
   char *szMessage;
 
-  count = mxt_get_msg_count();
+  count = mxt_get_msg_count(mxt);
   /* suppress error and return empty array */
   if (count < 0)
     count = 0;
@@ -215,7 +228,7 @@ JNIEXPORT jobjectArray JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetDebugMessa
   {
     for (i = 0; i < count; i++)
     {
-      szMessage = mxt_get_msg_string();
+      szMessage = mxt_get_msg_string(mxt);
       (*env)->SetObjectArrayElement(env, stringarray, i, (*env)->NewStringUTF(env, szMessage));
     }
   }
@@ -234,7 +247,7 @@ JNIEXPORT jstring JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetSysfsDirectory
 
   char *szLocation;
 
-  szLocation = (char *)sysfs_get_directory();
+  szLocation = (char *)sysfs_get_directory(mxt);
 
   stringClass = NULL;
   stringClass = (*env)->FindClass(env, "java/lang/String");
@@ -249,7 +262,7 @@ JNIEXPORT jstring JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetSysfsDirectory
 JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_BackupConfig
   (JNIEnv *env, jobject this)
 {
-  return mxt_backup_config();
+  return mxt_backup_config(mxt);
 }
 
 //******************************************************************************
@@ -258,7 +271,7 @@ JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_BackupConfig
 JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_ResetChip
   (JNIEnv *env, jobject this)
 {
-  return mxt_reset_chip(false);
+  return mxt_reset_chip(mxt, false);
 }
 
 //******************************************************************************
@@ -267,5 +280,5 @@ JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_ResetChip
 JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_CalibrateChip
   (JNIEnv *env, jobject this)
 {
-  return mxt_calibrate_chip();
+  return mxt_calibrate_chip(mxt);
 }

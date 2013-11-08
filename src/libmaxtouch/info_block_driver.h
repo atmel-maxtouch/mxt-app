@@ -44,22 +44,18 @@
 
 #include <stdint.h>
 
-/*----------------------------------------------------------------------------
-  type definitions
-----------------------------------------------------------------------------*/
-
 /*! \brief Checksum element struct. */
-typedef struct
+struct raw_crc
 {
   /*! CRC field. */
   uint16_t CRC;
 
   /*! CRC field: higher byte */
   uint8_t CRC_hi;
-} crc_t;
+};
 
 /*! \brief Object table element struct. */
-typedef struct
+struct object
 {
    uint8_t object_type;      /*!< Object type ID. */
    uint8_t start_pos_lsbyte; /*!< LSByte of the start address of the obj config structure. */
@@ -68,12 +64,10 @@ typedef struct
    uint8_t instances;        /*!< Number of objects of this obj. type -1. */
    uint8_t num_report_ids;   /*!< The max number of touches in a screen,
                               *  max number of sliders in a slider array, etc.*/
-} object_t;
-
-
+};
 
 /*! \brief Info ID struct. */
-typedef struct
+struct info_id
 {
    uint8_t family_id;            /* address 0 */
    uint8_t variant_id;           /* address 1 */
@@ -87,8 +81,7 @@ typedef struct
    /*! Number of entries in the object table. The actual number of objects
     * can be different if any object has more than one instance. */
    uint8_t num_declared_objects; /* address 6 */
-} info_id_t;
-
+};
 
 /*! \brief Info block struct holding ID and object table data and their CRC sum.
  *
@@ -103,15 +96,14 @@ typedef struct
  * CRC_hi the upper 8.
  *
  */
-
-typedef struct
+struct info_block
 {
    /*! Pointer to the struct containing ID Information. */
-   info_id_t *id;
+   struct info_id *id;
 
    /*! Pointer to an array of objects. */
-   object_t *objects;
+   struct object *objects;
 
    /*! Pointer to CRC field. */
-   crc_t *crc;
-} info_block_t;
+   struct raw_crc *crc;
+};

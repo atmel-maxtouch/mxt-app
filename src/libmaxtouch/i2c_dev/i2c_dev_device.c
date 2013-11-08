@@ -36,6 +36,9 @@
 #include <string.h>
 #include <errno.h>
 
+struct mxt_device;
+struct mxt_conn_info;
+
 #include "i2c_dev_device.h"
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/libmaxtouch.h"
@@ -46,62 +49,41 @@
 #define I2C_RETRY_DELAY 25000
 
 //******************************************************************************
-/// \brief Device information
-typedef struct i2c_dev_device_t {
-  int adapter;
-  int address;
-} i2c_dev_device;
-
-/* detected devices */
-i2c_dev_device *gpDevDevice = NULL;
-
-//******************************************************************************
-/// \brief  Scan for devices
-/// \return 1 = device found, 0 = not found, negative for error
-int i2c_dev_set_address(int adapter, int address)
+/// \brief  Register i2c-dev device
+/// \return 0 = success, negative for error
+int i2c_dev_open(struct mxt_device *mxt)
 {
-  gpDevDevice = (i2c_dev_device *)calloc(1, sizeof(i2c_dev_device));
-
-  gpDevDevice->adapter = adapter;
-  gpDevDevice->address = address;
-
   LOG
   (
     LOG_INFO, "Registered i2c-dev adapter:%d address:0x%x",
-    gpDevDevice->adapter, gpDevDevice->address
+    mxt->conn.i2c_dev.adapter, mxt->conn.i2c_dev.address
   );
 
-  mxt_set_device_type(E_I2C_DEV);
-
-  return 1;
+  return 0;
 }
 
 //******************************************************************************
 /// \brief  Release device
-void i2c_dev_release()
+void i2c_dev_release(struct mxt_device *mxt)
 {
-  if (gpDevDevice != NULL)
-  {
-    free(gpDevDevice);
-  }
 }
 
 //******************************************************************************
 /// \brief  Open the i2c dev interface and set the slave address
-static int open_and_set_slave_address(void)
+static int open_and_set_slave_address(struct mxt_device *mxt)
 {
   int fd;
   int ret;
   char filename[20];
 
-  snprintf(filename, 19, "/dev/i2c-%d", gpDevDevice->adapter);
+  snprintf(filename, 19, "/dev/i2c-%d", mxt->conn.i2c_dev.adapter);
   fd = open(filename, O_RDWR);
   if (fd < 0) {
     LOG(LOG_ERROR, "Could not open %s, error %s (%d)", filename, strerror(errno), errno);
     return fd;
   }
 
-  ret = ioctl(fd, I2C_SLAVE_FORCE, gpDevDevice->address);
+  ret = ioctl(fd, I2C_SLAVE_FORCE, mxt->conn.i2c_dev.address);
   if (ret < 0) {
     LOG(LOG_ERROR, "Error setting slave address, error %s (%d)", strerror(errno), errno);
     close(fd);
@@ -113,7 +95,7 @@ static int open_and_set_slave_address(void)
 
 //******************************************************************************
 /// \brief  Read register from MXT chip
-int i2c_dev_read_register(unsigned char *buf, int start_register, int count)
+int i2c_dev_read_register(struct mxt_device *mxt, unsigned char *buf, int start_register, int count)
 {
   int fd;
   int ret;
@@ -121,7 +103,7 @@ int i2c_dev_read_register(unsigned char *buf, int start_register, int count)
 
   LOG(LOG_DEBUG, "start_register:%d count:%d", start_register, count);
 
-  fd = open_and_set_slave_address();
+  fd = open_and_set_slave_address(mxt);
 
   if (fd < 0)
     return fd;
@@ -155,14 +137,14 @@ close:
 
 //******************************************************************************
 /// \brief  Write register to MXT chip
-int i2c_dev_write_register(unsigned char const *val, int start_register, int datalength)
+int i2c_dev_write_register(struct mxt_device *mxt, unsigned char const *val, int start_register, int datalength)
 {
   int fd;
   int count;
   int ret;
   unsigned char *buf;
 
-  fd = open_and_set_slave_address();
+  fd = open_and_set_slave_address(mxt);
 
   if (fd < 0)
     return fd;
@@ -198,12 +180,12 @@ int i2c_dev_write_register(unsigned char const *val, int start_register, int dat
 
 //******************************************************************************
 /// \brief  Raw read from chip
-int i2c_dev_bootloader_read(unsigned char *buf, int count)
+int i2c_dev_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count)
 {
   int fd;
   int ret;
 
-  fd = open_and_set_slave_address();
+  fd = open_and_set_slave_address(mxt);
 
   if (fd < 0)
     return fd;
@@ -225,12 +207,12 @@ int i2c_dev_bootloader_read(unsigned char *buf, int count)
 
 //******************************************************************************
 /// \brief  Bootloader write
-int i2c_dev_bootloader_write(unsigned char const *buf, int count)
+int i2c_dev_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int count)
 {
   int fd;
   int ret;
 
-  fd = open_and_set_slave_address();
+  fd = open_and_set_slave_address(mxt);
 
   LOG(LOG_DEBUG, "Writing %d bytes", count);
 

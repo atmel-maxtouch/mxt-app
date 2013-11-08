@@ -86,7 +86,7 @@ static void mxt_gr_print_state(uint8_t state)
 
 //******************************************************************************
 /// \brief Handle status messages from the T66 golden references object
-static int mxt_gr_get_status(uint8_t *state, int timeout_seconds)
+static int mxt_gr_get_status(struct mxt_device *mxt, uint8_t *state, int timeout_seconds)
 {
   uint16_t count, i;
   time_t now;
@@ -97,7 +97,7 @@ static int mxt_gr_get_status(uint8_t *state, int timeout_seconds)
 
   while (true)
   {
-    mxt_msg_wait(100);
+    mxt_msg_wait(mxt, 100);
 
     now = time(NULL);
     if ((now - start_time) > timeout_seconds)
@@ -106,17 +106,17 @@ static int mxt_gr_get_status(uint8_t *state, int timeout_seconds)
       return -1;
     }
 
-    count = mxt_get_msg_count();
+    count = mxt_get_msg_count(mxt);
 
     if (count > 0)
     {
       for (i = 0; i < count; i++)
       {
-        len = mxt_get_msg_bytes(buf, sizeof(buf));
+        len = mxt_get_msg_bytes(mxt, buf, sizeof(buf));
 
         if (len > 0)
         {
-          object_type = report_id_to_type(buf[0]);
+          object_type = report_id_to_type(mxt, buf[0]);
 
           LOG(LOG_VERBOSE, "Received message from T%u", object_type);
 
@@ -138,7 +138,7 @@ static int mxt_gr_get_status(uint8_t *state, int timeout_seconds)
 
 //******************************************************************************
 /// \brief Send command then check status
-static int mxt_gr_run_command(uint16_t addr, uint8_t cmd,
+static int mxt_gr_run_command(struct mxt_device *mxt, uint16_t addr, uint8_t cmd,
                               uint8_t wanted_fcal_state, uint8_t wanted_statebit)
 {
   int ret;
@@ -147,11 +147,11 @@ static int mxt_gr_run_command(uint16_t addr, uint8_t cmd,
   cmd |= GR_ENABLE | GR_RPTEN;
 
   LOG(LOG_INFO, "Writing %u to ctrl register", cmd);
-  ret = mxt_write_register(&cmd, addr + GR_CTRL, 1);
+  ret = mxt_write_register(mxt, &cmd, addr + GR_CTRL, 1);
   if (ret < 0)
     return ret;
 
-  ret = mxt_gr_get_status(&actual_state, GR_TIMEOUT);
+  ret = mxt_gr_get_status(mxt, &actual_state, GR_TIMEOUT);
   if (ret < 0)
     return ret;
 
@@ -169,33 +169,33 @@ static int mxt_gr_run_command(uint16_t addr, uint8_t cmd,
 
 //******************************************************************************
 /// \brief Store golden reference calibration
-int mxt_store_golden_refs()
+int mxt_store_golden_refs(struct mxt_device *mxt)
 {
   uint16_t addr;
   int ret;
 
-  ret = mxt_msg_reset();
+  ret = mxt_msg_reset(mxt);
   if (ret < 0)
     return ret;
 
-  addr = get_object_address(SPT_GOLDENREFERENCES_T66, 0);
+  addr = get_object_address(mxt, SPT_GOLDENREFERENCES_T66, 0);
   if (addr == OBJECT_NOT_FOUND)
     return -1;
 
   LOG(LOG_INFO, "Priming");
-  ret = mxt_gr_run_command(addr, GR_FCALCMD_PRIME,
+  ret = mxt_gr_run_command(mxt, addr, GR_FCALCMD_PRIME,
                            GR_STATE_PRIMED, GR_STATE_PRIMED);
   if (ret < 0)
     return ret;
 
   LOG(LOG_INFO, "Generating");
-  ret = mxt_gr_run_command(addr, GR_FCALCMD_GENERATE,
+  ret = mxt_gr_run_command(mxt, addr, GR_FCALCMD_GENERATE,
                            GR_STATE_GENERATED, GR_STATE_FCALPASS);
   if (ret < 0)
     return ret;
 
   LOG(LOG_INFO, "Storing");
-  ret = mxt_gr_run_command(addr, GR_FCALCMD_STORE,
+  ret = mxt_gr_run_command(mxt, addr, GR_FCALCMD_STORE,
                           GR_STATE_IDLE, GR_STATE_FCALSEQDONE);
   if (ret < 0)
     return ret;

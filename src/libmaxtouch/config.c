@@ -39,11 +39,11 @@
 //******************************************************************************
 /// \brief  Save configuration to file
 /// \return 0 = success, negative = fail
-int mxt_save_config_file(const char *cfg_file)
+int mxt_save_config_file(struct mxt_device *dev, const char *cfg_file)
 {
   int obj_idx, i, instance, num_bytes;
   uint8_t *temp;
-  object_t *object;
+  struct object *object;
   FILE *fp;
   int retval;
 
@@ -54,19 +54,19 @@ int mxt_save_config_file(const char *cfg_file)
   fprintf(fp, "OBP_RAW V1\n");
 
   fprintf(fp, "%02X %02X %02X %02X %02X %02X %02X\n",
-          info_block.id->family_id, info_block.id->variant_id,
-          info_block.id->version, info_block.id->build,
-          info_block.id->matrix_x_size, info_block.id->matrix_y_size,
-          info_block.id->num_declared_objects);
+          dev->info_block.id->family_id, dev->info_block.id->variant_id,
+          dev->info_block.id->version, dev->info_block.id->build,
+          dev->info_block.id->matrix_x_size, dev->info_block.id->matrix_y_size,
+          dev->info_block.id->num_declared_objects);
 
-  fprintf(fp, "%06X\n", info_block_crc(info_block.crc));
+  fprintf(fp, "%06X\n", info_block_crc(dev->info_block.crc));
 
   /* can't read object table CRC at present */
   fprintf(fp, "000000\n");
 
-  for (obj_idx = 0; obj_idx < info_block.id->num_declared_objects; obj_idx++)
+  for (obj_idx = 0; obj_idx < dev->info_block.id->num_declared_objects; obj_idx++)
   {
-    object = &(info_block.objects[obj_idx]);
+    object = &(dev->info_block.objects[obj_idx]);
     num_bytes = object->size + 1;
 
     temp = (uint8_t *)calloc(num_bytes, sizeof(char));
@@ -81,7 +81,7 @@ int mxt_save_config_file(const char *cfg_file)
     {
       fprintf(fp, "%04X %04X %04X", object->object_type, instance, num_bytes);
 
-      mxt_read_register(temp,
+      mxt_read_register(dev, temp,
                        get_start_position(*object, instance),
                        num_bytes);
 
@@ -106,7 +106,7 @@ close:
 //******************************************************************************
 /// \brief  Load configuration file
 /// \return 0 = success, negative = fail
-int mxt_load_config_file(const char *cfg_file)
+int mxt_load_config_file(struct mxt_device *dev, const char *cfg_file)
 {
   FILE *fp;
   uint8_t *mem;
@@ -245,7 +245,6 @@ int mxt_load_config_file(const char *cfg_file)
 
     c = getc(fp);
 
-
     /* Find object type ID number at end of object string */
     substr = strrchr(object, '_');
     if (substr == NULL || (*(substr + 1) != 'T'))
@@ -264,7 +263,7 @@ int mxt_load_config_file(const char *cfg_file)
         object, object_id, object_address, object_size);
 
     /* Check the address of the object */
-    expected_address = get_object_address((uint8_t)object_id, (uint8_t)instance);
+    expected_address = get_object_address(dev, (uint8_t)object_id, (uint8_t)instance);
     if (expected_address == OBJECT_NOT_FOUND)
     {
       LOG(LOG_ERROR, "T%u not present on chip", object_id);
@@ -282,7 +281,7 @@ int mxt_load_config_file(const char *cfg_file)
     }
 
     /* Check the size of the object */
-    expected_size = get_object_size((uint8_t)object_id);
+    expected_size = get_object_size(dev, (uint8_t)object_id);
     if (object_size != (int)expected_size)
     {
       LOG
@@ -354,7 +353,7 @@ int mxt_load_config_file(const char *cfg_file)
       }
     }
 
-    if (mxt_write_register(mem, object_address, object_size) < 0)
+    if (mxt_write_register(dev, mem, object_address, object_size) < 0)
     {
       LOG(LOG_ERROR, "Error writing to mxt!");
       return -1;

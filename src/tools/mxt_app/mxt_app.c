@@ -37,7 +37,6 @@
 #include <getopt.h>
 
 #include "libmaxtouch/libmaxtouch.h"
-#include "libmaxtouch/i2c_dev/i2c_dev_device.h"
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/utilfuncs.h"
 #include "libmaxtouch/info_block.h"
@@ -50,6 +49,7 @@
 /// \brief Commands for mxt-app
 typedef enum mxt_app_cmd_t {
   CMD_NONE,
+  CMD_QUERY,
   CMD_INFO,
   CMD_TEST,
   CMD_WRITE,
@@ -70,24 +70,14 @@ typedef enum mxt_app_cmd_t {
 
 //******************************************************************************
 /// \brief Initialize mXT device and read the info block
-static int mxt_init_chip(int adapter, int address)
+static int mxt_init_chip(struct libmaxtouch_ctx *ctx, struct mxt_device **mxt,
+                         struct mxt_conn_info conn)
 {
   int ret;
 
-  if (adapter >= 0 && address > 0)
+  if (conn.type == E_NONE)
   {
-    LOG(LOG_VERBOSE, "i2c_address:%u", address);
-    LOG(LOG_VERBOSE, "i2c_adapter:%u", adapter);
-    ret = i2c_dev_set_address(adapter, address);
-    if (ret < 0)
-    {
-      LOG(LOG_ERROR, "Failed to init device");
-      return -1;
-    }
-  }
-  else
-  {
-    ret = mxt_scan();
+    ret = mxt_scan(ctx, &conn, false);
     if (ret == 0)
     {
       LOG(LOG_ERROR, "Unable to find a device");
@@ -95,14 +85,22 @@ static int mxt_init_chip(int adapter, int address)
     }
     else if (ret < 0)
     {
-      LOG(LOG_ERROR, "Failed to init device");
+      LOG(LOG_ERROR, "Failed to find device");
       return -1;
     }
+  } else {
+    LOG(LOG_DEBUG, "Connection parameters given");
   }
 
-  if (mxt_get_info() < 0)
+  if (mxt_open(ctx, conn, mxt) < 0)
   {
-    LOG(LOG_ERROR, "Failed to read info block");
+    LOG(LOG_ERROR, "Failed to open device");
+    return -1;
+  }
+
+  if (mxt_get_info(*mxt) < 0)
+  {
+    LOG(LOG_ERROR, "Failed to read information block");
     return -1;
   }
 
@@ -118,6 +116,7 @@ static void print_usage(char *prog_name)
                   "When run with no options, access menu interface.\n\n"
                   "Available commands:\n"
                   "  -h [--help]                : display this help and exit\n"
+                  "  -q [--query]               : scan for devices\n"
                   "  -i [--info]                : print device information\n"
                   "  -R [--read]                : read from object\n"
                   "  -t [--test]                : run all self tests\n"
@@ -154,9 +153,12 @@ static void print_usage(char *prog_name)
                   "  --frames N                 : Capture N frames of data\n"
                   "  --references               : Dump references data\n"
                   "\n"
-                  "For i2c-dev and bootloader mode:\n"
-                  "  -d [--i2c-adapter] ADAPTER : i2c adapter, eg \"2\"\n"
-                  "  -a [--i2c-address] ADDRESS : i2c address, eg \"4a\"\n"
+                  "To specify device\n"
+                  "  -d [--device] DEVICESTRING : DEVICESTRING as output by --query\n\n"
+                  "   Examples:\n"
+                  "  -d i2c-dev:ADAPTER:ADDRESS : raw i2c device, eg \"i2c-dev:2-004a\"\n"
+                  "  -d usb:BUS-DEVICE          : USB device, eg \"usb:001-003\"\n"
+                  "  -d sysfs:PATH              : sysfs interface\n"
                   "\n"
                   "For T68 serial data:\n"
                   "  --t68-file FILE            : Upload FILE\n"
@@ -180,8 +182,7 @@ int main (int argc, char *argv[])
   uint16_t address = 0;
   uint16_t object_address = 0;
   uint16_t count = 0;
-  int i2c_address = -1;
-  int i2c_adapter = -1;
+  struct mxt_conn_info conn = { .type = E_NONE };
   uint16_t object_type = 0;
   uint8_t instance = 0;
   uint8_t verbose = 0;
@@ -202,12 +203,11 @@ int main (int argc, char *argv[])
     int option_index = 0;
 
     static struct option long_options[] = {
-      {"i2c-address",      required_argument, 0, 'a'},
       {"backup",           no_argument,       0, 0},
       {"bridge-client",    required_argument, 0, 'C'},
       {"calibrate",        no_argument,       0, 0},
       {"debug-dump",       required_argument, 0, 0},
-      {"i2c-adapter",      required_argument, 0, 'd'},
+      {"device",           required_argument, 0, 'd'},
       {"t68-file",         required_argument, 0, 0},
       {"t68-datatype",     required_argument, 0, 0},
       {"format",           no_argument,       0, 'f'},
@@ -221,6 +221,7 @@ int main (int argc, char *argv[])
       {"save",             required_argument, 0, 0},
       {"count",            required_argument, 0, 'n'},
       {"port",             required_argument, 0, 'p'},
+      {"query",            no_argument,       0, 'q'},
       {"read",             no_argument,       0, 'R'},
       {"reset",            no_argument,       0, 0},
       {"reset-bootloader", no_argument,       0, 0},
@@ -235,7 +236,7 @@ int main (int argc, char *argv[])
       {0,                  0,                 0,  0 }
     };
 
-    c = getopt_long(argc, argv, "a:C:d:D:fghiI:n:p:Rr:StT:v:W", long_options, &option_index);
+    c = getopt_long(argc, argv, "C:d:D:fghiI:n:p:qRr:StT:v:W", long_options, &option_index);
 
     if (c == -1)
       break;
@@ -362,15 +363,34 @@ int main (int argc, char *argv[])
         }
         break;
 
-      case 'a':
-        if (optarg) {
-          i2c_address = strtol(optarg, NULL, 16);
-        }
-        break;
-
       case 'd':
         if (optarg) {
-          i2c_adapter = strtol(optarg, NULL, 0);
+          if (!strncmp(optarg, "i2c-dev:", 8))
+          {
+            if (sscanf(optarg, "i2c-dev:%d-%x",
+                  &conn.i2c_dev.adapter, &conn.i2c_dev.address) != 2)
+            {
+              LOG(LOG_ERROR, "Invalid device string %s", optarg);
+              return -1;
+            }
+
+            conn.type = E_I2C_DEV;
+            LOG(LOG_INFO, "i2c-dev device: %d-%04x",
+                conn.i2c_dev.adapter, conn.i2c_dev.address);
+          }
+#ifdef HAVE_LIBUSB
+          else if (!strncmp(optarg, "usb:", 4))
+          {
+            if (sscanf(optarg, "usb:%d-%d", &conn.usb.bus, &conn.usb.device) != 2)
+            {
+              LOG(LOG_ERROR, "Invalid device string %s", optarg);
+              return -1;
+            }
+
+            conn.type = E_USB;
+            LOG(LOG_INFO, "USB device:%03d-%03d", conn.usb.bus, conn.usb.device);
+          }
+#endif
         }
         break;
 
@@ -417,6 +437,15 @@ int main (int argc, char *argv[])
       case 'p':
         if (optarg) {
           port = strtol(optarg, NULL, 0);
+        }
+        break;
+
+      case 'q':
+        if (cmd == CMD_NONE) {
+          cmd = CMD_QUERY;
+        } else {
+          print_usage(argv[0]);
+          return -1;
         }
         break;
 
@@ -493,6 +522,16 @@ int main (int argc, char *argv[])
     }
   }
 
+  struct mxt_device *mxt;
+  struct libmaxtouch_ctx *ctx;
+
+  ret = mxt_init(&ctx);
+  if (ret < 0)
+  {
+    LOG(LOG_ERROR, "Failed to init libmaxtouch");
+    return ret;
+  }
+
   /* Debug does not work until mxt_set_verbose() is called */
   LOG(LOG_DEBUG, "Version:%s", __GIT_VERSION);
 
@@ -506,14 +545,18 @@ int main (int argc, char *argv[])
   }
 
   /* initialise chip, bootloader mode handles this itself */
-  if (cmd != CMD_FLASH)
+  if (cmd == CMD_QUERY)
   {
-    ret = mxt_init_chip(i2c_adapter, i2c_address);
+    return mxt_scan(ctx, &conn, true);
+  }
+  else if (cmd != CMD_FLASH)
+  {
+    ret = mxt_init_chip(ctx, &mxt, conn);
     if (ret < 0)
       return ret;
 
     /*! Turn on kernel dmesg output of MSG */
-    mxt_set_debug(true);
+    mxt_set_debug(mxt, true);
   }
 
   switch (cmd) {
@@ -521,7 +564,7 @@ int main (int argc, char *argv[])
       LOG(LOG_VERBOSE, "Write command");
 
       if (object_type > 0) {
-        object_address = get_object_address(object_type, instance);
+        object_address = get_object_address(mxt, object_type, instance);
         if (object_address == OBJECT_NOT_FOUND) {
           fprintf(stderr, "No such object\n");
           ret = -1;
@@ -533,7 +576,7 @@ int main (int argc, char *argv[])
         address = object_address + address;
 
         if (count == 0) {
-          count = get_object_size(object_type);
+          count = get_object_size(mxt, object_type);
         }
       } else if (count == 0) {
         fprintf(stderr, "Not enough arguments!\n");
@@ -549,7 +592,7 @@ int main (int argc, char *argv[])
       if (ret < 0) {
         fprintf(stderr, "Hex convert error\n");
       } else {
-        ret = mxt_write_register(&databuf[0], address, count);
+        ret = mxt_write_register(mxt, &databuf[0], address, count);
         if (ret < 0) {
           fprintf(stderr, "Write error\n");
         }
@@ -558,77 +601,77 @@ int main (int argc, char *argv[])
 
     case CMD_READ:
       LOG(LOG_VERBOSE, "Read command");
-      ret = read_object(object_type, instance, address, count, format);
+      ret = read_object(mxt, object_type, instance, address, count, format);
       break;
 
     case CMD_INFO:
       LOG(LOG_VERBOSE, "CMD_INFO");
-      print_info_block();
+      print_info_block(mxt);
       break;
 
     case CMD_GOLDEN_REFERENCES:
       LOG(LOG_VERBOSE, "CMD_GOLDEN_REFERENCES");
-      ret = mxt_store_golden_refs();
+      ret = mxt_store_golden_refs(mxt);
       break;
 
     case CMD_BRIDGE_SERVER:
       LOG(LOG_VERBOSE, "CMD_BRIDGE_SERVER");
       LOG(LOG_VERBOSE, "port:%u", port);
-      ret = mxt_socket_server(port);
+      ret = mxt_socket_server(mxt, port);
       break;
 
     case CMD_BRIDGE_CLIENT:
       LOG(LOG_VERBOSE, "CMD_BRIDGE_CLIENT");
-      ret = mxt_socket_client(strbuf, port);
+      ret = mxt_socket_client(mxt, strbuf, port);
       break;
 
     case CMD_SERIAL_DATA:
       LOG(LOG_VERBOSE, "CMD_SERIAL_DATA");
       LOG(LOG_VERBOSE, "t68_datatype:%u", t68_datatype);
-      ret = mxt_serial_data_upload(strbuf, t68_datatype);
+      ret = mxt_serial_data_upload(mxt, strbuf, t68_datatype);
       break;
 
     case CMD_TEST:
       LOG(LOG_VERBOSE, "CMD_TEST");
-      ret = run_self_tests(SELF_TEST_ALL);
+      ret = run_self_tests(mxt, SELF_TEST_ALL);
       break;
 
     case CMD_FLASH:
       LOG(LOG_VERBOSE, "CMD_FLASH");
-      ret = mxt_flash_firmware(strbuf, strbuf2, i2c_adapter, i2c_address);
+      ret = mxt_flash_firmware(ctx, mxt, strbuf, strbuf2, conn);
       break;
 
     case CMD_RESET:
       LOG(LOG_VERBOSE, "CMD_RESET");
-      ret = mxt_reset_chip(false);
+      ret = mxt_reset_chip(mxt, false);
       break;
 
     case CMD_RESET_BOOTLOADER:
       LOG(LOG_VERBOSE, "CMD_RESET_BOOTLOADER");
-      ret = mxt_reset_chip(true);
+      ret = mxt_reset_chip(mxt, true);
       break;
 
     case CMD_BACKUP:
       LOG(LOG_VERBOSE, "CMD_BACKUP");
-      ret = mxt_backup_config();
+      ret = mxt_backup_config(mxt);
       break;
 
     case CMD_CALIBRATE:
       LOG(LOG_VERBOSE, "CMD_CALIBRATE");
-      ret = mxt_calibrate_chip();
+      ret = mxt_calibrate_chip(mxt);
       break;
 
     case CMD_DEBUG_DUMP:
       LOG(LOG_VERBOSE, "CMD_DEBUG_DUMP");
       LOG(LOG_VERBOSE, "mode:%u", t37_mode);
       LOG(LOG_VERBOSE, "frames:%u", t37_frames);
-      ret = mxt_debug_dump(t37_mode, strbuf, t37_frames);
+      ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames);
       break;
 
     case CMD_LOAD_CFG:
       LOG(LOG_VERBOSE, "CMD_LOAD_CFG");
       LOG(LOG_VERBOSE, "filename:%s", strbuf);
-      ret = mxt_load_config_file(strbuf);
+      ret = mxt_load_config_file(mxt, strbuf);
       if (ret < 0)
       {
         LOG(LOG_ERROR, "Error loading the configuration");
@@ -637,7 +680,7 @@ int main (int argc, char *argv[])
       {
         LOG(LOG_INFO, "Configuration loaded");
 
-        ret = mxt_backup_config();
+        ret = mxt_backup_config(mxt);
         if (ret < 0)
         {
           LOG(LOG_ERROR, "Error backing up");
@@ -646,7 +689,7 @@ int main (int argc, char *argv[])
         {
           LOG(LOG_INFO, "Configuration backed up");
 
-          ret = mxt_reset_chip(false);
+          ret = mxt_reset_chip(mxt, false);
           if (ret < 0)
           {
             LOG(LOG_ERROR, "Error resetting");
@@ -662,18 +705,23 @@ int main (int argc, char *argv[])
     case CMD_SAVE_CFG:
       LOG(LOG_VERBOSE, "CMD_SAVE_CFG");
       LOG(LOG_VERBOSE, "filename:%s", strbuf);
-      ret = mxt_save_config_file(strbuf);
+      ret = mxt_save_config_file(mxt, strbuf);
       break;
 
     case CMD_NONE:
     default:
       LOG(LOG_VERBOSE, "cmd: %d", cmd);
-      ret = mxt_menu();
+      ret = mxt_menu(mxt);
       break;
   }
 
-  mxt_set_debug(false);
-  mxt_release();
+  if (cmd != CMD_FLASH)
+  {
+    mxt_set_debug(mxt, false);
+    mxt_release(mxt);
+  }
+
+  mxt_close(ctx);
 
   return ret;
 }

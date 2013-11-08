@@ -51,18 +51,17 @@
 #define SELF_TEST_INVALID      0xFD
 #define SELF_TEST_TIMEOUT      0xFC
 
-int mxt_flash_firmware(const char *filename, const char *new_version,
-                       int adapter, int bootloader_address);
-int mxt_socket_server(uint16_t port);
-int mxt_socket_client(char *ip_address, uint16_t port);
-int mxt_debug_dump(int mode, const char *csv_file, uint16_t frames);
-void mxt_dd_menu(void);
-int mxt_store_golden_refs(void);
-int mxt_menu(void);
-uint8_t self_test_handler(void);
-int run_self_tests(uint8_t cmd);
-int mxt_serial_data_upload(const char *filename, uint16_t datatype);
-int print_raw_messages(void);
-int print_raw_messages_t44(void);
-void event_printer(void);
+int mxt_flash_firmware(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, const char *filename, const char *new_version, struct mxt_conn_info conn);
+int mxt_socket_server(struct mxt_device *mxt, uint16_t port);
+int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port);
+int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file, uint16_t frames);
+void mxt_dd_menu(struct mxt_device *mxt);
+int mxt_store_golden_refs(struct mxt_device *mxt);
+int mxt_menu(struct mxt_device *mxt);
+uint8_t self_test_menu(struct mxt_device *mxt);
+int run_self_tests(struct mxt_device *mxt, uint8_t cmd);
+int mxt_serial_data_upload(struct mxt_device *mxt, const char *filename, uint16_t datatype);
+int print_raw_messages(struct mxt_device *mxt);
+int print_raw_messages_t44(struct mxt_device *mxt);
+void event_printer(struct mxt_device *mxt);
 void print_t6_state(uint8_t state);

@@ -28,7 +28,7 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-int t44_get_msg_count(void);
-char *t44_get_msg_string(void);
-int t44_get_msg_bytes(unsigned char *buf, size_t buflen);
-int t44_msg_reset(void);
+int t44_get_msg_count(struct mxt_device *mxt);
+char *t44_get_msg_string(struct mxt_device *mxt);
+int t44_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen);
+int t44_msg_reset(struct mxt_device *mxt);

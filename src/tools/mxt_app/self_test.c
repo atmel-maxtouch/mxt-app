@@ -45,7 +45,7 @@
 
 //******************************************************************************
 /// \brief Handle messages from the self test object
-static int self_test_handle_messages(void)
+static int self_test_handle_messages(struct mxt_device *mxt)
 {
    bool done = false;
    uint16_t count, i;
@@ -59,7 +59,7 @@ static int self_test_handle_messages(void)
 
    while (!done)
    {
-      mxt_msg_wait(100);
+      mxt_msg_wait(mxt, 100);
 
       now = time(NULL);
       if ((now - start_time) > TIMEOUT)
@@ -68,17 +68,17 @@ static int self_test_handle_messages(void)
          return -2;
       }
 
-      count = mxt_get_msg_count();
+      count = mxt_get_msg_count(mxt);
 
       if (count > 0)
       {
          for (i = 0; i < count; i++)
          {
-            len = mxt_get_msg_bytes(buf, sizeof(buf));
+            len = mxt_get_msg_bytes(mxt, buf, sizeof(buf));
 
             if (len > 0)
             {
-               object_type = report_id_to_type(buf[0]);
+               object_type = report_id_to_type(mxt, buf[0]);
 
                LOG(LOG_VERBOSE, "Received message from T%u", object_type);
                
@@ -140,19 +140,19 @@ static int self_test_handle_messages(void)
 
 //******************************************************************************
 /// \brief Print T25 limits for each enabled touch object
-static void print_t25_limits(uint16_t t25_addr)
+static void print_t25_limits(struct mxt_device *mxt, uint16_t t25_addr)
 {
    int i;
-   object_t element;
+   struct object element;
    int touch_object = 0;
    uint8_t buf[4];
    uint16_t upsiglim;
    uint16_t losiglim;
    int instance;
 
-   for (i = 0; i < info_block.id->num_declared_objects; i++)
+   for (i = 0; i < mxt->info_block.id->num_declared_objects; i++)
    {
-      element = info_block.objects[i];
+      element = mxt->info_block.objects[i];
 
       switch (element.object_type)
       {
@@ -168,14 +168,14 @@ static void print_t25_limits(uint16_t t25_addr)
       case TOUCH_XSLIDERSET_T32:
          for (instance = 0; (instance < element.instances + 1); instance++)
          {
-            mxt_read_register((uint8_t *)&buf, get_start_position(element, instance), 1);
+            mxt_read_register(mxt, (uint8_t *)&buf, get_start_position(element, instance), 1);
 
             LOG(LOG_INFO, "%s[%d] %s",
-                   objname(element.object_type),
+                   get_object_name(element.object_type),
                    instance,
                    buf[0] & 0x01 ? "enabled":"disabled");
 
-            mxt_read_register((uint8_t *)&buf,
+            mxt_read_register(mxt, (uint8_t *)&buf,
                t25_addr + 2 + touch_object * 4, 4);
 
             upsiglim = (uint16_t)((buf[1] << 8u) | buf[0]);
@@ -196,64 +196,64 @@ static void print_t25_limits(uint16_t t25_addr)
 
 //******************************************************************************
 /// \brief Disable noise suppression objects
-static void disable_noise_suppression(void)
+static void disable_noise_suppression(struct mxt_device *mxt)
 {
    uint16_t addr;
    uint8_t disable = 0;
 
-   addr = get_object_address(PROCG_NOISESUPPRESSION_T22, 0);
+   addr = get_object_address(mxt, PROCG_NOISESUPPRESSION_T22, 0);
    if (addr != OBJECT_NOT_FOUND)
    {
-      mxt_write_register(&disable, addr, 1);
+      mxt_write_register(mxt, &disable, addr, 1);
    }
 
-   addr = get_object_address(PROCG_NOISESUPPRESSION_T48, 0);
+   addr = get_object_address(mxt, PROCG_NOISESUPPRESSION_T48, 0);
    if (addr != OBJECT_NOT_FOUND)
    {
-      mxt_write_register(&disable, addr, 1);
+      mxt_write_register(mxt, &disable, addr, 1);
    }
 
-   addr = get_object_address(PROCG_NOISESUPPRESSION_T54, 0);
+   addr = get_object_address(mxt, PROCG_NOISESUPPRESSION_T54, 0);
    if (addr != OBJECT_NOT_FOUND)
    {
-      mxt_write_register(&disable, addr, 1);
+      mxt_write_register(mxt, &disable, addr, 1);
    }
 
-   addr = get_object_address(PROCG_NOISESUPPRESSION_T62, 0);
+   addr = get_object_address(mxt, PROCG_NOISESUPPRESSION_T62, 0);
    if (addr != OBJECT_NOT_FOUND)
    {
-      mxt_write_register(&disable, addr, 1);
+      mxt_write_register(mxt, &disable, addr, 1);
    }
 }
 
 //******************************************************************************
 /// \brief Run self test
-int run_self_tests(uint8_t cmd)
+int run_self_tests(struct mxt_device *mxt, uint8_t cmd)
 {
    uint16_t t25_addr;
    uint8_t enable = 3;
 
-   mxt_msg_reset();
+   mxt_msg_reset(mxt);
 
    // Enable self test object & reporting
-   t25_addr = get_object_address(SPT_SELFTEST_T25, 0);
+   t25_addr = get_object_address(mxt, SPT_SELFTEST_T25, 0);
    LOG(LOG_INFO, "Enabling self test object");
-   mxt_write_register(&enable, t25_addr, 1);
+   mxt_write_register(mxt, &enable, t25_addr, 1);
 
    LOG(LOG_INFO, "Disabling noise suppression");
-   disable_noise_suppression();
+   disable_noise_suppression(mxt);
 
-   print_t25_limits(t25_addr);
+   print_t25_limits(mxt, t25_addr);
 
    LOG(LOG_INFO, "Running tests");
-   mxt_write_register(&cmd, t25_addr + 1, 1);
+   mxt_write_register(mxt, &cmd, t25_addr + 1, 1);
 
-   return self_test_handle_messages();
+   return self_test_handle_messages(mxt);
 }
 
 //******************************************************************************
 /// \brief Run self test
-uint8_t self_test_handler()
+uint8_t self_test_menu(struct mxt_device *mxt)
 {
    int self_test;
    uint8_t cmd;
@@ -310,7 +310,7 @@ uint8_t self_test_handler()
 
       if (cmd > 0)
       {
-        run_self_tests(cmd);
+        run_self_tests(mxt, cmd);
       }
    }
 }

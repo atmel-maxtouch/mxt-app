@@ -64,6 +64,7 @@
 /// \brief T68 Serial Data Command Context object
 struct t68_ctx
 {
+  struct mxt_device *mxt;
   const char *filename;
   struct mxt_buffer buf;
   uint16_t t68_addr;
@@ -91,7 +92,7 @@ static void mxt_t68_print_status(uint8_t status)
 //******************************************************************************
 /// \brief  Handle status messages from the T68 Serial Data Command object
 /// \return 0 on success, negative error
-static int mxt_t68_get_status(void)
+static int mxt_t68_get_status(struct t68_ctx *ctx)
 {
   uint16_t count, i;
   time_t now;
@@ -103,7 +104,7 @@ static int mxt_t68_get_status(void)
 
   while (true)
   {
-    mxt_msg_wait(100);
+    mxt_msg_wait(ctx->mxt, 100);
 
     now = time(NULL);
     if ((now - start_time) > T68_TIMEOUT)
@@ -112,13 +113,13 @@ static int mxt_t68_get_status(void)
       return -1;
     }
 
-    count = mxt_get_msg_count();
+    count = mxt_get_msg_count(ctx->mxt);
 
     if (count > 0)
     {
       for (i = 0; i < count; i++)
       {
-        ret = mxt_get_msg_bytes(buf, sizeof(buf));
+        ret = mxt_get_msg_bytes(ctx->mxt, buf, sizeof(buf));
 
         if (ret < 0)
         {
@@ -126,7 +127,7 @@ static int mxt_t68_get_status(void)
           return ret;
         }
 
-        object_type = report_id_to_type(buf[0]);
+        object_type = report_id_to_type(ctx->mxt, buf[0]);
 
         LOG(LOG_VERBOSE, "Received message from T%u", object_type);
 
@@ -156,17 +157,17 @@ static int mxt_t68_command(struct t68_ctx *ctx, uint8_t cmd)
   int ret;
 
   LOG(LOG_VERBOSE, "Writing %u to CMD register", cmd);
-  ret = mxt_write_register(&cmd, ctx->t68_cmd_addr, 1);
+  ret = mxt_write_register(ctx->mxt, &cmd, ctx->t68_cmd_addr, 1);
   if (ret < 0)
     return ret;
 
-  return mxt_t68_get_status();
+  return mxt_t68_get_status(ctx);
 }
 
 //******************************************************************************
 /// \brief  Enable T68
 /// \return 0 on success, negative error
-static int mxt_t68_enable(uint16_t addr)
+static int mxt_t68_enable(struct t68_ctx *ctx)
 {
   int ret;
   uint8_t cmd = T68_CTRL_RPTEN | T68_CTRL_ENABLE;
@@ -174,7 +175,7 @@ static int mxt_t68_enable(uint16_t addr)
   LOG(LOG_DEBUG, "Enabling T68 object");
   LOG(LOG_VERBOSE, "Writing %u to ctrl register", cmd);
 
-  ret = mxt_write_register(&cmd, addr + T68_CTRL, 1);
+  ret = mxt_write_register(ctx->mxt, &cmd, ctx->t68_addr + T68_CTRL, 1);
   if (ret < 0)
     return ret;
 
@@ -292,7 +293,7 @@ static int mxt_t68_write_length(struct t68_ctx *ctx, uint8_t length)
 {
   LOG(LOG_DEBUG, "Writing LENGTH=%u", length);
 
-  return mxt_write_register(&length, ctx->t68_addr + T68_LENGTH, 1);
+  return mxt_write_register(ctx->mxt, &length, ctx->t68_addr + T68_LENGTH, 1);
 }
 
 //******************************************************************************
@@ -306,7 +307,7 @@ static int mxt_t68_zero_data(struct t68_ctx *ctx)
 
   memset(&zeros, 0, sizeof(zeros));
 
-  ret = mxt_write_register(zeros,
+  ret = mxt_write_register(ctx->mxt, zeros,
                            ctx->t68_addr + T68_DATA,
                            sizeof(zeros));
 
@@ -335,7 +336,7 @@ static int mxt_t68_send_frames(struct t68_ctx *ctx)
       return -1;
     }
 
-    ret = mxt_write_register(ctx->buf.data + offset,
+    ret = mxt_write_register(ctx->mxt, ctx->buf.data + offset,
                              ctx->t68_addr + T68_DATA,
                              frame_size);
     if (ret < 0)
@@ -374,22 +375,22 @@ static int mxt_t68_write_datatype(struct t68_ctx *ctx)
   buf[1] = (ctx->t68_datatype & 0xFF00) >> 8;
 
   LOG(LOG_INFO, "Writing %u to DATATYPE register", ctx->t68_datatype);
-  return mxt_write_register(&buf[0], ctx->t68_addr + T68_DATATYPE, sizeof(buf));
+  return mxt_write_register(ctx->mxt, &buf[0], ctx->t68_addr + T68_DATATYPE, sizeof(buf));
 }
 
 //******************************************************************************
 /// \brief Check chip is not in deep sleep
-static int mxt_t68_check_power_cfg(void)
+static int mxt_t68_check_power_cfg(struct t68_ctx *ctx)
 {
   uint16_t t7_addr;
   uint8_t buf[2];
   int ret;
 
-  t7_addr = get_object_address(GEN_POWERCONFIG_T7, 0);
+  t7_addr = get_object_address(ctx->mxt, GEN_POWERCONFIG_T7, 0);
   if (t7_addr == OBJECT_NOT_FOUND)
     return 0;
 
-  ret = mxt_read_register(&buf[0], t7_addr, sizeof(buf));
+  ret = mxt_read_register(ctx->mxt, &buf[0], t7_addr, sizeof(buf));
   if (ret < 0)
     return ret;
 
@@ -412,27 +413,29 @@ static int mxt_t68_check_power_cfg(void)
 
 //******************************************************************************
 /// \brief Upload file to T68 Serial Data Object
-int mxt_serial_data_upload(const char *filename, uint16_t datatype)
+int mxt_serial_data_upload(struct mxt_device *mxt, const char *filename, uint16_t datatype)
 {
   int ret;
   struct t68_ctx ctx;
 
-  ret = mxt_msg_reset();
+  ctx.mxt = mxt;
+
+  ret = mxt_msg_reset(mxt);
   if (ret < 0)
     return ret;
 
   LOG(LOG_INFO, "Checking T7 Power Config");
-  ret = mxt_t68_check_power_cfg();
+  ret = mxt_t68_check_power_cfg(&ctx);
   if (ret < 0)
     return ret;
 
   /* Check for existence of T68 object */
-  ctx.t68_addr = get_object_address(SERIAL_DATA_COMMAND_T68, 0);
+  ctx.t68_addr = get_object_address(mxt, SERIAL_DATA_COMMAND_T68, 0);
   if (ctx.t68_addr == OBJECT_NOT_FOUND)
     return -1;
 
   /* Calculate position of CMD register */
-  ctx.t68_size = get_object_size(SERIAL_DATA_COMMAND_T68);
+  ctx.t68_size = get_object_size(mxt, SERIAL_DATA_COMMAND_T68);
   ctx.t68_cmd_addr = ctx.t68_addr + ctx.t68_size - 3;
 
   /* Calculate frame size */
@@ -447,7 +450,7 @@ int mxt_serial_data_upload(const char *filename, uint16_t datatype)
   if (ret < 0)
     return ret;
 
-  ret = mxt_t68_enable(ctx.t68_addr);
+  ret = mxt_t68_enable(&ctx);
   if (ret < 0)
     goto release;
 

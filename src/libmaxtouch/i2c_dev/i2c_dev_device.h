@@ -28,9 +28,23 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-int i2c_dev_set_address(int adapter, int address);
-void i2c_dev_release(void);
-int i2c_dev_read_register(unsigned char *buf, int start_register, int count);
-int i2c_dev_write_register(unsigned char const *buf, int start_register, int count);
-int i2c_dev_bootloader_read(unsigned char *buf, int count);
-int i2c_dev_bootloader_write(unsigned char const *buf, int count);
+//******************************************************************************
+/// \brief Device information for i2c-dev backend
+struct i2c_dev_conn_info
+{
+  int adapter;
+  int address;
+};
+
+//******************************************************************************
+/// \brief Device information for i2c-dev backend
+struct i2c_dev_device
+{
+};
+
+int i2c_dev_open(struct mxt_device *mxt);
+void i2c_dev_release(struct mxt_device *mxt);
+int i2c_dev_read_register(struct mxt_device *mxt, unsigned char *buf, int start_register, int count);
+int i2c_dev_write_register(struct mxt_device *mxt, unsigned char const *buf, int start_register, int count);
+int i2c_dev_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count);
+int i2c_dev_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int count);

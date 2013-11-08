@@ -15,6 +15,7 @@ When run with no options, access menu interface.
 # OPTIONS
 
     -h [--help]                : display this help and exit
+    -q [--query]               : scan for devices
     -i [--info]                : print device information
     -R [--read]                : read from object
     -t [--test]                : run all self tests
@@ -54,10 +55,14 @@ When run with no options, access menu interface.
     --frames N                 : Capture N frames of data
     --references               : Dump references data
 
-## For i2c-dev and bootloader mode:
+## To specify device
 
-    -d [--i2c-adapter] ADAPTER : i2c adapter, eg "2"
-    -a [--i2c-address] ADDRESS : i2c address, eg "4a"
+    -d [--device] DEVICESTRING : DEVICESTRING as output by --query
+
+Examples:
+    -d i2c-dev:ADAPTER:ADDRESS : raw i2c device, eg "i2c-dev:2-004a"
+    -d usb:BUS-DEVICE          : USB device, eg "usb:001-003"
+    -d sysfs:PATH              : sysfs interface
 
 ## For T68 serial data:
 

@@ -31,21 +31,14 @@
 #include <stdio.h>
 
 #include "log.h"
-#include "libmaxtouch.h"
-
 #include "info_block.h"
-
-/*! Information Block structure. */
-info_block_t info_block;
-
-/*! Pointer to report ID look-up table. */
-static report_id_map_t *report_id_map;
+#include "libmaxtouch.h"
 
 /*!
  * @brief Information block checksum return function.
  * @return 24-bit checksum value in 32-bit integer.
  */
-uint32_t info_block_crc(crc_t * crc)
+uint32_t info_block_crc(struct raw_crc * crc)
 {
   return ((crc->CRC_hi<<16u) | (crc->CRC));
 }
@@ -123,7 +116,7 @@ static int info_block_checksum(uint32_t read_crc, uint8_t *base_addr,
  * @brief  Reads the information block from the chip.
  * @return Zero on success, negative for error.
  */
-int read_information_block()
+int read_information_block(struct mxt_device *dev)
 {
   int ret = -1;
 
@@ -137,10 +130,10 @@ int read_information_block()
   size_t crc_area_size; /* Size of data for CRC calculation */
   uint8_t num_declared_objects;
   uint32_t read_crc = 0; /* Checksum value as read from the chip */
-  uint8_t *info_block_shadow;
+  uint8_t *info_block_buffer;
 
   /* Read "num_declared_objects" field of ID Information block */
-  ret = mxt_read_register((unsigned char *)&num_declared_objects, ID_OBJECTS_OFFSET, 1);
+  ret = mxt_read_register(dev, (unsigned char *)&num_declared_objects, ID_OBJECTS_OFFSET, 1);
   if (ret < 0)
   {
     LOG(LOG_ERROR, "Failed to read information about number of objects");
@@ -148,13 +141,13 @@ int read_information_block()
   }
 
   /* Determine the number of data bytes in Information Block for checksum calculation */
-  crc_area_size = NUM_ID_BYTES + num_declared_objects * sizeof(object_t);
+  crc_area_size = NUM_ID_BYTES + num_declared_objects * sizeof(struct object);
 
   /* Allocate space to read Information Block AND Checksum from the chip */
   info_block_size = crc_area_size + CRC_LENGTH;
 
-  info_block_shadow = (unsigned char *)calloc(info_block_size, sizeof(unsigned char));
-  if (info_block_shadow == NULL)
+  info_block_buffer = (unsigned char *)calloc(info_block_size, sizeof(unsigned char));
+  if (info_block_buffer == NULL)
   {
     LOG(LOG_ERROR, "Failed to allocate %d bytes for the Information Block data",
         info_block_size);
@@ -164,7 +157,7 @@ int read_information_block()
       info_block_size);
 
   /* Read the Information Block from the chip */
-  ret = mxt_read_register(info_block_shadow, memory_offset, info_block_size);
+  ret = mxt_read_register(dev, info_block_buffer, memory_offset, info_block_size);
   if (ret < 0)
   {
     LOG(LOG_ERROR, "Failed to read the Information Block");
@@ -175,30 +168,29 @@ int read_information_block()
    * id, objects, and crc pointers should be pointing
    * to the memory areas storing these values from the chip
    */
-  info_block.id = (info_id_t *) info_block_shadow;
-  info_block.objects = (object_t *) (info_block_shadow + NUM_ID_BYTES);
-  info_block.crc = (crc_t *) (info_block_shadow + crc_area_size);
+  dev->info_block.id = (struct info_id*) info_block_buffer;
+  dev->info_block.objects = (struct object *) (info_block_buffer + NUM_ID_BYTES);
+  dev->info_block.crc = (struct raw_crc*) (info_block_buffer + crc_area_size);
+  dev->raw_info = info_block_buffer;
 
   /* Read CRC for checksum comparision */
-  read_crc = ((uint32_t)info_block.crc->CRC);
-  read_crc += ((uint32_t)info_block.crc->CRC_hi << 16u);
+  read_crc = info_block_crc(dev->info_block.crc);
 
   /* Calculate and compare Information Block Checksum */
-  ret = info_block_checksum(read_crc, info_block_shadow, crc_area_size);
+  ret = info_block_checksum(read_crc, info_block_buffer, crc_area_size);
   if (ret < 0)
     return ret;
 
   LOG(LOG_VERBOSE, "Information Block read successfully");
 
   return 0;
-
 }
 
 /*!
  * @brief  Populates a look-up table for the report IDs.
  * @return Zero on success, negative for error.
  */
-int calc_report_ids()
+int calc_report_ids(struct mxt_device *dev)
 {
   /* Report ID zero is reserved - start from one */
   int num_report_ids = 1;
@@ -208,34 +200,34 @@ int calc_report_ids()
   int instance_index;
   int report_index;
 
-  object_t element;
+  struct object element;
 
   /* Calculate the number of report IDs */
-  for (element_index = 0; element_index < info_block.id->num_declared_objects; element_index++)
+  for (element_index = 0; element_index < dev->info_block.id->num_declared_objects; element_index++)
   {
-    element = info_block.objects[element_index];
+    element = dev->info_block.objects[element_index];
     num_report_ids += (element.instances + 1) * element.num_report_ids;
   }
 
   /* Allocate memory for report ID look-up table */
-  report_id_map = calloc(num_report_ids, sizeof(report_id_map_t));
-  if (report_id_map == NULL)
+  dev->report_id_map = calloc(num_report_ids, sizeof(struct report_id_map));
+  if (dev->report_id_map == NULL)
   {
     LOG(LOG_ERROR, "calloc failure");
     return -1;
   }
 
   /* Store the object and instance for each report ID */
-  for (element_index = 0; element_index < info_block.id->num_declared_objects; element_index++)
+  for (element_index = 0; element_index < dev->info_block.id->num_declared_objects; element_index++)
   {
-    element = info_block.objects[element_index];
+    element = dev->info_block.objects[element_index];
 
     for (instance_index = 0; instance_index < (element.instances + 1); instance_index++)
     {
       for (report_index = 0; report_index < element.num_report_ids; report_index++)
       {
-        report_id_map[report_id_count].object_type = element.object_type;
-        report_id_map[report_id_count].instance = instance_index;
+        dev->report_id_map[report_id_count].object_type = element.object_type;
+        dev->report_id_map[report_id_count].instance = instance_index;
         report_id_count++;
       }
     }
@@ -246,15 +238,15 @@ int calc_report_ids()
   return 0;
 }
 
-int mxt_get_firmware_version(char *version_str)
+int mxt_get_firmware_version(struct mxt_device *dev, char *version_str)
 {
-  if (info_block.id == NULL)
+  if (dev->info_block.id == NULL)
     return -1;
 
   snprintf(version_str, MXT_FW_VER_LEN, "%u.%u.%02X",
-           (info_block.id->version & 0xF0) >> 4,
-           (info_block.id->version & 0x0F),
-           info_block.id->build);
+           (dev->info_block.id->version & 0xF0) >> 4,
+           (dev->info_block.id->version & 0x0F),
+           dev->info_block.id->build);
 
   return 0;
 }
@@ -262,26 +254,29 @@ int mxt_get_firmware_version(char *version_str)
 /*!
  * @brief  Logs information about the chip.
  */
-void display_chip_info()
+void display_chip_info(struct mxt_device *dev)
 {
-  object_t element;
+  struct object element;
   int element_index;
   char firmware_version[MXT_FW_VER_LEN];
 
-  mxt_get_firmware_version((char *)&firmware_version);
+  mxt_get_firmware_version(dev, (char *)&firmware_version);
 
   /* Display ID information */
-  LOG(LOG_INFO, "Family ID = %u (0x%02X)", info_block.id->family_id, info_block.id->family_id);
-  LOG(LOG_INFO, "Variant ID = %u (0x%02X)", info_block.id->variant_id, info_block.id->variant_id);
+  LOG(LOG_INFO, "Family ID = %u (0x%02X)",
+      dev->info_block.id->family_id, dev->info_block.id->family_id);
+  LOG(LOG_INFO, "Variant ID = %u (0x%02X)",
+      dev->info_block.id->variant_id, dev->info_block.id->variant_id);
   LOG(LOG_INFO, "Firmware Version = %s", firmware_version);
-  LOG(LOG_INFO, "Matrix X Size = %d", info_block.id->matrix_x_size);
-  LOG(LOG_INFO, "Matrix Y Size = %d", info_block.id->matrix_y_size);
-  LOG(LOG_INFO, "Number of elements in the Object Table = %d", info_block.id->num_declared_objects);
+  LOG(LOG_INFO, "Matrix X Size = %d", dev->info_block.id->matrix_x_size);
+  LOG(LOG_INFO, "Matrix Y Size = %d", dev->info_block.id->matrix_y_size);
+  LOG(LOG_INFO, "Number of elements in the Object Table = %d",
+      dev->info_block.id->num_declared_objects);
 
   /* Display information about specific objects */
-  for (element_index = 0; element_index < info_block.id->num_declared_objects; element_index++)
+  for (element_index = 0; element_index < dev->info_block.id->num_declared_objects; element_index++)
   {
-    element = info_block.objects[element_index];
+    element = dev->info_block.objects[element_index];
 
     LOG(LOG_DEBUG, "T%u size:%u instances:%u address:%u",
       element.object_type, element.size + 1,
@@ -298,14 +293,14 @@ void display_chip_info()
  *         in the chip's memory map.
  * @return Object address, or OBJECT_NOT_FOUND if object/instance not found.
  */
-uint16_t get_object_address(uint16_t object_type, uint8_t instance)
+uint16_t get_object_address(struct mxt_device *dev, uint16_t object_type, uint8_t instance)
 {
   int element_index = 0;
-  object_t element;
+  struct object element;
 
-  for (element_index = 0; element_index < info_block.id->num_declared_objects; element_index++)
+  for (element_index = 0; element_index < dev->info_block.id->num_declared_objects; element_index++)
   {
-    element = info_block.objects[element_index];
+    element = dev->info_block.objects[element_index];
 
     /* Does object type match? */
     if (element.object_type == object_type)
@@ -334,15 +329,15 @@ uint16_t get_object_address(uint16_t object_type, uint8_t instance)
  * @brief  Returns the size of the specified type in the object table.
  * @return Object size, or OBJECT_NOT_FOUND if object not found.
  */
-uint8_t get_object_size(uint16_t object_type)
+uint8_t get_object_size(struct mxt_device *dev, uint16_t object_type)
 {
-  int element_index = get_object_table_num(object_type);
+  int element_index = get_object_table_num(dev, object_type);
   if (element_index == 255)
   {
     return OBJECT_NOT_FOUND;
   }
 
-  return info_block.objects[element_index].size + 1;
+  return dev->info_block.objects[element_index].size + 1;
 }
 
 /*!
@@ -351,13 +346,13 @@ uint8_t get_object_size(uint16_t object_type)
  * @brief  Returns the index of the specified type in the object table.
  * @return Element index, or 255 if object type not found.
  */
-uint8_t get_object_table_num(uint16_t object_type)
+uint8_t get_object_table_num(struct mxt_device *dev, uint16_t object_type)
 {
   int element_index;
 
-  for (element_index = 0; element_index < info_block.id->num_declared_objects; element_index++)
+  for (element_index = 0; element_index < dev->info_block.id->num_declared_objects; element_index++)
   {
-    if (info_block.objects[element_index].object_type == object_type)
+    if (dev->info_block.objects[element_index].object_type == object_type)
     {
       return element_index;
     }
@@ -375,10 +370,10 @@ uint8_t get_object_table_num(uint16_t object_type)
  *         combining the least significant and most significant bytes.
  * @return Start position as a single value.
  */
-uint16_t get_start_position(object_t element, uint8_t instance)
+uint16_t get_start_position(struct object obj, uint8_t instance)
 {
-  return (element.start_pos_msbyte * 256) + element.start_pos_lsbyte
-         + ((element.size + 1) * instance);
+  return (obj.start_pos_msbyte * 256) + obj.start_pos_lsbyte
+         + ((obj.size + 1) * instance);
 }
 
 /*!
@@ -386,7 +381,7 @@ uint16_t get_start_position(object_t element, uint8_t instance)
  * @param  report_id Report ID
  * @return Object type number
  */
-uint16_t report_id_to_type(int report_id)
+uint16_t report_id_to_type(struct mxt_device *dev, int report_id)
 {
-  return (report_id_map[report_id].object_type);
+  return (dev->report_id_map[report_id].object_type);
 }

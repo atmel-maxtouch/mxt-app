@@ -39,7 +39,7 @@
 
 //******************************************************************************
 /// \brief Load config from file
-static void load_config(void)
+static void load_config(struct mxt_device *mxt)
 {
   char cfg_file[255];
 
@@ -52,7 +52,7 @@ static void load_config(void)
 
   printf("Trying to open %s...\n", cfg_file);
 
-  if (mxt_load_config_file(cfg_file) == 0)
+  if (mxt_load_config_file(mxt, cfg_file) == 0)
   {
     printf("Successfully uploaded the configuration file\n");
   }
@@ -64,7 +64,7 @@ static void load_config(void)
 
 //******************************************************************************
 /// \brief Save config to file
-static void save_config(void)
+static void save_config(struct mxt_device *mxt)
 {
   char cfg_file[255];
 
@@ -75,7 +75,7 @@ static void save_config(void)
     return;
   }
 
-  if (mxt_save_config_file(cfg_file) == 0)
+  if (mxt_save_config_file(mxt, cfg_file) == 0)
   {
     printf("Successfully saved configuration to file\n");
   }
@@ -87,9 +87,10 @@ static void save_config(void)
 
 //******************************************************************************
 /// \brief Flash firmware to chip
-static void flash_firmware_command(void)
+static void flash_firmware_command(struct mxt_device *mxt)
 {
   char fw_file[255];
+  struct mxt_conn_info conn = { .type = E_NONE };
 
   /* Save config file */
   printf("Give firmware .enc file name: ");
@@ -98,13 +99,13 @@ static void flash_firmware_command(void)
     return;
   }
 
-  mxt_flash_firmware(fw_file, "", -1, -1);
+  mxt_flash_firmware(mxt->ctx, mxt, fw_file, "", conn);
 }
 
 
 //******************************************************************************
 /// \brief Read objects according to the input value
-static void read_object_command(void)
+static void read_object_command(struct mxt_device *mxt)
 {
   uint16_t obj_num;
   uint8_t instance = 0;
@@ -120,7 +121,7 @@ static void read_object_command(void)
     if (obj_num == 0)
       return;
 
-    if (info_block.objects[obj_num].instances > 0) {
+    if (mxt->info_block.objects[obj_num].instances > 0) {
       printf("Enter object instance\n");
       if (scanf("%" SCNu8, &instance) != 1) {
         printf("Input parse error\n");
@@ -128,13 +129,13 @@ static void read_object_command(void)
       }
     }
 
-    read_object(obj_num, instance, 0, 0, true);
+    read_object(mxt, obj_num, instance, 0, 0, true);
   }
 }
 
 //******************************************************************************
 /// \brief Write objects
-static void write_object_command(void)
+static void write_object_command(struct mxt_device *mxt)
 {
   uint16_t obj_num;
   uint8_t instance = 0;
@@ -151,7 +152,7 @@ static void write_object_command(void)
     if (obj_num == 0)
       return;
 
-    if (info_block.objects[obj_num].instances > 0) {
+    if (mxt->info_block.objects[obj_num].instances > 0) {
       printf("Enter object instance\n");
       if (scanf("%" SCNu8, &instance) != 1) {
         printf("Input parse error\n");
@@ -159,44 +160,44 @@ static void write_object_command(void)
       }
     }
 
-    write_to_object(obj_num, instance);
+    write_to_object(mxt, obj_num, instance);
   }
 }
 
 //******************************************************************************
 /// \brief Handle command
-static bool mxt_app_command(char selection)
+static bool mxt_app_command(struct mxt_device *mxt, char selection)
 {
   bool exit_loop = false;
 
   switch(selection)
   {
     case 'l':
-      load_config();
+      load_config(mxt);
       break;
     case 's':
-      save_config();
+      save_config(mxt);
     case 'i':
       /* Print info block */
       printf("Reading info block.....\n");
-      print_info_block();
+      print_info_block(mxt);
       break;
     case 'd':
-      read_object_command();
+      read_object_command(mxt);
       break;
     case 'w':
-      write_object_command();
+      write_object_command(mxt);
       break;
     case 'f':
-      flash_firmware_command();
+      flash_firmware_command(mxt);
       break;
     case 't':
       /* Run the self-test */
-      self_test_handler();
+      self_test_menu(mxt);
       break;
     case 'b':
       /* Backup the config data */
-      if (mxt_backup_config() == 0)
+      if (mxt_backup_config(mxt) == 0)
       {
         printf("Settings successfully backed up to non-volatile memory\n");
       }
@@ -207,7 +208,7 @@ static bool mxt_app_command(char selection)
       break;
     case 'r':
       /* Reset the chip */
-      if (mxt_reset_chip(false) == 0)
+      if (mxt_reset_chip(mxt, false) == 0)
       {
         printf("Successfully forced a reset of the device\n");
       }
@@ -218,7 +219,7 @@ static bool mxt_app_command(char selection)
       break;
     case 'c':
       /* Calibrate the device*/
-      if (mxt_calibrate_chip() == 0)
+      if (mxt_calibrate_chip(mxt) == 0)
       {
         printf("Successfully performed a global recalibration on all channels\n");
       }
@@ -229,14 +230,14 @@ static bool mxt_app_command(char selection)
       break;
     case 'e':
       /* Read the events generated */
-      event_printer();
+      event_printer(mxt);
       break;
     case 'm':
       /* Display raw messages */
-      print_raw_messages();
+      print_raw_messages(mxt);
       break;
     case 'u':
-      mxt_dd_menu();
+      mxt_dd_menu(mxt);
       break;
     case 'q':
       printf("Quitting the maxtouch application\n");
@@ -252,7 +253,7 @@ static bool mxt_app_command(char selection)
 
 //******************************************************************************
 /// \brief Menu function for mxt-app
-int mxt_menu(void)
+int mxt_menu(struct mxt_device *mxt)
 {
   char menu_input;
   bool exit_loop = false;
@@ -283,7 +284,7 @@ int mxt_menu(void)
       /* force lower case */
       menu_input = tolower(menu_input);
 
-      exit_loop = mxt_app_command(menu_input);
+      exit_loop = mxt_app_command(mxt, menu_input);
     }
   }
 

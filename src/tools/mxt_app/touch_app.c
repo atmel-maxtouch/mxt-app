@@ -45,11 +45,11 @@
 
 //******************************************************************************
 /// \brief Print input events
-void event_printer()
+void event_printer(struct mxt_device *mxt)
 {
   FILE *fp;
   struct input_event event;
-  const char *filename = mxt_get_input_event_file();
+  const char *filename = mxt_get_input_event_file(mxt);
   size_t event_size = sizeof(struct input_event);
 
   if (filename == NULL)
@@ -169,12 +169,12 @@ void event_printer()
 
 //******************************************************************************
 /// \brief Print messages
-int print_raw_messages()
+int print_raw_messages(struct mxt_device *mxt)
 {
   int count, i;
 
   /* Get the number of new messages */
-  count = mxt_get_msg_count();
+  count = mxt_get_msg_count(mxt);
 
   /* Print any new messages */
   if (count == 0)
@@ -185,7 +185,7 @@ int print_raw_messages()
   {
     for (i = 0; i < count; i++)
     {
-      printf("%s\n", mxt_get_msg_string());
+      printf("%s\n", mxt_get_msg_string(mxt));
       fflush(stdout);
     }
   }
