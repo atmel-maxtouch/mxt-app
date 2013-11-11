@@ -170,7 +170,7 @@ int mxt_load_config_file(const char *cfg_file)
 
     if (fscanf(fp, "%s", object) != 1)
     {
-      printf("Parse error\n");
+      printf("Object parse error\n");
       return -1;
     }
 
@@ -183,10 +183,12 @@ int mxt_load_config_file(const char *cfg_file)
       LOG(LOG_INFO, "Skipping %s", object);
       continue;
     }
+
     ignore_line = false;
+
     if (fscanf(fp, "%s", tmp) != 1)
     {
-      printf("Parse error\n");
+      printf("Instance parse error\n");
       return -1;
     }
 
@@ -195,9 +197,10 @@ int mxt_load_config_file(const char *cfg_file)
       LOG(LOG_ERROR, "Parse error, expected INSTANCE");
       return(-1);
     }
+
     if (fscanf(fp, "%d", &instance) != 1)
     {
-      printf("Parse error\n");
+      printf("Instance number parse error\n");
       return -1;
     }
 
@@ -224,9 +227,10 @@ int mxt_load_config_file(const char *cfg_file)
 
     if (fscanf(fp, "%d", &object_address) != 1)
     {
-      printf("Parse error\n");
+      printf("Object address parse error\n");
       return -1;
     }
+
     c = getc(fp);
     while((c != '=') && (c != EOF))
     {
@@ -235,7 +239,7 @@ int mxt_load_config_file(const char *cfg_file)
 
     if (fscanf(fp, "%d", &object_size) != 1)
     {
-      LOG(LOG_ERROR, "Parse error");
+      LOG(LOG_ERROR, "Object size parse error");
       return -1;
     }
 
@@ -313,14 +317,14 @@ int mxt_load_config_file(const char *cfg_file)
       /* Read address (discarded as we don't really need it) */
       if (fscanf(fp, "%d", &i) != 1)
       {
-        printf("Parse error\n");
+        printf("Address parse error\n");
         return -1;
       }
 
       /* Read byte count of this register (max 2) */
       if (fscanf(fp, "%d", &i) != 1)
       {
-        printf("Parse error\n");
+        printf("Byte count parse error\n");
         return -1;
       }
 
@@ -328,9 +332,10 @@ int mxt_load_config_file(const char *cfg_file)
       {
         c = getc(fp);
       }
+
       if (fscanf(fp, "%d", &data) != 1)
       {
-        printf("Parse error\n");
+        printf("Data parse error\n");
         return -1;
       }
       c = getc(fp);
