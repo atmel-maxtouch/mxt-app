@@ -40,7 +40,6 @@ struct mxt_device;
 struct mxt_conn_info;
 
 #include "i2c_dev_device.h"
-#include "libmaxtouch/log.h"
 #include "libmaxtouch/libmaxtouch.h"
 
 #define I2C_SLAVE_FORCE 0x0706
@@ -53,9 +52,9 @@ struct mxt_conn_info;
 /// \return 0 = success, negative for error
 int i2c_dev_open(struct mxt_device *mxt)
 {
-  LOG
+  mxt_info
   (
-    LOG_INFO, "Registered i2c-dev adapter:%d address:0x%x",
+    mxt->ctx, "Registered i2c-dev adapter:%d address:0x%x",
     mxt->conn.i2c_dev.adapter, mxt->conn.i2c_dev.address
   );
 
@@ -79,13 +78,13 @@ static int open_and_set_slave_address(struct mxt_device *mxt)
   snprintf(filename, 19, "/dev/i2c-%d", mxt->conn.i2c_dev.adapter);
   fd = open(filename, O_RDWR);
   if (fd < 0) {
-    LOG(LOG_ERROR, "Could not open %s, error %s (%d)", filename, strerror(errno), errno);
+    mxt_err(mxt->ctx, "Could not open %s, error %s (%d)", filename, strerror(errno), errno);
     return fd;
   }
 
   ret = ioctl(fd, I2C_SLAVE_FORCE, mxt->conn.i2c_dev.address);
   if (ret < 0) {
-    LOG(LOG_ERROR, "Error setting slave address, error %s (%d)", strerror(errno), errno);
+    mxt_err(mxt->ctx, "Error setting slave address, error %s (%d)", strerror(errno), errno);
     close(fd);
     return ret;
   }
@@ -101,7 +100,7 @@ int i2c_dev_read_register(struct mxt_device *mxt, unsigned char *buf, int start_
   int ret;
   char register_buf[2];
 
-  LOG(LOG_DEBUG, "start_register:%d count:%d", start_register, count);
+  mxt_dbg(mxt->ctx, "start_register:%d count:%d", start_register, count);
 
   fd = open_and_set_slave_address(mxt);
 
@@ -112,17 +111,17 @@ int i2c_dev_read_register(struct mxt_device *mxt, unsigned char *buf, int start_
   register_buf[1] = (start_register >> 8) & 0xff;
 
   if (write(fd, &register_buf, 2) != 2) {
-    LOG(LOG_VERBOSE, "I2C retry");
+    mxt_verb(mxt->ctx, "I2C retry");
     usleep(I2C_RETRY_DELAY);
     if (write(fd, &register_buf, 2) != 2) {
-      LOG(LOG_ERROR, "Error %s (%d) writing to i2c", strerror(errno), errno);
+      mxt_err(mxt->ctx, "Error %s (%d) writing to i2c", strerror(errno), errno);
       ret = -1;
       goto close;
     }
   }
 
   if (read(fd, buf, count) != count) {
-    LOG(LOG_ERROR, "Error %s (%d) reading from i2c", strerror(errno), errno);
+    mxt_err(mxt->ctx, "Error %s (%d) reading from i2c", strerror(errno), errno);
     ret = -1;
   }
   else
@@ -157,10 +156,10 @@ int i2c_dev_write_register(struct mxt_device *mxt, unsigned char const *val, int
   memcpy(buf + 2, val, datalength);
 
   if (write(fd, buf, count) != count) {
-    LOG(LOG_VERBOSE, "I2C retry");
+    mxt_verb(mxt->ctx, "I2C retry");
     usleep(I2C_RETRY_DELAY);
     if (write(fd, buf, count) != count) {
-      LOG(LOG_ERROR, "Error %s (%d) writing to i2c", strerror(errno), errno);
+      mxt_err(mxt->ctx, "Error %s (%d) writing to i2c", strerror(errno), errno);
       ret = -1;
     }
     else
@@ -190,10 +189,10 @@ int i2c_dev_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int coun
   if (fd < 0)
     return fd;
 
-  LOG(LOG_DEBUG, "Reading %d bytes", count);
+  mxt_dbg(mxt->ctx, "Reading %d bytes", count);
 
   if (read(fd, buf, count) != count) {
-    LOG(LOG_ERROR, "Error %s (%d) reading from i2c", strerror(errno), errno);
+    mxt_err(mxt->ctx, "Error %s (%d) reading from i2c", strerror(errno), errno);
     ret = -1;
   }
   else
@@ -214,13 +213,13 @@ int i2c_dev_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, i
 
   fd = open_and_set_slave_address(mxt);
 
-  LOG(LOG_DEBUG, "Writing %d bytes", count);
+  mxt_dbg(mxt->ctx, "Writing %d bytes", count);
 
   if (fd < 0)
     return fd;
 
   if (write(fd, buf, count) != count) {
-    LOG(LOG_ERROR, "Error %s (%d) writing to i2c", strerror(errno), errno);
+    mxt_err(mxt->ctx, "Error %s (%d) writing to i2c", strerror(errno), errno);
     ret = -1;
   }
   else

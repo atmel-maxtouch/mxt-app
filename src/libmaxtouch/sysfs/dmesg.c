@@ -119,7 +119,7 @@ int sysfs_get_msg_count(struct mxt_device *mxt)
   op = klogctl(op, buffer, KLOG_BUF_LEN);
   // Return if no bytes read
   if (op < 0) {
-    LOG(LOG_INFO, "klogctl error %d (%s)", errno, strerror(errno));
+    mxt_info(mxt->ctx, "klogctl error %d (%s)", errno, strerror(errno));
     return -1;
   }
 

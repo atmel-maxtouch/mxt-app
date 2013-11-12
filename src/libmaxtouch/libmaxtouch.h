@@ -34,6 +34,7 @@ struct libmaxtouch_ctx;
 struct mxt_device;
 struct mxt_conn_info;
 
+#include "log.h"
 #include "sysfs/sysfs_device.h"
 #include "i2c_dev/i2c_dev_device.h"
 #ifdef HAVE_LIBUSB
@@ -72,6 +73,10 @@ enum mxt_device_type {
 struct libmaxtouch_ctx
 {
   bool query;
+  enum mxt_log_level log_level;
+
+  void (*log_fn)(struct libmaxtouch_ctx *ctx, enum mxt_log_level level,
+                 const char *format, va_list args);
 
   union
   {
@@ -121,6 +126,7 @@ int mxt_new(struct libmaxtouch_ctx **ctx);
 int mxt_free(struct libmaxtouch_ctx *ctx);
 int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn, bool query);
 int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info conn, struct mxt_device **mxt);
+void mxt_set_log_fn(struct libmaxtouch_ctx *ctx, void (*log_fn)(struct libmaxtouch_ctx *ctx, enum mxt_log_level level, const char *format, va_list args));
 void mxt_free_device(struct mxt_device *mxt);
 int mxt_get_info(struct mxt_device *mxt);
 const char *mxt_get_input_event_file(struct mxt_device *mxt);

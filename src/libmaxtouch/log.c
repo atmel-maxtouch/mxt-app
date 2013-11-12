@@ -29,18 +29,23 @@
 
 #include "stdio.h"
 #include "stdint.h"
+#include "malloc.h"
 
 #include "libmaxtouch.h"
 #include "libmaxtouch/utilfuncs.h"
-#include "libmaxtouch/log.h"
 
-/* Default log level */
-mxt_log_level log_level = LOG_INFO;
+#if ANDROID
+#include <android/log.h>
+
+#ifndef LOG_TAG
+#define LOG_TAG "libmaxtouch"
+#endif
+#endif
 
 //******************************************************************************
 /// \brief  Returns the input log level as a human-readable string.
 /// \return Log level string
-static const char get_log_level_string(mxt_log_level level)
+static const char get_log_level_string(enum mxt_log_level level)
 {
   switch (level)
   {
@@ -64,45 +69,99 @@ static const char get_log_level_string(mxt_log_level level)
   }
 }
 
+//******************************************************************************
+/// \brief  Get log verbosity level
+enum mxt_log_level mxt_get_log_level(struct libmaxtouch_ctx *ctx)
+{
+  return ctx->log_level;
+}
 
 //******************************************************************************
-/// \brief  Sets verbosity level
-void mxt_set_verbose(uint8_t verbose)
+/// \brief  Set log verbosity level
+void mxt_set_log_level(struct libmaxtouch_ctx *ctx, uint8_t verbose)
 {
   switch (verbose)
   {
     case 0:
-      log_level = LOG_SILENT;
+      ctx->log_level = LOG_SILENT;
       break;
     case 1:
-      log_level = LOG_ERROR;
+      ctx->log_level = LOG_ERROR;
       break;
     case 2:
-      log_level = LOG_INFO;
+      ctx->log_level = LOG_INFO;
       break;
     case 3:
-      log_level = LOG_DEBUG;
+      ctx->log_level = LOG_DEBUG;
       break;
     default:
-      log_level = LOG_VERBOSE;
+      ctx->log_level = LOG_VERBOSE;
       break;
   }
+}
+
+//*****************************************************************************
+/// \brief Output buffer to debug as hex
+void mxt_log_buffer(struct libmaxtouch_ctx *ctx, enum mxt_log_level level,
+                           const char *prefix,
+                           const unsigned char *data, size_t count)
+{
+#if ENABLE_DEBUG
+  unsigned int i;
+  char *hexbuf;
+  size_t strsize = count*3 + 1;
+
+  if (mxt_get_log_level(ctx) > level)
+    return;
+
+  hexbuf = (char *)calloc(strsize, sizeof(char));
+  if (hexbuf == NULL)
+  {
+    mxt_err(ctx, "%s: calloc failure", __func__);
+    return;
+  }
+
+  for (i = 0; i < count; i++)
+    sprintf(&hexbuf[3 * i], "%02X ", data[i]);
+
+  mxt_log(ctx, LOG_VERBOSE, "%s: %s", prefix, hexbuf);
+
+  free(hexbuf);
+#endif
 }
 
 //******************************************************************************
-/// \brief Output log message to stdout, with optional timestamp
-void mxt_log_message(mxt_log_level level, const char *fmt, ...)
+/// \brief Log function
+void mxt_log(struct libmaxtouch_ctx *ctx, enum mxt_log_level level, const char *format, ...)
 {
-  va_list args;
+        va_list args;
 
-  va_start(args, fmt);
+        va_start(args, format);
+        ctx->log_fn(ctx, level, format, args);
+        va_end(args);
+}
 
-  if (log_level < LOG_INFO)
+//******************************************************************************
+/// \brief Output log message to stderr, with optional timestamp
+void mxt_log_stderr(struct libmaxtouch_ctx *ctx, enum mxt_log_level level,
+                    const char *format, va_list va_args)
+{
+  if (mxt_get_log_level(ctx) < LOG_INFO)
   {
-    mxt_print_timestamp(stdout);
-    printf(" %c: ", get_log_level_string(level));
+    mxt_print_timestamp(stderr);
+    fprintf(stderr, " %c: ", get_log_level_string(level));
   }
 
-  vprintf(fmt, args);
+  vfprintf(stderr, format, va_args);
   printf("\n");
 }
+
+#if ANDROID
+//******************************************************************************
+/// \brief Log using the Android API
+void mxt_log_android(struct libmaxtouch_ctx *ctx, enum mxt_log_level level,
+                     const char *format, va_list args)
+{
+  __android_log_vprint(level, LOG_TAG, format, args);
+}
+#endif

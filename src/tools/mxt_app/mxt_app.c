@@ -75,32 +75,46 @@ static int mxt_init_chip(struct libmaxtouch_ctx *ctx, struct mxt_device **mxt,
 {
   int ret;
 
-  if (conn.type == E_NONE)
+  switch (conn.type)
   {
-    ret = mxt_scan(ctx, &conn, false);
-    if (ret == 0)
-    {
-      LOG(LOG_ERROR, "Unable to find a device");
+    case E_NONE:
+      ret = mxt_scan(ctx, &conn, false);
+      if (ret == 0)
+      {
+        mxt_err(ctx, "Unable to find a device");
+        return -1;
+      }
+      else if (ret < 0)
+      {
+        mxt_err(ctx, "Failed to find device");
+        return -1;
+      }
+      break;
+    case E_I2C_DEV:
+      mxt_info(ctx, "i2c-dev device: %d-%04x",
+               conn.i2c_dev.adapter, conn.i2c_dev.address);
+      break;
+
+#ifdef HAVE_LIBUSB
+    case E_USB:
+      mxt_info(ctx, "USB device:%03d-%03d", conn.usb.bus, conn.usb.device);
+      break;
+#endif
+
+    default:
+      mxt_err(ctx, "Unhandled connection parameters");
       return -1;
-    }
-    else if (ret < 0)
-    {
-      LOG(LOG_ERROR, "Failed to find device");
-      return -1;
-    }
-  } else {
-    LOG(LOG_DEBUG, "Connection parameters given");
   }
 
   if (mxt_new_device(ctx, conn, mxt) < 0)
   {
-    LOG(LOG_ERROR, "Failed to open device");
+    mxt_err(ctx, "Failed to open device");
     return -1;
   }
 
   if (mxt_get_info(*mxt) < 0)
   {
-    LOG(LOG_ERROR, "Failed to read information block");
+    mxt_err(ctx, "Failed to read information block");
     return -1;
   }
 
@@ -353,7 +367,7 @@ int main (int argc, char *argv[])
         }
         else if (!strcmp(long_options[option_index].name, "version"))
         {
-          LOG(LOG_INFO, "mxt-app %s", __GIT_VERSION);
+          printf("mxt-app %s", __GIT_VERSION);
           return 0;
         }
         else
@@ -370,25 +384,23 @@ int main (int argc, char *argv[])
             if (sscanf(optarg, "i2c-dev:%d-%x",
                   &conn.i2c_dev.adapter, &conn.i2c_dev.address) != 2)
             {
-              LOG(LOG_ERROR, "Invalid device string %s", optarg);
+              fprintf(stderr, "Invalid device string %s", optarg);
               return -1;
             }
 
             conn.type = E_I2C_DEV;
-            LOG(LOG_INFO, "i2c-dev device: %d-%04x",
-                conn.i2c_dev.adapter, conn.i2c_dev.address);
+
           }
 #ifdef HAVE_LIBUSB
           else if (!strncmp(optarg, "usb:", 4))
           {
             if (sscanf(optarg, "usb:%d-%d", &conn.usb.bus, &conn.usb.device) != 2)
             {
-              LOG(LOG_ERROR, "Invalid device string %s", optarg);
+              fprintf(stderr, "Invalid device string %s", optarg);
               return -1;
             }
 
             conn.type = E_USB;
-            LOG(LOG_INFO, "USB device:%03d-%03d", conn.usb.bus, conn.usb.device);
           }
 #endif
         }
@@ -500,8 +512,6 @@ int main (int argc, char *argv[])
       case 'v':
         if (optarg) {
           verbose = strtol(optarg, NULL, 0);
-          mxt_set_verbose(verbose);
-          LOG(LOG_VERBOSE, "verbose:%u", verbose);
         }
         break;
 
@@ -528,20 +538,24 @@ int main (int argc, char *argv[])
   ret = mxt_new(&ctx);
   if (ret < 0)
   {
-    LOG(LOG_ERROR, "Failed to init libmaxtouch");
+    mxt_err(ctx, "Failed to init libmaxtouch");
     return ret;
   }
 
+  /* Set debug level */
+  mxt_set_log_level(ctx, verbose);
+  mxt_verb(ctx, "verbose:%u", verbose);
+
   /* Debug does not work until mxt_set_verbose() is called */
-  LOG(LOG_DEBUG, "Version:%s", __GIT_VERSION);
+  mxt_dbg(ctx, "Version:%s", __GIT_VERSION);
 
   if (cmd == CMD_WRITE || cmd == CMD_READ)
   {
-    LOG(LOG_VERBOSE, "instance:%u", instance);
-    LOG(LOG_VERBOSE, "count:%u", count);
-    LOG(LOG_VERBOSE, "address:%u", address);
-    LOG(LOG_VERBOSE, "object_type:%u", object_type);
-    LOG(LOG_VERBOSE, "format:%s", format ? "true" : "false");
+    mxt_verb(ctx, "instance:%u", instance);
+    mxt_verb(ctx, "count:%u", count);
+    mxt_verb(ctx, "address:%u", address);
+    mxt_verb(ctx, "object_type:%u", object_type);
+    mxt_verb(ctx, "format:%s", format ? "true" : "false");
   }
 
   /* initialise chip, bootloader mode handles this itself */
@@ -561,7 +575,7 @@ int main (int argc, char *argv[])
 
   switch (cmd) {
     case CMD_WRITE:
-      LOG(LOG_VERBOSE, "Write command");
+      mxt_verb(ctx, "Write command");
 
       if (object_type > 0) {
         object_address = get_object_address(mxt, object_type, instance);
@@ -571,7 +585,7 @@ int main (int argc, char *argv[])
           break;
         }
 
-        LOG(LOG_VERBOSE, "T%u address:%u offset:%u", object_type,
+        mxt_verb(ctx, "T%u address:%u offset:%u", object_type,
             object_address, address);
         address = object_address + address;
 
@@ -600,117 +614,117 @@ int main (int argc, char *argv[])
       break;
 
     case CMD_READ:
-      LOG(LOG_VERBOSE, "Read command");
+      mxt_verb(ctx, "Read command");
       ret = read_object(mxt, object_type, instance, address, count, format);
       break;
 
     case CMD_INFO:
-      LOG(LOG_VERBOSE, "CMD_INFO");
+      mxt_verb(ctx, "CMD_INFO");
       print_info_block(mxt);
       break;
 
     case CMD_GOLDEN_REFERENCES:
-      LOG(LOG_VERBOSE, "CMD_GOLDEN_REFERENCES");
+      mxt_verb(ctx, "CMD_GOLDEN_REFERENCES");
       ret = mxt_store_golden_refs(mxt);
       break;
 
     case CMD_BRIDGE_SERVER:
-      LOG(LOG_VERBOSE, "CMD_BRIDGE_SERVER");
-      LOG(LOG_VERBOSE, "port:%u", port);
+      mxt_verb(ctx, "CMD_BRIDGE_SERVER");
+      mxt_verb(ctx, "port:%u", port);
       ret = mxt_socket_server(mxt, port);
       break;
 
     case CMD_BRIDGE_CLIENT:
-      LOG(LOG_VERBOSE, "CMD_BRIDGE_CLIENT");
+      mxt_verb(ctx, "CMD_BRIDGE_CLIENT");
       ret = mxt_socket_client(mxt, strbuf, port);
       break;
 
     case CMD_SERIAL_DATA:
-      LOG(LOG_VERBOSE, "CMD_SERIAL_DATA");
-      LOG(LOG_VERBOSE, "t68_datatype:%u", t68_datatype);
+      mxt_verb(ctx, "CMD_SERIAL_DATA");
+      mxt_verb(ctx, "t68_datatype:%u", t68_datatype);
       ret = mxt_serial_data_upload(mxt, strbuf, t68_datatype);
       break;
 
     case CMD_TEST:
-      LOG(LOG_VERBOSE, "CMD_TEST");
+      mxt_verb(ctx, "CMD_TEST");
       ret = run_self_tests(mxt, SELF_TEST_ALL);
       break;
 
     case CMD_FLASH:
-      LOG(LOG_VERBOSE, "CMD_FLASH");
+      mxt_verb(ctx, "CMD_FLASH");
       ret = mxt_flash_firmware(ctx, mxt, strbuf, strbuf2, conn);
       break;
 
     case CMD_RESET:
-      LOG(LOG_VERBOSE, "CMD_RESET");
+      mxt_verb(ctx, "CMD_RESET");
       ret = mxt_reset_chip(mxt, false);
       break;
 
     case CMD_RESET_BOOTLOADER:
-      LOG(LOG_VERBOSE, "CMD_RESET_BOOTLOADER");
+      mxt_verb(ctx, "CMD_RESET_BOOTLOADER");
       ret = mxt_reset_chip(mxt, true);
       break;
 
     case CMD_BACKUP:
-      LOG(LOG_VERBOSE, "CMD_BACKUP");
+      mxt_verb(ctx, "CMD_BACKUP");
       ret = mxt_backup_config(mxt);
       break;
 
     case CMD_CALIBRATE:
-      LOG(LOG_VERBOSE, "CMD_CALIBRATE");
+      mxt_verb(ctx, "CMD_CALIBRATE");
       ret = mxt_calibrate_chip(mxt);
       break;
 
     case CMD_DEBUG_DUMP:
-      LOG(LOG_VERBOSE, "CMD_DEBUG_DUMP");
-      LOG(LOG_VERBOSE, "mode:%u", t37_mode);
-      LOG(LOG_VERBOSE, "frames:%u", t37_frames);
+      mxt_verb(ctx, "CMD_DEBUG_DUMP");
+      mxt_verb(ctx, "mode:%u", t37_mode);
+      mxt_verb(ctx, "frames:%u", t37_frames);
       ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames);
       break;
 
     case CMD_LOAD_CFG:
-      LOG(LOG_VERBOSE, "CMD_LOAD_CFG");
-      LOG(LOG_VERBOSE, "filename:%s", strbuf);
+      mxt_verb(ctx, "CMD_LOAD_CFG");
+      mxt_verb(ctx, "filename:%s", strbuf);
       ret = mxt_load_config_file(mxt, strbuf);
       if (ret < 0)
       {
-        LOG(LOG_ERROR, "Error loading the configuration");
+        mxt_err(ctx, "Error loading the configuration");
       }
       else
       {
-        LOG(LOG_INFO, "Configuration loaded");
+        mxt_info(ctx, "Configuration loaded");
 
         ret = mxt_backup_config(mxt);
         if (ret < 0)
         {
-          LOG(LOG_ERROR, "Error backing up");
+          mxt_err(ctx, "Error backing up");
         }
         else
         {
-          LOG(LOG_INFO, "Configuration backed up");
+          mxt_info(ctx, "Configuration backed up");
 
           ret = mxt_reset_chip(mxt, false);
           if (ret < 0)
           {
-            LOG(LOG_ERROR, "Error resetting");
+            mxt_err(ctx, "Error resetting");
           }
           else
           {
-            LOG(LOG_INFO, "Chip reset");
+            mxt_info(ctx, "Chip reset");
           }
         }
       }
       break;
 
     case CMD_SAVE_CFG:
-      LOG(LOG_VERBOSE, "CMD_SAVE_CFG");
-      LOG(LOG_VERBOSE, "filename:%s", strbuf);
+      mxt_verb(ctx, "CMD_SAVE_CFG");
+      mxt_verb(ctx, "filename:%s", strbuf);
       ret = mxt_save_config_file(mxt, strbuf);
       break;
 
     case CMD_NONE:
     default:
-      LOG(LOG_VERBOSE, "cmd: %d", cmd);
+      mxt_verb(ctx, "cmd: %d", cmd);
       ret = mxt_menu(mxt);
       break;
   }

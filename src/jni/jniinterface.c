@@ -34,6 +34,7 @@
 #include "com_atmel_Maxtouch_MaxtouchJni.h"
 #include "jni.h"
 #include "libmaxtouch/libmaxtouch.h"
+#include <android/log.h>
 
 struct libmaxtouch_ctx *ctx;
 struct mxt_conn_info conn;
@@ -63,16 +64,23 @@ JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_Scan
   if (ret < 0)
     return JNI_FALSE;
 
-  ret = mxt_scan(ctx, &conn, false);
+  // Enable logging
+  mxt_set_log_fn(ctx, mxt_log_android);
+  mxt_set_log_level(ctx, 4);
 
+  mxt_info(ctx, "libmaxtouch %s", __GIT_VERSION);
+
+  ret = mxt_scan(ctx, &conn, false);
   if (ret != 1)
   {
     return JNI_FALSE;
   }
-  else
-  {
-    return JNI_TRUE;
-  }
+
+  ret = mxt_new_device(ctx, conn, &mxt);
+  if (ret < 0)
+    return JNI_FALSE;
+
+  return JNI_TRUE;
 }
 
 //******************************************************************************
@@ -82,10 +90,6 @@ JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetInfo
   (JNIEnv *env, jobject this)
 {
   int ret;
-
-  ret = mxt_new_device(ctx, conn, &mxt);
-  if (ret < 0)
-    return JNI_FALSE;
 
   ret = mxt_get_info(mxt);
 

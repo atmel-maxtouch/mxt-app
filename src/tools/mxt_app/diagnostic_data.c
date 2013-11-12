@@ -60,6 +60,7 @@
 /// \brief T37 Diagnostic Data context object
 struct t37_ctx {
   struct mxt_device *mxt;
+  struct libmaxtouch_ctx *lc;
 
   int x_size;
   int y_size;
@@ -120,7 +121,7 @@ static int mxt_debug_dump_page(struct t37_ctx *ctx)
 
   if (ctx->page == 0)
   {
-    LOG(LOG_VERBOSE, "Writing mode command");
+    mxt_verb(ctx->lc, "Writing mode command");
     mxt_write_register(ctx->mxt, &ctx->mode, ctx->diag_cmd_addr, 1);
   }
   else
@@ -137,7 +138,7 @@ static int mxt_debug_dump_page(struct t37_ctx *ctx)
     ret = mxt_read_register(ctx->mxt, &read_command, ctx->diag_cmd_addr, 1);
     if (ret < 0)
     {
-      LOG(LOG_ERROR, "Failed to read the status of diagnostic mode command");
+      mxt_err(ctx->lc, "Failed to read the status of diagnostic mode command");
       return -1;
     }
 
@@ -147,7 +148,7 @@ static int mxt_debug_dump_page(struct t37_ctx *ctx)
 
       if (failures > 500)
       {
-        LOG(LOG_ERROR, "Timeout waiting for command to be actioned");
+        mxt_err(ctx->lc, "Timeout waiting for command to be actioned");
         return -1;
       }
     }
@@ -156,20 +157,20 @@ static int mxt_debug_dump_page(struct t37_ctx *ctx)
   ret = mxt_read_register(ctx->mxt, &read_mode, ctx->t37_addr, 1);
   if (ret < 0)
   {
-    LOG(LOG_ERROR, "Failed to read current mode");
+    mxt_err(ctx->lc, "Failed to read current mode");
     return -1;
   }
 
   ret = mxt_read_register(ctx->mxt, &read_page, ctx->t37_addr + 1, 1);
   if (ret < 0)
   {
-    LOG(LOG_ERROR, "Failed to read page number");
+    mxt_err(ctx->lc, "Failed to read page number");
     return -1;
   }
 
   if ((read_mode != ctx->mode) || (read_page != ctx->page))
   {
-    LOG(LOG_ERROR, "Bad page/mode in diagnostic data read");
+    mxt_err(ctx->lc, "Bad page/mode in diagnostic data read");
     return -1;
   }
 
@@ -177,7 +178,7 @@ static int mxt_debug_dump_page(struct t37_ctx *ctx)
                           ctx->t37_addr + 2, ctx->page_size);
   if (ret < 0)
   {
-    LOG(LOG_ERROR, "Failed to read page");
+    mxt_err(ctx->lc, "Failed to read page");
     return -1;
   }
 
@@ -213,7 +214,7 @@ static int mxt_debug_insert_data(struct t37_ctx *ctx)
   {
     if (ctx->x_ptr > ctx->x_size)
     {
-      LOG(LOG_ERROR, "x pointer overrun");
+      mxt_err(ctx->lc, "x pointer overrun");
       return -1;
     }
 
@@ -276,7 +277,7 @@ static void mxt_hawkeye_generate_control_file(struct t37_ctx *ctx)
 
   fp = fopen("control.txt","w");
   if (!fp) {
-    LOG(LOG_WARN, "Failed to save control.txt!");
+    mxt_warn(ctx->lc, "Failed to save control.txt!");
     return;
   }
 
@@ -331,7 +332,7 @@ static uint16_t get_num_frames(void)
 
   if (scanf("%hu", &frames) == EOF)
   {
-    LOG(LOG_ERROR, "Could not handle the input, exiting");
+    fprintf(stderr, "Could not handle the input, exiting");
     return -1;
   }
 
@@ -351,9 +352,11 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   time_t t1;
   time_t t2;
 
+  ctx.lc = mxt->ctx;
+
   if (frames == 0)
   {
-     LOG(LOG_WARN, "Defaulting to 1");
+     mxt_warn(ctx.lc, "Defaulting to 1");
      frames = 1;
   }
 
@@ -365,13 +368,13 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   ret = get_objects_addr(&ctx);
   if (ret)
   {
-    LOG(LOG_ERROR, "Failed to get object information");
+    mxt_err(ctx.lc, "Failed to get object information");
     return -1;
   }
 
-  LOG(LOG_DEBUG, "t37_size: %d", ctx.t37_size);
+  mxt_dbg(ctx.lc, "t37_size: %d", ctx.t37_size);
   ctx.page_size = ctx.t37_size - 2;
-  LOG(LOG_DEBUG, "page_size: %d", ctx.page_size);
+  mxt_dbg(ctx.lc, "page_size: %d", ctx.page_size);
 
   if (mxt->info_block.id->family_id == 0xA0 && mxt->info_block.id->variant_id == 0x00)
   {
@@ -383,7 +386,7 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   else
   {
     num_debug_bytes = x_size * y_size * 2;
-    LOG(LOG_DEBUG, "num_debug_bytes: %d", num_debug_bytes);
+    mxt_dbg(ctx.lc, "num_debug_bytes: %d", num_debug_bytes);
 
     num_stripes = 1;
     pages_per_stripe = (num_debug_bytes + (ctx.page_size - 1)) / ctx.page_size;
@@ -394,22 +397,22 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   ctx.stripe_width = y_size / num_stripes;
   ctx.y_size = y_size;
 
-  LOG(LOG_DEBUG, "Number of stripes: %d", num_stripes);
-  LOG(LOG_DEBUG, "Pages per stripe: %d", pages_per_stripe);
-  LOG(LOG_DEBUG, "Stripe width: %d", ctx.stripe_width);
-  LOG(LOG_DEBUG, "X size: %d", ctx.x_size);
-  LOG(LOG_DEBUG, "Y size: %d", ctx.y_size);
+  mxt_dbg(ctx.lc, "Number of stripes: %d", num_stripes);
+  mxt_dbg(ctx.lc, "Pages per stripe: %d", pages_per_stripe);
+  mxt_dbg(ctx.lc, "Stripe width: %d", ctx.stripe_width);
+  mxt_dbg(ctx.lc, "X size: %d", ctx.x_size);
+  mxt_dbg(ctx.lc, "Y size: %d", ctx.y_size);
 
   /* allocate page/data buffers */
   ctx.page_buf = (uint8_t *)calloc(ctx.page_size, sizeof(uint8_t));
   if (!ctx.page_buf) {
-    LOG(LOG_ERROR, "calloc failure");
+    mxt_err(ctx.lc, "calloc failure");
     return -1;
   }
 
   ctx.data_buf = (uint16_t *)calloc(ctx.x_size * ctx.y_size, sizeof(uint16_t));
   if (!ctx.data_buf) {
-    LOG(LOG_ERROR, "calloc failure");
+    mxt_err(ctx.lc, "calloc failure");
     ret = -1;
     goto free_page_buf;
   }
@@ -417,14 +420,14 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   /* Open Hawkeye output file */
   ctx.hawkeye = fopen(csv_file,"w");
   if (!ctx.hawkeye) {
-    LOG(LOG_ERROR, "Failed to open file!");
+    mxt_err(ctx.lc, "Failed to open file!");
     ret = -1;
     goto free;
   }
 
   mxt_generate_hawkeye_header(&ctx);
 
-  LOG(LOG_INFO, "Reading %u frames", frames);
+  mxt_info(ctx.lc, "Reading %u frames", frames);
 
   t1 = time(NULL);
 
@@ -443,15 +446,12 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
       {
         ctx.page = pages_per_stripe * ctx.stripe + page;
 
-        LOG(LOG_DEBUG, "Frame %d Stripe %d Page %d",
+        mxt_dbg(ctx.lc, "Frame %d Stripe %d Page %d",
             ctx.frame, ctx.stripe, ctx.page);
 
         ret = mxt_debug_dump_page(&ctx);
         if (ret < 0)
-        {
-          LOG(LOG_ERROR, "Quitting...");
           goto free;
-        }
 
         mxt_debug_insert_data(&ctx);
       }
@@ -465,7 +465,7 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   mxt_hawkeye_generate_control_file(&ctx);
 
   t2 = time(NULL);
-  LOG(LOG_INFO, "%u frames in %d seconds", frames, (int)(t2-t1));
+  mxt_info(ctx.lc, "%u frames in %d seconds", frames, (int)(t2-t1));
 
   ret = 0;
 
@@ -527,7 +527,7 @@ void mxt_dd_menu(struct mxt_device *mxt)
 
     if (scanf("%1s", &menu_input) == EOF)
     {
-      LOG(LOG_ERROR, "Could not handle the input, exiting");
+      fprintf(stderr, "Could not handle the input, exiting");
       return;
     }
 
@@ -540,7 +540,7 @@ void mxt_dd_menu(struct mxt_device *mxt)
     printf("\nFile name: ");
     if (scanf("%255s", csv_file_in) == EOF)
     {
-      LOG(LOG_ERROR, "Could not handle the input, exiting");
+      fprintf(stderr, "Could not handle the input, exiting");
       return;
     }
 

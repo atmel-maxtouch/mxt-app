@@ -52,7 +52,7 @@
 
 //******************************************************************************
 /// \brief Read command on a single line
-static int readline(int fd, struct mxt_buffer *linebuf)
+static int readline(struct mxt_device *mxt, int fd, struct mxt_buffer *linebuf)
 {
   int ret;
   int n;
@@ -82,7 +82,7 @@ static int readline(int fd, struct mxt_buffer *linebuf)
     }
     else
     {
-      LOG(LOG_DEBUG, "read returned %d (%s)", errno, strerror(errno));
+      mxt_dbg(mxt->ctx, "read returned %d (%s)", errno, strerror(errno));
       return -1;
     }
   }
@@ -111,21 +111,21 @@ static int handle_messages(struct mxt_device *mxt, int sockfd)
     {
       msg = mxt_get_msg_string(mxt);
       if (msg == NULL) {
-        LOG(LOG_WARN, "failed to retrieve message");
+        mxt_warn(mxt->ctx, "failed to retrieve message");
         return 0;
       }
 
       ret = write(sockfd, msg, strlen(msg));
       if (ret < 0)
       {
-        LOG(LOG_ERROR, "write returned %d (%s)", errno, strerror(errno));
+        mxt_err(mxt->ctx, "write returned %d (%s)", errno, strerror(errno));
         return ret;
       }
 
       ret = write(sockfd, "\n", 1);
       if (ret < 0)
       {
-        LOG(LOG_ERROR, "write returned %d (%s)", errno, strerror(errno));
+        mxt_err(mxt->ctx, "write returned %d (%s)", errno, strerror(errno));
         return ret;
       }
 
@@ -149,7 +149,7 @@ static int bridge_rea_cmd(struct mxt_device *mxt, int sockfd,
   databuf = calloc(count, sizeof(uint8_t));
   if (!databuf)
   {
-    LOG(LOG_ERROR, "Failed to allocate memory");
+    mxt_err(mxt->ctx, "Failed to allocate memory");
     return -1;
   }
 
@@ -158,29 +158,29 @@ static int bridge_rea_cmd(struct mxt_device *mxt, int sockfd,
   response = calloc(response_len, sizeof(uint8_t));
   if (!response)
   {
-    LOG(LOG_ERROR, "Failed to allocate memory");
+    mxt_err(mxt->ctx, "Failed to allocate memory");
     ret = -1;
     goto free_databuf;
   }
 
   strcpy(response, PREFIX);
-  LOG(LOG_INFO, "reading %d %d", address, count);
+  mxt_info(mxt->ctx, "reading %d %d", address, count);
   ret = mxt_read_register(mxt, databuf, address, count);
   if (ret < 0) {
-    LOG(LOG_WARN, "RRP ERR");
+    mxt_warn(mxt->ctx, "RRP ERR");
     strcpy(response + strlen(PREFIX), "ERR\n");
     response_len = strlen(response);
   } else {
     for (i = 0; i < count; i++) {
       sprintf(response + strlen(PREFIX) + i*2, "%02X", databuf[i]);
     }
-    LOG(LOG_INFO, "%s", response);
+    mxt_info(mxt->ctx, "%s", response);
     response[response_len - 1] = '\n';
   }
 
   ret = write(sockfd, response, response_len);
   if (ret < 0) {
-    LOG(LOG_ERROR, "Socket write error %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "Socket write error %d (%s)", errno, strerror(errno));
     goto free;
   }
 
@@ -206,7 +206,7 @@ static int bridge_wri_cmd(struct mxt_device *mxt, int sockfd, uint16_t address,
   databuf = calloc(bytes, sizeof(uint8_t));
   if (!databuf)
   {
-    LOG(LOG_ERROR, "Failed to allocate memory");
+    mxt_err(mxt->ctx, "Failed to allocate memory");
     return -1;
   }
 
@@ -216,7 +216,7 @@ static int bridge_wri_cmd(struct mxt_device *mxt, int sockfd, uint16_t address,
   } else {
     ret = mxt_write_register(mxt, databuf, address, count);
     if (ret < 0) {
-      LOG(LOG_VERBOSE, "WRI OK");
+      mxt_verb(mxt->ctx, "WRI OK");
       response = FAIL;
     } else {
       response = PASS;
@@ -225,7 +225,7 @@ static int bridge_wri_cmd(struct mxt_device *mxt, int sockfd, uint16_t address,
 
   ret = write(sockfd, response, strlen(response));
   if (ret < 0) {
-    LOG(LOG_ERROR, "Socket write error %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "Socket write error %d (%s)", errno, strerror(errno));
   }
 
   free(databuf);
@@ -247,9 +247,9 @@ static int handle_cmd(struct mxt_device *mxt, int sockfd)
   if (ret)
     return ret;
 
-  ret = readline(sockfd, &linebuf);
+  ret = readline(mxt, sockfd, &linebuf);
   if (ret <= 0) {
-    LOG(LOG_DEBUG, "error reading or peer closed socket");
+    mxt_dbg(mxt->ctx, "error reading or peer closed socket");
     ret = -1;
     goto free;
   }
@@ -260,13 +260,13 @@ static int handle_cmd(struct mxt_device *mxt, int sockfd)
     goto free;
   }
 
-  LOG(LOG_VERBOSE, "%s", line);
+  mxt_verb(mxt->ctx, "%s", line);
 
   if (!strcmp(line, "SAT")) {
-    LOG(LOG_INFO, "Server attached");
+    mxt_info(mxt->ctx, "Server attached");
     ret = 0;
   } else if (!strcmp(line, "SDT")) {
-    LOG(LOG_INFO, "Server detached");
+    mxt_info(mxt->ctx, "Server detached");
     ret = 0;
   } else if (sscanf(line, "REA %" SCNu16 " %" SCNu16, &address, &count) == 2) {
     ret = bridge_rea_cmd(mxt, sockfd, address, count);
@@ -278,7 +278,7 @@ static int handle_cmd(struct mxt_device *mxt, int sockfd)
                          line + offset,
                          strlen(line) - offset);
   } else {
-    LOG(LOG_INFO, "Unrecognised cmd");
+    mxt_info(mxt->ctx, "Unrecognised cmd");
     ret = 0;
   }
 
@@ -298,11 +298,11 @@ static int bridge(struct mxt_device *mxt, int sockfd)
   int numfds = 1;
   int timeout;
 
-  LOG(LOG_INFO, "Connected");
+  mxt_info(mxt->ctx, "Connected");
 
   ret = mxt_msg_reset(mxt);
   if (ret)
-    LOG(LOG_ERROR, "Failure to reset msgs");
+    mxt_err(mxt->ctx, "Failure to reset msgs");
 
   fds[0].fd = sockfd;
   fds[0].events = POLLIN | POLLERR;
@@ -322,11 +322,11 @@ static int bridge(struct mxt_device *mxt, int sockfd)
 
     ret = poll(fds, numfds, timeout);
     if (ret == -1 && errno == EINTR) {
-      LOG(LOG_DEBUG, "interrupted");
+      mxt_dbg(mxt->ctx, "interrupted");
       continue;
     } else if (ret == -1) {
       ret = -errno;
-      LOG(LOG_ERROR, "poll returned %d (%s)", errno, strerror(errno));
+      mxt_err(mxt->ctx, "poll returned %d (%s)", errno, strerror(errno));
       goto disconnect;
     }
 
@@ -351,7 +351,7 @@ static int bridge(struct mxt_device *mxt, int sockfd)
   }
 
 disconnect:
-  LOG(LOG_INFO, "Disconnected");
+  mxt_info(mxt->ctx, "Disconnected");
   return ret;
 }
 
@@ -366,13 +366,13 @@ int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port)
 
   server = gethostbyname(ip_address);
   if (server == NULL) {
-    LOG(LOG_ERROR, "Error, no such host");
+    mxt_err(mxt->ctx, "Error, no such host");
     return -1;
   }
 
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd < 0) {
-    LOG(LOG_ERROR, "socket returned %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "socket returned %d (%s)", errno, strerror(errno));
     return -errno;
   }
 
@@ -385,11 +385,11 @@ int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port)
   serv_addr.sin_port = htons(port);
 
   /* Connect */
-  LOG(LOG_INFO, "Connecting to %s:%u", ip_address, port);
+  mxt_info(mxt->ctx, "Connecting to %s:%u", ip_address, port);
   ret = connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr));
   if (ret < 0)
   {
-    LOG(LOG_DEBUG, "connect returned %d (%s)", errno, strerror(errno));
+    mxt_dbg(mxt->ctx, "connect returned %d (%s)", errno, strerror(errno));
     return -errno;
   }
 
@@ -414,7 +414,7 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
   serversock = socket(AF_INET, SOCK_STREAM, 0);
   if (serversock < 0)
   {
-    LOG(LOG_ERROR, "socket returned %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "socket returned %d (%s)", errno, strerror(errno));
     return -errno;
   }
 
@@ -428,7 +428,7 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
   ret = bind(serversock, (struct sockaddr *) &server_addr, sizeof(server_addr));
   if (ret < 0)
   {
-    LOG(LOG_ERROR, "bind returned %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "bind returned %d (%s)", errno, strerror(errno));
     close(serversock);
     return -errno;
   }
@@ -436,7 +436,7 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
   ret = setsockopt(serversock, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
   if (ret < 0)
   {
-    LOG(LOG_ERROR, "setsockopt returned %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "setsockopt returned %d (%s)", errno, strerror(errno));
     close(serversock);
     return -errno;
   }
@@ -445,7 +445,7 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
   ret = listen(serversock, 1);
   if (ret < 0)
   {
-    LOG(LOG_DEBUG, "listen returned %d (%s)", errno, strerror(errno));
+    mxt_dbg(mxt->ctx, "listen returned %d (%s)", errno, strerror(errno));
     close(serversock);
     return -errno;
   }
@@ -455,7 +455,7 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
   clientsock = accept(serversock, (struct sockaddr *) &client_addr, &sin_size);
   if (clientsock < 0)
   {
-    LOG(LOG_DEBUG, "accept returned %d (%s)", errno, strerror(errno));
+    mxt_dbg(mxt->ctx, "accept returned %d (%s)", errno, strerror(errno));
     close(serversock);
     return -errno;
   }

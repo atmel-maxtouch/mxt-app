@@ -64,11 +64,11 @@
 
 //******************************************************************************
 /// \brief Bootloader context object
-struct bootloader_ctx
+struct flash_context
 {
   struct mxt_device *mxt;
   struct mxt_conn_info conn;
-  struct libmaxtouch_ctx *libmaxtouch_ctx;
+  struct libmaxtouch_ctx *ctx;
   bool have_bootloader_version;
   bool extended_id_mode;
   FILE *fp;
@@ -79,24 +79,24 @@ struct bootloader_ctx
   bool usb_bootloader;
 };
 
-static int wait_for_chg(struct bootloader_ctx *ctx)
+static int wait_for_chg(struct flash_context *fw)
 {
 #ifdef HAVE_LIBUSB
   int try = 0;
-  if (ctx->mxt->conn.type == E_USB)
+  if (fw->mxt->conn.type == E_USB)
   {
-    while (usb_read_chg(ctx->mxt))
+    while (usb_read_chg(fw->mxt))
     {
       if (++try > 100)
       {
-        LOG(LOG_WARN, "Timed out awaiting CHG");
+        mxt_warn(fw->ctx, "Timed out awaiting CHG");
         return -1;
       }
 
       usleep(1000);
     }
 
-    LOG(LOG_VERBOSE, "CHG line cycles %d", try);
+    mxt_verb(fw->ctx, "CHG line cycles %d", try);
   }
   else
 #endif
@@ -107,17 +107,17 @@ static int wait_for_chg(struct bootloader_ctx *ctx)
   return 0;
 }
 
-static int unlock_bootloader(struct bootloader_ctx *ctx)
+static int unlock_bootloader(struct flash_context *fw)
 {
   unsigned char buf[2];
 
   buf[0] = MXT_UNLOCK_CMD_LSB;
   buf[1] = MXT_UNLOCK_CMD_MSB;
 
-  return mxt_bootloader_write(ctx->mxt, buf, sizeof(buf));
+  return mxt_bootloader_write(fw->mxt, buf, sizeof(buf));
 }
 
-static int mxt_check_bootloader(struct bootloader_ctx *ctx, unsigned int state)
+static int mxt_check_bootloader(struct flash_context *fw, unsigned int state)
 {
     unsigned char buf[3];
     unsigned char val;
@@ -126,13 +126,13 @@ static int mxt_check_bootloader(struct bootloader_ctx *ctx, unsigned int state)
 
 recheck:
     if (state != MXT_WAITING_BOOTLOAD_CMD)
-      wait_for_chg(ctx);
+      wait_for_chg(fw);
 
-    if ((!ctx->have_bootloader_version) && ctx->extended_id_mode
+    if ((!fw->have_bootloader_version) && fw->extended_id_mode
         && (state == MXT_WAITING_FRAME_DATA))
     {
-       LOG(LOG_INFO, "Attempting to retrieve bootloader version");
-       if (mxt_bootloader_read(ctx->mxt, &buf[0], 3) != 0) {
+       mxt_info(fw->ctx, "Attempting to retrieve bootloader version");
+       if (mxt_bootloader_read(fw->mxt, &buf[0], 3) != 0) {
            return -1;
        }
 
@@ -140,19 +140,19 @@ recheck:
        bootloader_id = buf[1];
        bootloader_version = buf[2];
 
-       LOG(LOG_INFO, "Bootloader ID:%d Version:%d",
+       mxt_info(fw->ctx, "Bootloader ID:%d Version:%d",
          bootloader_id, bootloader_version);
 
-       ctx->have_bootloader_version = true;
+       fw->have_bootloader_version = true;
     }
     else
     {
-      if (mxt_bootloader_read(ctx->mxt, &val, 1) != 0) {
+      if (mxt_bootloader_read(fw->mxt, &val, 1) != 0) {
         return -1;
       }
     }
 
-    LOG(LOG_VERBOSE, "Bootloader status %02X", val);
+    mxt_verb(fw->ctx, "Bootloader status %02X", val);
 
     switch (state) {
     case MXT_WAITING_BOOTLOAD_CMD:
@@ -160,17 +160,17 @@ recheck:
         val &= ~MXT_BOOT_STATUS_MASK;
 
         if (val == MXT_APP_CRC_FAIL) {
-            LOG(LOG_INFO, "Bootloader reports APP CRC failure");
+            mxt_info(fw->ctx, "Bootloader reports APP CRC failure");
             goto recheck;
         } else if (val == MXT_WAITING_FRAME_DATA) {
-            LOG(LOG_INFO, "Bootloader already unlocked");
+            mxt_info(fw->ctx, "Bootloader already unlocked");
             return -3;
         }
 
         break;
     case MXT_WAITING_FRAME_DATA:
         if (val == MXT_FRAME_CRC_PASS) {
-          LOG(LOG_INFO, "Bootloader still giving CRC PASS");
+          mxt_info(fw->ctx, "Bootloader still giving CRC PASS");
           goto recheck;
         }
         val &= ~MXT_BOOT_STATUS_MASK;
@@ -179,7 +179,7 @@ recheck:
         if (val == MXT_FRAME_CRC_CHECK) {
             goto recheck;
         } else if (val == MXT_FRAME_CRC_FAIL) {
-            LOG(LOG_ERROR, "Bootloader reports FRAME_CRC_FAIL");
+            mxt_info(fw->ctx, "Bootloader reports FRAME_CRC_FAIL");
             return -4;
         }
         break;
@@ -188,39 +188,39 @@ recheck:
     }
 
     if (val != state) {
-        LOG(LOG_ERROR, "Invalid bootloader mode state %X", val);
+        mxt_info(fw->ctx, "Invalid bootloader mode state %X", val);
         return -2;
     }
 
-    if (!ctx->have_bootloader_version
+    if (!fw->have_bootloader_version
         && state == MXT_WAITING_BOOTLOAD_CMD)
     {
       if (bootloader_id | 0x20)
       {
-        LOG(LOG_INFO, "Bootloader using extended ID mode");
-        ctx->extended_id_mode = true;
+        mxt_info(fw->ctx, "Bootloader using extended ID mode");
+        fw->extended_id_mode = true;
       }
       else
       {
         bootloader_id &= 0x1f;
-        LOG(LOG_INFO, "Bootloader ID:%d", bootloader_id);
-        ctx->have_bootloader_version = true;
+        mxt_info(fw->ctx, "Bootloader ID:%d", bootloader_id);
+        fw->have_bootloader_version = true;
       }
     }
 
     return 0;
 }
 
-static int get_hex_value(struct bootloader_ctx *ctx, unsigned char *ptr)
+static int get_hex_value(struct flash_context *fw, unsigned char *ptr)
 {
   char str[] = "00\0";
   int val;
   int ret;
 
-  str[0] = fgetc(ctx->fp);
-  str[1] = fgetc(ctx->fp);
+  str[0] = fgetc(fw->fp);
+  str[1] = fgetc(fw->fp);
 
-  if (feof(ctx->fp)) return EOF;
+  if (feof(fw->fp)) return EOF;
 
   ret = sscanf(str, "%x", &val);
 
@@ -229,7 +229,7 @@ static int get_hex_value(struct bootloader_ctx *ctx, unsigned char *ptr)
   return ret;
 }
 
-static int send_frames(struct bootloader_ctx *ctx)
+static int send_frames(struct flash_context *fw)
 {
   unsigned char buffer[FIRMWARE_BUFFER_SIZE];
   int ret;
@@ -239,118 +239,118 @@ static int send_frames(struct bootloader_ctx *ctx)
   int frame_retry = 0;
   int bytes_sent = 0;
 
-  ctx->have_bootloader_version = false;
-  ctx->extended_id_mode = false;
+  fw->have_bootloader_version = false;
+  fw->extended_id_mode = false;
 
-  ret = mxt_check_bootloader(ctx, MXT_WAITING_BOOTLOAD_CMD);
+  ret = mxt_check_bootloader(fw, MXT_WAITING_BOOTLOAD_CMD);
   if (ret == 0)
   {
-    LOG(LOG_INFO, "Unlocking bootloader");
+    mxt_info(fw->ctx, "Unlocking bootloader");
 
-    if (unlock_bootloader(ctx) < 0) {
-      LOG(LOG_ERROR, "Failure to unlock bootloader");
+    if (unlock_bootloader(fw) < 0) {
+      mxt_err(fw->ctx, "Failure to unlock bootloader");
       return -1;
     }
 
-    LOG(LOG_INFO, "Bootloader unlocked");
+    mxt_info(fw->ctx, "Bootloader unlocked");
   }
   else if (ret == -3)
   {
-    LOG(LOG_INFO, "Bootloader found");
+    mxt_info(fw->ctx, "Bootloader found");
   }
   else
   {
-    LOG(LOG_ERROR, "Bootloader not found");
+    mxt_err(fw->ctx, "Bootloader not found");
     return -1;
   }
 
-  LOG(LOG_INFO, "Sending frames...");
+  mxt_info(fw->ctx, "Sending frames...");
 
   frame = 1;
 
-  while (!feof(ctx->fp)) {
+  while (!feof(fw->fp)) {
     if (frame_retry == 0) {
-        if (get_hex_value(ctx, &buffer[0]) == EOF) {
-            LOG(LOG_INFO, "End of file");
+        if (get_hex_value(fw, &buffer[0]) == EOF) {
+            mxt_info(fw->ctx, "End of file");
             break;
         }
 
-        if (get_hex_value(ctx, &buffer[1]) == EOF) {
-            LOG(LOG_ERROR, "Unexpected end of firmware file");
+        if (get_hex_value(fw, &buffer[1]) == EOF) {
+            mxt_err(fw->ctx, "Unexpected end of firmware file");
             return -1;
         }
 
         frame_size = (buffer[0] << 8) | buffer[1];
 
-        LOG(LOG_DEBUG, "Frame %d: size %d", frame, frame_size);
+        mxt_dbg(fw->ctx, "Frame %d: size %d", frame, frame_size);
 
         /* Allow for CRC bytes at end of frame */
         frame_size += 2;
 
         if (frame_size > FIRMWARE_BUFFER_SIZE) {
-                LOG(LOG_ERROR, "Frame too big");
+                mxt_err(fw->ctx, "Frame too big");
                 return -1;
             }
 
         for (i = 2; i < frame_size; i++)
         {
-            ret = get_hex_value(ctx, &buffer[i]);
+            ret = get_hex_value(fw, &buffer[i]);
 
             if (ret == EOF)
             {
-                LOG(LOG_ERROR, "Unexpected end of firmware file");
+                mxt_err(fw->ctx, "Unexpected end of firmware file");
                 return -1;
             }
         }
     }
 
-    if (mxt_check_bootloader(ctx, MXT_WAITING_FRAME_DATA) < 0) {
-        LOG(LOG_ERROR, "Unexpected bootloader state");
+    if (mxt_check_bootloader(fw, MXT_WAITING_FRAME_DATA) < 0) {
+        mxt_err(fw->ctx, "Unexpected bootloader state");
         return -1;
     }
 
     /* Write one frame to device */
-    mxt_bootloader_write(ctx->mxt, buffer, frame_size);
+    mxt_bootloader_write(fw->mxt, buffer, frame_size);
 
     // Check CRC
-    LOG(LOG_VERBOSE, "Checking CRC");
-    ret = mxt_check_bootloader(ctx, MXT_FRAME_CRC_PASS);
+    mxt_verb(fw->ctx, "Checking CRC");
+    ret = mxt_check_bootloader(fw, MXT_FRAME_CRC_PASS);
     if (ret) {
         if (frame_retry > 0) {
-          LOG(LOG_ERROR, "Failure sending frame %d - aborting", frame);
+          mxt_err(fw->ctx, "Failure sending frame %d - aborting", frame);
           return -1;
         } else {
           frame_retry++;
-          LOG(LOG_ERROR, "Frame %d: CRC fail, retry %d", frame, frame_retry);
+          mxt_err(fw->ctx, "Frame %d: CRC fail, retry %d", frame, frame_retry);
         }
     } else {
-        LOG(LOG_DEBUG, "CRC pass");
+        mxt_dbg(fw->ctx, "CRC pass");
         frame++;
         bytes_sent += frame_size;
         if (frame % 20 == 0) {
-          LOG(LOG_INFO, "Frame %d: Sent %d bytes", frame, bytes_sent);
+          mxt_info(fw->ctx, "Frame %d: Sent %d bytes", frame, bytes_sent);
         } else {
-          LOG(LOG_VERBOSE, "Frame %d: Sent %d bytes", frame, bytes_sent);
+          mxt_verb(fw->ctx, "Frame %d: Sent %d bytes", frame, bytes_sent);
         }
     }
   }
 
-  fclose(ctx->fp);
+  fclose(fw->fp);
 
-  LOG(LOG_INFO, "Done");
+  mxt_info(fw->ctx, "Done");
 
   sleep(MXT_RESET_TIME);
 
   return 0;
 }
 
-static int lookup_bootloader_addr(struct bootloader_ctx *ctx, int addr)
+static int lookup_bootloader_addr(struct flash_context *fw, int addr)
 {
   switch (addr)
   {
     case 0x4a:
     case 0x4b:
-      if (ctx->mxt->info_block.id->family_id >= 0xa2)
+      if (fw->mxt->info_block.id->family_id >= 0xa2)
       {
         return (addr - 0x24);
       }
@@ -366,36 +366,36 @@ static int lookup_bootloader_addr(struct bootloader_ctx *ctx, int addr)
   }
 }
 
-static int mxt_bootloader_init_chip(struct bootloader_ctx *ctx)
+static int mxt_bootloader_init_chip(struct flash_context *fw)
 {
   int ret;
 
-  if (ctx->conn.type == E_I2C_DEV)
+  if (fw->conn.type == E_I2C_DEV)
   {
-    if (lookup_bootloader_addr(ctx, ctx->conn.i2c_dev.address) == -1)
+    if (lookup_bootloader_addr(fw, fw->conn.i2c_dev.address) == -1)
     {
-      LOG(LOG_INFO, "Trying bootloader");
-      ctx->appmode_address = -1;
+      mxt_info(fw->ctx, "Trying bootloader");
+      fw->appmode_address = -1;
       return 0;
     }
   }
-  else if (ctx->conn.type == E_NONE)
+  else if (fw->conn.type == E_NONE)
   {
-    ret = mxt_scan(ctx->libmaxtouch_ctx, false, &ctx->conn);
+    ret = mxt_scan(fw->ctx, false, &fw->conn);
     if (ret < 1)
     {
-      LOG(LOG_INFO, "Could not find a device");
+      mxt_info(fw->ctx, "Could not find a device");
       return -1;
     }
 
-    switch (ctx->conn.type)
+    switch (fw->conn.type)
     {
     case E_SYSFS:
     case E_SYSFS_DEBUG_NG:
-      LOG(LOG_INFO, "Switching to i2c-dev mode");
-      ctx->conn.type = E_I2C_DEV;
-      ctx->conn.i2c_dev.adapter = sysfs_get_i2c_adapter(ctx->mxt);
-      ctx->conn.i2c_dev.address = sysfs_get_i2c_address(ctx->mxt);
+      mxt_info(fw->ctx, "Switching to i2c-dev mode");
+      fw->conn.type = E_I2C_DEV;
+      fw->conn.i2c_dev.adapter = sysfs_get_i2c_adapter(fw->mxt);
+      fw->conn.i2c_dev.address = sysfs_get_i2c_address(fw->mxt);
       break;
 
 #ifdef HAVE_LIBUSB
@@ -404,60 +404,60 @@ static int mxt_bootloader_init_chip(struct bootloader_ctx *ctx)
 #endif
 
     default:
-      LOG(LOG_ERROR, "Unsupported device type");
+      mxt_err(fw->ctx, "Unsupported device type");
       return -1;
     }
   }
 
-  ret = mxt_new_device(ctx->libmaxtouch_ctx, ctx->conn, &ctx->mxt);
+  ret = mxt_new_device(fw->ctx, fw->conn, &fw->mxt);
   if (ret)
   {
-    LOG(LOG_ERROR, "Could not open device");
+    mxt_err(fw->ctx, "Could not open device");
     return ret;
   }
 
-  ret = mxt_get_info(ctx->mxt);
+  ret = mxt_get_info(fw->mxt);
   if (ret)
   {
-    LOG(LOG_ERROR, "Could not get info block");
+    mxt_err(fw->ctx, "Could not get info block");
     return ret;
   }
 
-  LOG(LOG_INFO, "Chip detected");
+  mxt_info(fw->ctx, "Chip detected");
 
 #ifdef HAVE_LIBUSB
-  if (ctx->conn.type == E_USB && usb_is_bootloader(ctx->mxt))
+  if (fw->conn.type == E_USB && usb_is_bootloader(fw->mxt))
   {
-    LOG(LOG_INFO, "USB device in bootloader mode");
-    ctx->usb_bootloader = true;
-    mxt_free_device(ctx->mxt);
+    mxt_info(fw->ctx, "USB device in bootloader mode");
+    fw->usb_bootloader = true;
+    mxt_free_device(fw->mxt);
     return 0;
   }
   else
   {
-    ctx->usb_bootloader = false;
+    fw->usb_bootloader = false;
   }
 #endif
 
-  mxt_get_firmware_version(ctx->mxt, (char *)&ctx->curr_version);
-  LOG(LOG_INFO, "Current firmware version: %s", ctx->curr_version);
+  mxt_get_firmware_version(fw->mxt, (char *)&fw->curr_version);
+  mxt_info(fw->ctx, "Current firmware version: %s", fw->curr_version);
 
-  if (ctx->check_version && !strcmp((char *)&ctx->curr_version, ctx->new_version))
+  if (fw->check_version && !strcmp((char *)&fw->curr_version, fw->new_version))
   {
-    LOG(LOG_INFO, "Version already %s, exiting",
-        ctx->curr_version);
+    mxt_info(fw->ctx, "Version already %s, exiting",
+        fw->curr_version);
     return -1;
   }
   else
   {
-    LOG(LOG_INFO, "Skipping version check");
+    mxt_info(fw->ctx, "Skipping version check");
   }
 
   /* Change to the bootloader mode */
-  ret = mxt_reset_chip(ctx->mxt, true);
+  ret = mxt_reset_chip(fw->mxt, true);
   if (ret < 0)
   {
-    LOG(LOG_ERROR, "Reset failure - aborting");
+    mxt_err(fw->ctx, "Reset failure - aborting");
     return -1;
   }
   else
@@ -465,138 +465,138 @@ static int mxt_bootloader_init_chip(struct bootloader_ctx *ctx)
     sleep(MXT_RESET_TIME);
   }
 
-  if (ctx->mxt->conn.type == E_I2C_DEV)
+  if (fw->mxt->conn.type == E_I2C_DEV)
   {
-    ctx->appmode_address = ctx->conn.i2c_dev.address;
-    ctx->conn.i2c_dev.address = lookup_bootloader_addr(ctx, ctx->appmode_address);
+    fw->appmode_address = fw->conn.i2c_dev.address;
+    fw->conn.i2c_dev.address = lookup_bootloader_addr(fw, fw->appmode_address);
   }
 
-  mxt_free_device(ctx->mxt);
+  mxt_free_device(fw->mxt);
 
   return 0;
 }
 
 //******************************************************************************
 /// \brief  Flash firmware to chip
-int mxt_flash_firmware(struct libmaxtouch_ctx *libmaxtouch_ctx,
+int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
                        struct mxt_device *maxtouch,
                        const char *filename, const char *new_version,
                        struct mxt_conn_info conn)
 {
-  struct bootloader_ctx ctx;
+  struct flash_context fw;
   int ret;
 
-  ctx.libmaxtouch_ctx = libmaxtouch_ctx;
-  ctx.mxt = maxtouch;
-  ctx.conn = conn;
+  fw.ctx = ctx;
+  fw.mxt = maxtouch;
+  fw.conn = conn;
 
-  LOG(LOG_INFO, "Opening firmware file %s", filename);
+  mxt_info(fw.ctx, "Opening firmware file %s", filename);
 
-  ctx.fp = fopen(filename, "r");
-  if (ctx.fp == NULL)
+  fw.fp = fopen(filename, "r");
+  if (fw.fp == NULL)
   {
-    LOG(LOG_ERROR, "Cannot open firmware file %s!", filename);
+    mxt_err(fw.ctx, "Cannot open firmware file %s!", filename);
     return -1;
   }
 
   if (strlen(new_version) > 0)
   {
-    ctx.check_version = true;
-    ctx.new_version = new_version;
-    LOG(LOG_DEBUG, "New firmware version is:%s", ctx.new_version);
+    fw.check_version = true;
+    fw.new_version = new_version;
+    mxt_dbg(fw.ctx, "New firmware version is:%s", fw.new_version);
   }
   else
   {
-    ctx.check_version = false;
-    LOG(LOG_DEBUG, "check_version:%d", ctx.check_version);
+    fw.check_version = false;
+    mxt_dbg(fw.ctx, "check_version:%d", fw.check_version);
   }
 
-  ret = mxt_bootloader_init_chip(&ctx);
+  ret = mxt_bootloader_init_chip(&fw);
   if (ret)
     return ret;
 
-  if (ctx.conn.type == E_I2C_DEV)
+  if (fw.conn.type == E_I2C_DEV)
   {
-    if (ctx.conn.i2c_dev.address == -1)
+    if (fw.conn.i2c_dev.address == -1)
     {
-      LOG(LOG_ERROR, "No bootloader address!");
+      mxt_err(fw.ctx, "No bootloader address!");
       return -1;
     }
 
-    LOG(LOG_DEBUG, "i2c_adapter:%d", ctx.conn.i2c_dev.adapter);
-    LOG(LOG_DEBUG, "bootloader_address:%02X", ctx.conn.i2c_dev.address);
-    LOG(LOG_DEBUG, "appmode_address:%02X", ctx.appmode_address);
+    mxt_dbg(fw.ctx, "i2c_adapter:%d", fw.conn.i2c_dev.adapter);
+    mxt_dbg(fw.ctx, "bootloader_address:%02X", fw.conn.i2c_dev.address);
+    mxt_dbg(fw.ctx, "appmode_address:%02X", fw.appmode_address);
   }
 
-  ret = mxt_new_device(ctx.libmaxtouch_ctx, ctx.conn, &ctx.mxt);
+  ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
   if (ret < 0)
   {
-    LOG(LOG_INFO, "Could not initialise chip");
+    mxt_info(fw.ctx, "Could not initialise chip");
     return ret;
   }
 
-  ret = send_frames(&ctx);
+  ret = send_frames(&fw);
   if (ret != 0)
     return ret;
 
-  mxt_free_device(ctx.mxt);
+  mxt_free_device(fw.mxt);
 
-  if (ctx.conn.type == E_I2C_DEV && ctx.conn.i2c_dev.address < 0)
+  if (fw.conn.type == E_I2C_DEV && fw.conn.i2c_dev.address < 0)
   {
-    LOG(LOG_INFO, "Sent all firmware frames");
+    mxt_info(fw.ctx, "Sent all firmware frames");
     return 0;
   }
 
-  if (ctx.mxt->conn.type == E_I2C_DEV)
+  if (fw.mxt->conn.type == E_I2C_DEV)
   {
-    ctx.conn.i2c_dev.address = ctx.appmode_address;
+    fw.conn.i2c_dev.address = fw.appmode_address;
   }
 
-  ret = mxt_new_device(ctx.libmaxtouch_ctx, ctx.conn, &ctx.mxt);
+  ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
   if (ret != 0)
   {
-    LOG(LOG_ERROR, "FAILURE - chip did not reset");
+    mxt_err(fw.ctx, "FAILURE - chip did not reset");
     return -1;
   }
 
 #ifdef HAVE_LIBUSB
-  if (ctx.mxt->conn.type == E_USB && usb_is_bootloader(ctx.mxt))
+  if (fw.mxt->conn.type == E_USB && usb_is_bootloader(fw.mxt))
   {
-    LOG(LOG_ERROR, "USB device still in bootloader mode");
+    mxt_err(fw.ctx, "USB device still in bootloader mode");
     ret = -1;
     goto release;
   }
 #endif
 
-  ret = mxt_get_info(ctx.mxt);
+  ret = mxt_get_info(fw.mxt);
   if (ret != 0)
   {
-    LOG(LOG_ERROR, "Failed to get info block");
+    mxt_err(fw.ctx, "Failed to get info block");
     ret = -1;
     goto release;
   }
 
-  mxt_get_firmware_version(ctx.mxt, (char *)&ctx.curr_version);
+  mxt_get_firmware_version(fw.mxt, (char *)&fw.curr_version);
 
-  if (!ctx.check_version)
+  if (!fw.check_version)
   {
-    LOG(LOG_INFO, "SUCCESS - version is %s", ctx.curr_version);
+    mxt_info(fw.ctx, "SUCCESS - version is %s", fw.curr_version);
     ret = 0;
     goto release;
   }
 
-  if (!strcmp(ctx.curr_version, ctx.new_version))
+  if (!strcmp(fw.curr_version, fw.new_version))
   {
-    LOG(LOG_INFO, "SUCCESS - version %s verified", ctx.curr_version);
+    mxt_info(fw.ctx, "SUCCESS - version %s verified", fw.curr_version);
     ret = 0;
   }
   else
   {
-    LOG(LOG_ERROR, "FAILURE - detected version is %s", ctx.curr_version);
+    mxt_err(fw.ctx, "FAILURE - detected version is %s", fw.curr_version);
     ret = -1;
   }
 
 release:
-  mxt_free_device(ctx.mxt);
+  mxt_free_device(fw.mxt);
   return ret;
 }

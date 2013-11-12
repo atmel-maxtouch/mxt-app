@@ -32,14 +32,13 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "log.h"
 #include "libmaxtouch.h"
 #include "info_block.h"
 
 //******************************************************************************
 /// \brief  Save configuration to file
 /// \return 0 = success, negative = fail
-int mxt_save_config_file(struct mxt_device *dev, const char *cfg_file)
+int mxt_save_config_file(struct mxt_device *mxt, const char *cfg_file)
 {
   int obj_idx, i, instance, num_bytes;
   uint8_t *temp;
@@ -47,32 +46,32 @@ int mxt_save_config_file(struct mxt_device *dev, const char *cfg_file)
   FILE *fp;
   int retval;
 
-  LOG(LOG_INFO, "Opening config file %s...", cfg_file);
+  mxt_info(mxt->ctx, "Opening config file %s...", cfg_file);
 
   fp = fopen(cfg_file, "w");
 
   fprintf(fp, "OBP_RAW V1\n");
 
   fprintf(fp, "%02X %02X %02X %02X %02X %02X %02X\n",
-          dev->info_block.id->family_id, dev->info_block.id->variant_id,
-          dev->info_block.id->version, dev->info_block.id->build,
-          dev->info_block.id->matrix_x_size, dev->info_block.id->matrix_y_size,
-          dev->info_block.id->num_declared_objects);
+          mxt->info_block.id->family_id, mxt->info_block.id->variant_id,
+          mxt->info_block.id->version, mxt->info_block.id->build,
+          mxt->info_block.id->matrix_x_size, mxt->info_block.id->matrix_y_size,
+          mxt->info_block.id->num_declared_objects);
 
-  fprintf(fp, "%06X\n", info_block_crc(dev->info_block.crc));
+  fprintf(fp, "%06X\n", info_block_crc(mxt->info_block.crc));
 
   /* can't read object table CRC at present */
   fprintf(fp, "000000\n");
 
-  for (obj_idx = 0; obj_idx < dev->info_block.id->num_declared_objects; obj_idx++)
+  for (obj_idx = 0; obj_idx < mxt->info_block.id->num_declared_objects; obj_idx++)
   {
-    object = &(dev->info_block.objects[obj_idx]);
+    object = &(mxt->info_block.objects[obj_idx]);
     num_bytes = object->size + 1;
 
     temp = (uint8_t *)calloc(num_bytes, sizeof(char));
     if (temp == NULL)
     {
-      LOG(LOG_ERROR, "Failed to allocate memory");
+      mxt_err(mxt->ctx, "Failed to allocate memory");
       retval = -1;
       goto close;
     }
@@ -81,7 +80,7 @@ int mxt_save_config_file(struct mxt_device *dev, const char *cfg_file)
     {
       fprintf(fp, "%04X %04X %04X", object->object_type, instance, num_bytes);
 
-      mxt_read_register(dev, temp,
+      mxt_read_register(mxt, temp,
                        get_start_position(*object, instance),
                        num_bytes);
 
@@ -106,7 +105,7 @@ close:
 //******************************************************************************
 /// \brief  Load configuration file
 /// \return 0 = success, negative = fail
-int mxt_load_config_file(struct mxt_device *dev, const char *cfg_file)
+int mxt_load_config_file(struct mxt_device *mxt, const char *cfg_file)
 {
   FILE *fp;
   uint8_t *mem;
@@ -130,17 +129,17 @@ int mxt_load_config_file(struct mxt_device *dev, const char *cfg_file)
 
   mem = calloc(255, sizeof(uint8_t));
   if (mem == NULL) {
-    LOG(LOG_ERROR, "Error allocating memory");
+    mxt_err(mxt->ctx, "Error allocating memory");
     return -1;
   }
 
-  LOG(LOG_INFO, "Opening config file %s...", cfg_file);
+  mxt_info(mxt->ctx, "Opening config file %s...", cfg_file);
 
   fp = fopen(cfg_file, "r");
 
   if (fp == NULL)
   {
-    LOG(LOG_ERROR, "Error opening %s!", cfg_file);
+    mxt_err(mxt->ctx, "Error opening %s!", cfg_file);
     return -1;
   }
 
@@ -164,7 +163,7 @@ int mxt_load_config_file(struct mxt_device *dev, const char *cfg_file)
         continue;
       }
 
-      LOG(LOG_ERROR, "Parse error: expected '[', read ascii char %c!", c);
+      mxt_err(mxt->ctx, "Parse error: expected '[', read ascii char %c!", c);
       return -1;
     }
 
@@ -180,7 +179,7 @@ int mxt_load_config_file(struct mxt_device *dev, const char *cfg_file)
         || strncmp(object, "APPLICATION_INFO_HEADER", 23) == 0)
     {
       ignore_line = true;
-      LOG(LOG_INFO, "Skipping %s", object);
+      mxt_dbg(mxt->ctx, "Skipping %s", object);
       continue;
     }
 
@@ -194,7 +193,7 @@ int mxt_load_config_file(struct mxt_device *dev, const char *cfg_file)
 
     if (strcmp(tmp, "INSTANCE"))
     {
-      LOG(LOG_ERROR, "Parse error, expected INSTANCE");
+      mxt_err(mxt->ctx, "Parse error, expected INSTANCE");
       return(-1);
     }
 
@@ -210,7 +209,7 @@ int mxt_load_config_file(struct mxt_device *dev, const char *cfg_file)
       c = getc(fp);
       if (c == '\n')
       {
-        LOG(LOG_ERROR, "Parse error, expected ] before end of line");
+        mxt_err(mxt->ctx, "Parse error, expected ] before end of line");
         return(-1);
       }
     }
@@ -239,7 +238,7 @@ int mxt_load_config_file(struct mxt_device *dev, const char *cfg_file)
 
     if (fscanf(fp, "%d", &object_size) != 1)
     {
-      LOG(LOG_ERROR, "Object size parse error");
+      mxt_err(mxt->ctx, "Object size parse error");
       return -1;
     }
 
@@ -249,30 +248,30 @@ int mxt_load_config_file(struct mxt_device *dev, const char *cfg_file)
     substr = strrchr(object, '_');
     if (substr == NULL || (*(substr + 1) != 'T'))
     {
-      LOG(LOG_ERROR, "Parse error, could not find T number in %s", object);
+      mxt_err(mxt->ctx, "Parse error, could not find T number in %s", object);
       return -1;
     }
 
     if (sscanf(substr + 2, "%d", &object_id) != 1)
     {
-      LOG(LOG_ERROR, "Unable to get object type ID for %s", object);
+      mxt_err(mxt->ctx, "Unable to get object type ID for %s", object);
       return -1;
     }
 
-    LOG(LOG_DEBUG, "%s T%u OBJECT_ADDRESS=%d OBJECT_SIZE=%d",
+    mxt_dbg(mxt->ctx, "%s T%u OBJECT_ADDRESS=%d OBJECT_SIZE=%d",
         object, object_id, object_address, object_size);
 
     /* Check the address of the object */
-    expected_address = get_object_address(dev, (uint8_t)object_id, (uint8_t)instance);
+    expected_address = get_object_address(mxt, (uint8_t)object_id, (uint8_t)instance);
     if (expected_address == OBJECT_NOT_FOUND)
     {
-      LOG(LOG_ERROR, "T%u not present on chip", object_id);
+      mxt_err(mxt->ctx, "T%u not present on chip", object_id);
     }
     else if (object_address != (int)expected_address)
     {
-      LOG
+      mxt_warn
       (
-        LOG_WARN,
+        mxt->ctx,
         "Address of %s in config file (0x%04X) does not match chip (0x%04X)",
         object, object_address, expected_address
       );
@@ -281,18 +280,18 @@ int mxt_load_config_file(struct mxt_device *dev, const char *cfg_file)
     }
 
     /* Check the size of the object */
-    expected_size = get_object_size(dev, (uint8_t)object_id);
+    expected_size = get_object_size(mxt, (uint8_t)object_id);
     if (object_size != (int)expected_size)
     {
-      LOG
+      mxt_warn
       (
-        LOG_WARN,
+        mxt->ctx,
         "Size of %s in config file (%d bytes) does not match chip (%d bytes)",
         object, object_size, expected_size
       );
     }
 
-    LOG(LOG_VERBOSE, "Writing object of size %d at address %d...", object_size,
+    mxt_verb(mxt->ctx, "Writing object of size %d at address %d...", object_size,
          object_address);
 
     for (j = 0; j < object_size; j++) {
@@ -309,7 +308,7 @@ int mxt_load_config_file(struct mxt_device *dev, const char *cfg_file)
       }
       fseek(fp, -1, SEEK_CUR);
       if (c == '[') {
-        LOG(LOG_WARN, "Skipping %d bytes at end of T%u", object_size - bytes_read, object_id);
+        mxt_warn(mxt->ctx, "Skipping %d bytes at end of T%u", object_size - bytes_read, object_id);
         break;
       }
 
@@ -348,14 +347,14 @@ int mxt_load_config_file(struct mxt_device *dev, const char *cfg_file)
         *(mem + bytes_read) = (char) ((data >> 8) & 0xFF);
         bytes_read++;
       } else {
-        LOG(LOG_ERROR, "Only 16-bit / 8-bit config values supported!");
+        mxt_err(mxt->ctx, "Only 16-bit / 8-bit config values supported!");
         return -1;
       }
     }
 
-    if (mxt_write_register(dev, mem, object_address, object_size) < 0)
+    if (mxt_write_register(mxt, mem, object_address, object_size) < 0)
     {
-      LOG(LOG_ERROR, "Error writing to mxt!");
+      mxt_err(mxt->ctx, "Error writing to mxt!");
       return -1;
     }
   }

@@ -35,10 +35,7 @@
 #include <time.h>
 #include <sys/time.h>
 
-#include "info_block.h"
 #include "libmaxtouch.h"
-#include "info_block_driver.h"
-#include "log.h"
 #include "utilfuncs.h"
 
 #define BYTETOBINARYPATTERN "%d%d%d%d %d%d%d%d"
@@ -54,31 +51,32 @@
 
 //******************************************************************************
 /// \brief Print out info block
-void print_info_block(struct mxt_device *dev)
+void print_info_block(struct mxt_device *mxt)
 {
   int i;
   int report_id = 1;
   int report_id_start, report_id_end;
   struct object obj;
+  struct info_id *id = mxt->info_block.id;
 
   /* Show the Version Info */
   printf("\nFamily: %u Variant: %u Firmware V%u.%u.%02X Objects: %u\n",
-         dev->info_block.id->family_id, dev->info_block.id->variant_id,
-         dev->info_block.id->version >> 4,
-         dev->info_block.id->version & 0x0F,
-         dev->info_block.id->build, dev->info_block.id->num_declared_objects);
+         id->family_id, id->variant_id,
+         id->version >> 4,
+         id->version & 0x0F,
+         id->build, id->num_declared_objects);
 
   printf("Matrix size: X%uY%u\n",
-         dev->info_block.id->matrix_x_size, dev->info_block.id->matrix_y_size);
+         id->matrix_x_size, id->matrix_y_size);
   /* Show the CRC */
-  printf("Information Block CRC: 0x%06X\n\n", info_block_crc(dev->info_block.crc));
+  printf("Information Block CRC: 0x%06X\n\n", info_block_crc(mxt->info_block.crc));
 
   /* Show the object table */
   printf("Type Start Size Instances ReportIds Name\n");
   printf("-----------------------------------------------------------------\n");
-  for (i = 0; i < dev->info_block.id->num_declared_objects; i++)
+  for (i = 0; i < id->num_declared_objects; i++)
   {
-    obj = dev->info_block.objects[i];
+    obj = mxt->info_block.objects[i];
 
     if (obj.num_report_ids > 0)
     {
@@ -285,7 +283,7 @@ const char *get_object_name(uint8_t objtype)
 
 //******************************************************************************
 /// \brief Menu function to write values to object
-void write_to_object(struct mxt_device *dev, int obj_num, uint8_t instance)
+void write_to_object(struct mxt_device *mxt, int obj_num, uint8_t instance)
 {
   uint8_t obj_tbl_num, i;
   uint8_t *buffer;
@@ -294,25 +292,25 @@ void write_to_object(struct mxt_device *dev, int obj_num, uint8_t instance)
   uint8_t value;
   uint8_t size;
 
-  obj_tbl_num = get_object_table_num(dev, obj_num);
+  obj_tbl_num = get_object_table_num(mxt, obj_num);
   if (obj_tbl_num == 255) {
     printf("Object not found\n");
     return;
   }
 
-  buffer = (uint8_t *)calloc(dev->info_block.objects[obj_tbl_num].size + 1, sizeof(char));
+  buffer = (uint8_t *)calloc(mxt->info_block.objects[obj_tbl_num].size + 1, sizeof(char));
   if (buffer == NULL)
   {
-    LOG(LOG_ERROR, "Memory error");
+    mxt_err(mxt->ctx, "Memory error");
     return;
   }
 
-  printf("%s:\n", get_object_name(dev->info_block.objects[obj_tbl_num].object_type));
+  printf("%s:\n", get_object_name(mxt->info_block.objects[obj_tbl_num].object_type));
 
-  start_position = get_start_position(dev->info_block.objects[obj_tbl_num], instance);
-  size = get_object_size(dev, obj_num);
+  start_position = get_start_position(mxt->info_block.objects[obj_tbl_num], instance);
+  size = get_object_size(mxt, obj_num);
 
-  mxt_read_register(dev, buffer, start_position, size);
+  mxt_read_register(mxt, buffer, start_position, size);
 
   for(i = 0; i < size; i++)
   {
@@ -336,12 +334,12 @@ void write_to_object(struct mxt_device *dev, int obj_num, uint8_t instance)
     }
   }
 
-  mxt_write_register(dev, buffer, start_position, size);
+  mxt_write_register(mxt, buffer, start_position, size);
 }
 
 //******************************************************************************
 /// \brief Menu function to read values from object
-int read_object(struct mxt_device *dev, uint16_t object_type, uint8_t instance, uint16_t address, size_t count, bool format)
+int read_object(struct mxt_device *mxt, uint16_t object_type, uint8_t instance, uint16_t address, size_t count, bool format)
 {
   uint8_t *databuf;
   uint16_t object_address = 0;
@@ -350,34 +348,34 @@ int read_object(struct mxt_device *dev, uint16_t object_type, uint8_t instance, 
 
   if (object_type > 0)
   {
-    object_address = get_object_address(dev, object_type, instance);
+    object_address = get_object_address(mxt, object_type, instance);
     if (object_address == OBJECT_NOT_FOUND) {
       printf("No such object\n");
       return -1;
     }
 
-    LOG(LOG_DEBUG, "T%u address:%u offset:%u", object_type,
+    mxt_dbg(mxt->ctx, "T%u address:%u offset:%u", object_type,
         object_address, address);
     address = object_address + address;
 
     if (count == 0) {
-      count = get_object_size(dev, object_type);
+      count = get_object_size(mxt, object_type);
     }
   }
   else if (count == 0)
   {
-    LOG(LOG_ERROR, "No length information");
+    mxt_err(mxt->ctx, "No length information");
     return -1;
   }
 
   databuf = (uint8_t *)calloc(count, sizeof(uint8_t));
   if (databuf == NULL)
   {
-    LOG(LOG_ERROR, "Memory allocation failure");
+    mxt_err(mxt->ctx, "Memory allocation failure");
     return -1;
   }
 
-  ret = mxt_read_register(dev, databuf, address, count);
+  ret = mxt_read_register(mxt, databuf, address, count);
   if (ret < 0) {
     printf("Read error\n");
     goto free;

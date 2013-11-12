@@ -52,7 +52,6 @@ int mxt_buf_init(struct mxt_buffer *ctx)
   }
   else
   {
-    LOG(LOG_ERROR, "calloc failed");
     return -1;
   }
 }
@@ -79,7 +78,6 @@ static int mxt_buf_realloc(struct mxt_buffer *ctx, size_t new_size)
   }
   else
   {
-    LOG(LOG_ERROR, "realloc failed");
     return -1;
   }
 }

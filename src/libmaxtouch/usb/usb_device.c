@@ -102,29 +102,6 @@ static const char * libusb_error_name(int errcode)
 }
 #endif
 
-//*****************************************************************************
-/// \brief  Debug USB transfers
-static void debug_usb(const unsigned char *data, uint8_t count, bool tx)
-{
-  int i;
-  char hexbuf[5];
-  char strbuf[256];
-
-  // Reset string
-  strbuf[0] = '\0';
-
-  for (i = 0; i < count; i++) {
-    snprintf(hexbuf, sizeof(hexbuf) - 1, "%02X ", data[i]);
-    hexbuf[4] = '\0';
-    strncat(strbuf, hexbuf, sizeof(strbuf) - 1);
-  }
-
-  // zero terminate
-  strbuf[255] = '\0';
-
-  LOG(LOG_VERBOSE, "%s: %s", tx ? "TX": "RX", strbuf);
-}
-
 //******************************************************************************
 /// \brief  Read a packet of data from the MXT chip
 /// \return number of bytes read, negative error
@@ -143,9 +120,9 @@ static int usb_transfer(struct mxt_device *mxt, void *cmd, int cmd_size,
 
   if (ret != LIBUSB_SUCCESS || bytes_transferred != cmd_size)
   {
-    LOG
+    mxt_err
     (
-      LOG_ERROR,
+      mxt->ctx,
       "Read request failed - %d bytes transferred, returned %s",
       bytes_transferred, libusb_error_name(ret)
     );
@@ -153,12 +130,12 @@ static int usb_transfer(struct mxt_device *mxt, void *cmd, int cmd_size,
   }
   else
   {
-    debug_usb(cmd, cmd_size, true);
+    mxt_log_buffer(mxt->ctx, LOG_VERBOSE, "TX", cmd, cmd_size);
   }
 
   if (ignore_response)
   {
-    LOG(LOG_VERBOSE, "Ignoring response command");
+    mxt_verb(mxt->ctx, "Ignoring response command");
     return bytes_transferred;
   }
 
@@ -171,9 +148,9 @@ static int usb_transfer(struct mxt_device *mxt, void *cmd, int cmd_size,
 
   if (ret != LIBUSB_SUCCESS || bytes_transferred != response_size)
   {
-    LOG
+    mxt_err
     (
-      LOG_ERROR,
+      mxt->ctx,
       "Read response failed - %d bytes transferred, returned %s",
       bytes_transferred, libusb_error_name(ret)
     );
@@ -181,7 +158,7 @@ static int usb_transfer(struct mxt_device *mxt, void *cmd, int cmd_size,
   }
   else
   {
-    debug_usb(response, response_size, false);
+    mxt_log_buffer(mxt->ctx, LOG_VERBOSE, "RX", response, response_size);
   }
 
   return bytes_transferred;
@@ -202,7 +179,7 @@ static int read_data(struct mxt_device *mxt, unsigned char *buf,
   /* Check a device is present before trying to read from it */
   if (!mxt->usb.device_connected)
   {
-    LOG(LOG_ERROR, "Device uninitialised");
+    mxt_err(mxt->ctx, "Device uninitialised");
     return -1;
   }
 
@@ -243,7 +220,7 @@ static int read_data(struct mxt_device *mxt, unsigned char *buf,
     response_ofs = 1;
   }
 
-  LOG(LOG_VERBOSE, "Reading %" PRIuPTR " bytes starting from address %d",
+  mxt_verb(mxt->ctx, "Reading %" PRIuPTR " bytes starting from address %d",
       count, start_register);
 
   /* Command packet */
@@ -255,9 +232,9 @@ static int read_data(struct mxt_device *mxt, unsigned char *buf,
   /* Check the result in the response */
   if (pkt[response_ofs] != COMMS_STATUS_OK)
   {
-    LOG
+    mxt_err
     (
-      LOG_ERROR,
+      mxt->ctx,
       "Wrong result in read response - expected 0x%02X got 0x%02X",
       COMMS_STATUS_OK, pkt[response_ofs]
     );
@@ -287,7 +264,7 @@ static int write_data(struct mxt_device *mxt, unsigned char const *buf,
   /* Check a device is present before trying to write to it */
   if (!mxt->usb.device_connected)
   {
-    LOG(LOG_ERROR, "Device uninitialised");
+    mxt_err(mxt->ctx, "Device uninitialised");
     return -1;
   }
 
@@ -332,7 +309,7 @@ static int write_data(struct mxt_device *mxt, unsigned char const *buf,
 
   (void)memcpy(pkt + cmd_size, buf, count);
 
-  LOG(LOG_VERBOSE, "Writing %" PRIuPTR " bytes to address %d",
+  mxt_verb(mxt->ctx, "Writing %" PRIuPTR " bytes to address %d",
       count, start_register);
 
   ret = usb_transfer(mxt, pkt, packet_size, pkt, sizeof(pkt), ignore_response);
@@ -342,9 +319,9 @@ static int write_data(struct mxt_device *mxt, unsigned char const *buf,
   /* Check the result in the response */
   if (!ignore_response && pkt[response_ofs] != COMMS_STATUS_WRITE_OK)
   {
-    LOG
+    mxt_err
     (
-      LOG_ERROR,
+      mxt->ctx,
       "Wrong result in write response - expected 0x%02X got 0x%02X",
       COMMS_STATUS_WRITE_OK, pkt[response_ofs]
     );
@@ -371,7 +348,7 @@ static int usb_scan_for_qrg_if(struct mxt_device *mxt)
 
   if (!strncmp(buf, qrg_if, sizeof(qrg_if)))
   {
-    LOG(LOG_DEBUG, "Found %s", qrg_if);
+    mxt_dbg(mxt->ctx, "Found %s", qrg_if);
 
     return 0;
   }
@@ -406,7 +383,7 @@ static int usb_scan_for_control_if(struct mxt_device *mxt,
         {
           if (!strncmp(buf, control_if, sizeof(control_if)))
           {
-            LOG(LOG_DEBUG, "Found %s at interface %d altsetting %d",
+            mxt_dbg(mxt->ctx, "Found %s at interface %d altsetting %d",
               buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
 
             mxt->usb.bootloader = false;
@@ -414,7 +391,7 @@ static int usb_scan_for_control_if(struct mxt_device *mxt,
           }
           else if (!strncmp(buf, bootloader_if, sizeof(bootloader_if)))
           {
-            LOG(LOG_DEBUG, "Found %s at interface %d altsetting %d",
+            mxt_dbg(mxt->ctx, "Found %s at interface %d altsetting %d",
               buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
 
             mxt->usb.bootloader = true;
@@ -422,7 +399,7 @@ static int usb_scan_for_control_if(struct mxt_device *mxt,
           }
           else
           {
-            LOG(LOG_VERBOSE, "Ignoring %s at interface %d altsetting %d",
+            mxt_verb(mxt->ctx, "Ignoring %s at interface %d altsetting %d",
               buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
           }
         }
@@ -460,7 +437,7 @@ static int usb_scan_device_configs(struct mxt_device *mxt)
     ret = libusb_get_config_descriptor(mxt->usb.device, i, &config);
     if (ret < 0)
     {
-      LOG(LOG_ERROR, "Couldn't get config descriptor %d", i);
+      mxt_err(mxt->ctx, "Couldn't get config descriptor %d", i);
     }
     else
     {
@@ -516,7 +493,7 @@ static int bridge_configure(struct mxt_device *mxt)
   /* I2C retry delay */
   pkt[5] = 25 * 8;
 
-  LOG(LOG_VERBOSE, "Sending CMD_CONFIG");
+  mxt_verb(mxt->ctx, "Sending CMD_CONFIG");
 
   ret = usb_transfer(mxt, &pkt, sizeof(pkt), &pkt, sizeof(pkt), false);
 
@@ -536,7 +513,7 @@ static int bridge_find_i2c_address(struct mxt_device *mxt)
   memset(&pkt, 0, sizeof(pkt));
   pkt[0] = CMD_FIND_IIC_ADDRESS;
 
-  LOG(LOG_VERBOSE, "Sending CMD_FIND_IIC_ADDRESS");
+  mxt_verb(mxt->ctx, "Sending CMD_FIND_IIC_ADDRESS");
 
   ret = usb_transfer(mxt, &pkt, sizeof(pkt), &pkt, sizeof(pkt), false);
   if (ret < 0)
@@ -546,12 +523,12 @@ static int bridge_find_i2c_address(struct mxt_device *mxt)
 
   if (response == 0x81)
   {
-    LOG(LOG_ERROR, "No device found by bridge chip");
+    mxt_err(mxt->ctx, "No device found by bridge chip");
     return -1;
   }
   else
   {
-    LOG(LOG_INFO, "Bridge found I2C device at 0x%02X", response);
+    mxt_info(mxt->ctx, "Bridge found I2C device at 0x%02X", response);
     return 0;
   }
 }
@@ -567,7 +544,7 @@ static int usb_find_device(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt)
   count = libusb_get_device_list(ctx->usb.libusb_ctx, &devs);
   if (count <= 0)
   {
-    LOG(LOG_ERROR, "Error %d enumerating devices", count);
+    mxt_err(mxt->ctx, "Error %d enumerating devices", count);
     return count;
   }
 
@@ -577,7 +554,7 @@ static int usb_find_device(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt)
     ret = libusb_get_device_descriptor(devs[i], &desc);
     if (ret != LIBUSB_SUCCESS)
     {
-      LOG(LOG_WARN, "Error %d trying to retrieve descriptor", ret);
+      mxt_warn(ctx, "Error %d trying to retrieve descriptor", ret);
       continue;
     }
 
@@ -589,10 +566,10 @@ static int usb_find_device(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt)
       if (desc.idProduct == 0x6123)
       {
         mxt->usb.bridge_chip = true;
-        LOG(LOG_DEBUG, "Found 5030 bridge chip");
+        mxt_dbg(mxt->ctx, "Found 5030 bridge chip");
       } else {
         mxt->usb.bridge_chip = false;
-        LOG(LOG_VERBOSE, "Found VID=%04X PID=%04X",
+        mxt_verb(mxt->ctx, "Found VID=%04X PID=%04X",
             desc.idVendor, desc.idProduct);
       }
 
@@ -627,16 +604,16 @@ static int usb_initialise_libusb(struct libmaxtouch_ctx *ctx)
   /* Was the library initialised successfully */
   if (ret != LIBUSB_SUCCESS)
   {
-    LOG(LOG_ERROR, "Failed to initialise libusb");
+    mxt_err(ctx, "Failed to initialise libusb");
     return ret;
   }
 
-  LOG(LOG_VERBOSE, "Initialised libusb");
+  mxt_verb(ctx, "Initialised libusb");
 
   /* Set the debug level for the library */
-  if (log_level < 3)
+  if (mxt_get_log_level(ctx) < LOG_DEBUG)
   {
-    LOG(LOG_DEBUG, "Enabling libusb debug");
+    mxt_dbg(ctx, "Enabling libusb debug");
     /* Level 3: informational messages are printed to stdout, warning and
      * error messages are printed to stderr */
     libusb_set_debug(ctx->usb.libusb_ctx, 3);
@@ -659,14 +636,14 @@ int usb_open(struct mxt_device *mxt)
   ret = usb_find_device(mxt->ctx, mxt);
   if (ret != 0)
   {
-    LOG(LOG_ERROR, "Could not find device");
+    mxt_err(mxt->ctx, "Could not find device");
     return ret;
   }
 
   ret = libusb_open(mxt->usb.device, &mxt->usb.handle);
   if (ret != LIBUSB_SUCCESS)
   {
-    LOG(LOG_ERROR, "%s opening device with VID=0x%04X PID=0x%04X",
+    mxt_err(mxt->ctx, "%s opening device with VID=0x%04X PID=0x%04X",
                    libusb_error_name(ret), mxt->usb.desc.idVendor, mxt->usb.desc.idProduct);
     return ret;
   }
@@ -676,7 +653,7 @@ int usb_open(struct mxt_device *mxt)
   ret = usb_scan_device_configs(mxt);
   if (ret < 0)
   {
-    LOG(LOG_WARN, "Did not find control interface");
+    mxt_warn(mxt->ctx, "Did not find control interface");
     return ret;
   }
   else
@@ -687,11 +664,11 @@ int usb_open(struct mxt_device *mxt)
   /* Disconnect the kernel driver if it is active */
   if (libusb_kernel_driver_active(mxt->usb.handle, mxt->usb.interface) == 1)
   {
-    LOG(LOG_VERBOSE, "Kernel driver is active - must be detached before claiming the interface");
+    mxt_verb(mxt->ctx, "Kernel driver is active - must be detached before claiming the interface");
 
     if (libusb_detach_kernel_driver(mxt->usb.handle, mxt->usb.interface) == 0)
     {
-      LOG(LOG_VERBOSE, "Detached kernel driver");
+      mxt_verb(mxt->ctx, "Detached kernel driver");
     }
   }
 
@@ -699,9 +676,9 @@ int usb_open(struct mxt_device *mxt)
   ret = libusb_claim_interface(mxt->usb.handle, mxt->usb.interface);
   if (ret != LIBUSB_SUCCESS)
   {
-    LOG
+    mxt_err
     (
-      LOG_ERROR,
+      mxt->ctx,
       "Unable to claim bInterfaceNumber %d of the device, returned %s",
       mxt->usb.interface, libusb_error_name(ret)
     );
@@ -709,7 +686,7 @@ int usb_open(struct mxt_device *mxt)
   }
   else
   {
-    LOG(LOG_VERBOSE, "Claimed the USB interface");
+    mxt_verb(mxt->ctx, "Claimed the USB interface");
   }
 
   /* Get the maximum size of packets on endpoint 1 */
@@ -717,13 +694,13 @@ int usb_open(struct mxt_device *mxt)
                                    ENDPOINT_1_IN);
   if (ret < LIBUSB_SUCCESS)
   {
-    LOG(LOG_ERROR, "%s getting maximum packet size on endpoint 1 IN",
+    mxt_err(mxt->ctx, "%s getting maximum packet size on endpoint 1 IN",
         libusb_error_name(ret));
     return -1;
   }
 
   mxt->usb.ep1_in_max_packet_size = ret;
-  LOG(LOG_VERBOSE, "Maximum packet size on endpoint 1 IN is %d bytes",
+  mxt_verb(mxt->ctx, "Maximum packet size on endpoint 1 IN is %d bytes",
       mxt->usb.ep1_in_max_packet_size);
 
   /* Configure bridge chip if necessary */
@@ -748,7 +725,7 @@ int usb_open(struct mxt_device *mxt)
   }
 
   mxt->usb.device_connected = true;
-  LOG(LOG_INFO, "Registered USB device with VID=0x%04X PID=0x%04X Interface=%d",
+  mxt_info(mxt->ctx, "Registered USB device with VID=0x%04X PID=0x%04X Interface=%d",
       mxt->usb.desc.idVendor, mxt->usb.desc.idProduct, mxt->usb.interface);
 
   return 0;
@@ -767,7 +744,7 @@ int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn)
   count = libusb_get_device_list(ctx->usb.libusb_ctx, &devs);
   if (count <= 0)
   {
-    LOG(LOG_ERROR, "Error %d enumerating devices", count);
+    mxt_err(ctx, "Error %d enumerating devices", count);
     return count;
   }
 
@@ -777,7 +754,7 @@ int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn)
     ret = libusb_get_device_descriptor(devs[i], &desc);
     if (ret != LIBUSB_SUCCESS)
     {
-      LOG(LOG_WARN, "Error %d trying to retrieve descriptor", ret);
+      mxt_warn(ctx, "Error %d trying to retrieve descriptor", ret);
       continue;
     }
 
@@ -806,14 +783,14 @@ int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn)
           conn->usb.bus = usb_bus;
           conn->usb.device = usb_device;
 
-          LOG(LOG_VERBOSE, "Found VID=%04X PID=%04X",
+          mxt_verb(ctx, "Found VID=%04X PID=%04X",
               desc.idVendor, desc.idProduct);
           return 1;
         }
       }
       else
       {
-        LOG(LOG_VERBOSE, "Ignoring VID=%04X PID=%04X", desc.idVendor, desc.idProduct);
+        mxt_verb(ctx, "Ignoring VID=%04X PID=%04X", desc.idVendor, desc.idProduct);
       }
     }
   }
@@ -830,10 +807,10 @@ void usb_release(struct mxt_device *mxt)
   if (mxt->usb.device_connected)
   {
     libusb_release_interface(mxt->usb.handle, mxt->usb.interface);
-    LOG(LOG_DEBUG, "Released the USB interface");
+    mxt_dbg(mxt->ctx, "Released the USB interface");
 
     libusb_close(mxt->usb.handle);
-    LOG(LOG_INFO, "Disconnected from the device");
+    mxt_info(mxt->ctx, "Disconnected from the device");
     mxt->usb.handle = NULL;
 
     mxt->usb.device_connected = false;
@@ -848,14 +825,14 @@ void usb_release(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief  Release USB library
-int usb_close(struct usb_context *ctx)
+int usb_close(struct libmaxtouch_ctx *ctx)
 {
   /* Is the library initialised? */
-  if (ctx->libusb_ctx)
+  if (ctx->usb.libusb_ctx)
   {
-    libusb_exit(ctx->libusb_ctx);
-    ctx->libusb_ctx = NULL;
-    LOG(LOG_DEBUG, "Exited from libusb");
+    libusb_exit(ctx->usb.libusb_ctx);
+    ctx->usb.libusb_ctx = NULL;
+    mxt_dbg(ctx, "Exited from libusb");
   }
 
   return 0;
@@ -889,11 +866,11 @@ int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
 
   if (ret != 1)
   {
-    LOG(LOG_ERROR, "Reset of the chip unsuccessful");
+    mxt_err(mxt->ctx, "Reset of the chip unsuccessful");
     return -1;
   }
 
-  LOG(LOG_INFO, "Forced a reset of the chip");
+  mxt_info(mxt->ctx, "Forced a reset of the chip");
 
   /* Chip will be unresponsive in bootloader mode so we cannot re-connect */
   if (!bootloader_mode)
@@ -901,7 +878,7 @@ int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
     usb_release(mxt);
 
     /* We must wait for the chip to be ready to communicate again */
-    LOG(LOG_DEBUG, "Waiting for the chip to re-connect");
+    mxt_dbg(mxt->ctx, "Waiting for the chip to re-connect");
 
     sleep(1);
 
@@ -910,7 +887,7 @@ int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
 
     if (ret < 1)
     {
-      LOG(LOG_ERROR, "Failed to re-connect to chip after reset");
+      mxt_err(mxt->ctx, "Failed to re-connect to chip after reset");
       return -1;
     }
   }
@@ -1053,7 +1030,7 @@ bool usb_read_chg(struct mxt_device *mxt)
 
   chg = pkt[2] & 0x4;
 
-  LOG(LOG_VERBOSE, "CHG line %s", chg ? "HIGH" : "LOW");
+  mxt_verb(mxt->ctx, "CHG line %s", chg ? "HIGH" : "LOW");
 
   return chg;
 }
