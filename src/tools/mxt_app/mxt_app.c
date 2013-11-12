@@ -92,7 +92,7 @@ static int mxt_init_chip(struct libmaxtouch_ctx *ctx, struct mxt_device **mxt,
     LOG(LOG_DEBUG, "Connection parameters given");
   }
 
-  if (mxt_open(ctx, conn, mxt) < 0)
+  if (mxt_new_device(ctx, conn, mxt) < 0)
   {
     LOG(LOG_ERROR, "Failed to open device");
     return -1;
@@ -525,7 +525,7 @@ int main (int argc, char *argv[])
   struct mxt_device *mxt;
   struct libmaxtouch_ctx *ctx;
 
-  ret = mxt_init(&ctx);
+  ret = mxt_new(&ctx);
   if (ret < 0)
   {
     LOG(LOG_ERROR, "Failed to init libmaxtouch");
@@ -718,10 +718,10 @@ int main (int argc, char *argv[])
   if (cmd != CMD_FLASH)
   {
     mxt_set_debug(mxt, false);
-    mxt_release(mxt);
+    mxt_free_device(mxt);
   }
 
-  mxt_close(ctx);
+  mxt_free(ctx);
 
   return ret;
 }

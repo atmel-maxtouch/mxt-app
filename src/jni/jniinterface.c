@@ -59,7 +59,7 @@ JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_Scan
 {
   int ret;
 
-  ret = mxt_init(&ctx);
+  ret = mxt_new(&ctx);
   if (ret < 0)
     return JNI_FALSE;
 
@@ -83,7 +83,7 @@ JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetInfo
 {
   int ret;
 
-  ret = mxt_open(ctx, conn, &mxt);
+  ret = mxt_new_device(ctx, conn, &mxt);
   if (ret < 0)
     return JNI_FALSE;
 

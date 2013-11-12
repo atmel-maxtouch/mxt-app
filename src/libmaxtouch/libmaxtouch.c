@@ -42,7 +42,7 @@
 //******************************************************************************
 /// \brief  Initialise libmaxtouch library
 /// \return 0 = success, negative = error
-int mxt_init(struct libmaxtouch_ctx **ctx)
+int mxt_new(struct libmaxtouch_ctx **ctx)
 {
   struct libmaxtouch_ctx *new_ctx;
 
@@ -58,7 +58,7 @@ int mxt_init(struct libmaxtouch_ctx **ctx)
 //******************************************************************************
 /// \brief  Close libmaxtouch library
 /// \return 0 = success, negative = error
-int mxt_close(struct libmaxtouch_ctx *ctx)
+int mxt_free(struct libmaxtouch_ctx *ctx)
 {
 #ifdef HAVE_LIBUSB
   usb_close(&ctx->usb);
@@ -97,7 +97,7 @@ int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
 
 //******************************************************************************
 /// \brief Open device
-int mxt_open(struct libmaxtouch_ctx *ctx, struct mxt_conn_info conn, struct mxt_device **mxt)
+int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info conn, struct mxt_device **mxt)
 {
   int ret;
   struct mxt_device *new_dev;
@@ -176,7 +176,7 @@ int mxt_get_info(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief  Close device
-void mxt_release(struct mxt_device *dev)
+void mxt_free_device(struct mxt_device *dev)
 {
   switch (dev->conn.type)
   {

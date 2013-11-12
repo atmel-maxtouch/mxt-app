@@ -409,7 +409,7 @@ static int mxt_bootloader_init_chip(struct bootloader_ctx *ctx)
     }
   }
 
-  ret = mxt_open(ctx->libmaxtouch_ctx, ctx->conn, &ctx->mxt);
+  ret = mxt_new_device(ctx->libmaxtouch_ctx, ctx->conn, &ctx->mxt);
   if (ret)
   {
     LOG(LOG_ERROR, "Could not open device");
@@ -430,7 +430,7 @@ static int mxt_bootloader_init_chip(struct bootloader_ctx *ctx)
   {
     LOG(LOG_INFO, "USB device in bootloader mode");
     ctx->usb_bootloader = true;
-    mxt_release(ctx->mxt);
+    mxt_free_device(ctx->mxt);
     return 0;
   }
   else
@@ -471,7 +471,7 @@ static int mxt_bootloader_init_chip(struct bootloader_ctx *ctx)
     ctx->conn.i2c_dev.address = lookup_bootloader_addr(ctx, ctx->appmode_address);
   }
 
-  mxt_release(ctx->mxt);
+  mxt_free_device(ctx->mxt);
 
   return 0;
 }
@@ -528,7 +528,7 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *libmaxtouch_ctx,
     LOG(LOG_DEBUG, "appmode_address:%02X", ctx.appmode_address);
   }
 
-  ret = mxt_open(ctx.libmaxtouch_ctx, ctx.conn, &ctx.mxt);
+  ret = mxt_new_device(ctx.libmaxtouch_ctx, ctx.conn, &ctx.mxt);
   if (ret < 0)
   {
     LOG(LOG_INFO, "Could not initialise chip");
@@ -539,7 +539,7 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *libmaxtouch_ctx,
   if (ret != 0)
     return ret;
 
-  mxt_release(ctx.mxt);
+  mxt_free_device(ctx.mxt);
 
   if (ctx.conn.type == E_I2C_DEV && ctx.conn.i2c_dev.address < 0)
   {
@@ -552,7 +552,7 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *libmaxtouch_ctx,
     ctx.conn.i2c_dev.address = ctx.appmode_address;
   }
 
-  ret = mxt_open(ctx.libmaxtouch_ctx, ctx.conn, &ctx.mxt);
+  ret = mxt_new_device(ctx.libmaxtouch_ctx, ctx.conn, &ctx.mxt);
   if (ret != 0)
   {
     LOG(LOG_ERROR, "FAILURE - chip did not reset");
@@ -597,6 +597,6 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *libmaxtouch_ctx,
   }
 
 release:
-  mxt_release(ctx.mxt);
+  mxt_free_device(ctx.mxt);
   return ret;
 }
