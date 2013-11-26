@@ -174,7 +174,7 @@ int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
     return -ENOMEM;
 
   new_dev->ctx = ctx;
-  new_dev->conn = conn;
+  new_dev->conn = mxt_ref_conn(conn);
 
   if (conn == NULL)
     mxt_err(ctx, "New device connection parameters not valid");
@@ -208,6 +208,7 @@ int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
   return 0;
 
 failure:
+  mxt_unref_conn(conn);
   free(new_dev);
   return ret;
 }

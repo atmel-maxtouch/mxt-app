@@ -340,10 +340,6 @@ static int send_frames(struct flash_context *fw)
 
   fclose(fw->fp);
 
-  mxt_info(fw->ctx, "Done");
-
-  sleep(MXT_RESET_TIME);
-
   return 0;
 }
 
@@ -392,8 +388,6 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
       ret = mxt_new_conn(&new_conn, E_I2C_DEV);
       if (ret < 0)
         return ret;
-
-      mxt_ref_conn(new_conn);
 
       ret = sscanf(basename(fw->conn->sysfs.path), "%d-%x",
                    &fw->i2c_adapter, &fw->appmode_address);
@@ -555,6 +549,8 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
   /* Handle transition back to appmode address */
   if (fw.mxt->conn->type == E_I2C_DEV)
   {
+    sleep(MXT_RESET_TIME);
+
     if (fw.appmode_address < 0)
     {
       mxt_info(fw.ctx, "Sent all firmware frames");
@@ -563,6 +559,7 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
     }
     else
     {
+      mxt_info(fw.ctx, "Switching back to app mode");
       struct mxt_conn_info *new_conn;
       ret = mxt_new_conn(&new_conn, E_I2C_DEV);
       if (ret < 0)
@@ -575,6 +572,32 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
       fw.conn = new_conn;
     }
   }
+#ifdef HAVE_LIBUSB
+  else if (fw.mxt->conn->type == E_USB)
+  {
+    int usb_device_number;
+    int tries = 10;
+
+    ret = usb_find_max_address(fw.mxt, &usb_device_number);
+    if (ret < 0)
+      return ret;
+
+    while (tries--)
+    {
+      sleep(MXT_RESET_TIME);
+
+      ret = usb_rediscover_device(fw.mxt, usb_device_number);
+      if (ret == 0)
+        break;
+    }
+
+    if (ret < 0)
+    {
+      mxt_err(fw.ctx, "Did not find device after reset");
+      return ret;
+    }
+  }
+#endif
 
   mxt_free_device(fw.mxt);
 

@@ -96,6 +96,15 @@ static int mxt_init_chip(struct libmaxtouch_ctx *ctx, struct mxt_device **mxt,
     return -1;
   }
 
+#ifdef HAVE_LIBUSB
+  if ((*mxt)->conn->type == E_USB && usb_is_bootloader(*mxt))
+  {
+    mxt_err(ctx, "USB device in bootloader mode");
+    mxt_free_device(*mxt);
+    return -1;
+  }
+#endif
+
   if (mxt_get_info(*mxt) < 0)
   {
     mxt_err(ctx, "Failed to read information block");
@@ -401,6 +410,12 @@ int main (int argc, char *argv[])
             }
           }
 #endif
+          else
+          {
+            fprintf(stderr, "Invalid device string %s\n", optarg);
+            conn = mxt_unref_conn(conn);
+            return -1;
+          }
         }
         break;
 
@@ -736,6 +751,7 @@ int main (int argc, char *argv[])
   {
     mxt_set_debug(mxt, false);
     mxt_free_device(mxt);
+    mxt_unref_conn(conn);
   }
 
 free:

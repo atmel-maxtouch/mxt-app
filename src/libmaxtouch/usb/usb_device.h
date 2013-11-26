@@ -71,3 +71,5 @@ int usb_bootloader_read(struct mxt_device *mxt, unsigned char *buf, size_t count
 int usb_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, size_t count);
 bool usb_is_bootloader(struct mxt_device *mxt);
 bool usb_read_chg(struct mxt_device *mxt);
+int usb_find_max_address(struct mxt_device *mxt, int *address);
+int usb_rediscover_device(struct mxt_device *mxt, int max_device);
