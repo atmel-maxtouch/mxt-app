@@ -442,6 +442,7 @@ static int usb_scan_device_configs(struct mxt_device *mxt)
     else
     {
       ret = usb_scan_for_control_if(mxt, config);
+      libusb_free_config_descriptor(config);
       if (ret >= 0)
       {
         // Found interface number
@@ -561,7 +562,7 @@ static int usb_find_device(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt)
     usb_bus = libusb_get_bus_number(devs[i]);
     usb_device = libusb_get_device_address(devs[i]);
 
-    if (mxt->conn.usb.bus == usb_bus && mxt->conn.usb.device == usb_device)
+    if (mxt->conn->usb.bus == usb_bus && mxt->conn->usb.device == usb_device)
     {
       if (desc.idProduct == 0x6123)
       {
@@ -577,13 +578,13 @@ static int usb_find_device(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt)
       libusb_ref_device(mxt->usb.device);
       mxt->usb.desc = desc;
       ret = 0;
-      goto out;
+      goto free_device_list;
     }
   }
 
   ret = -1;
 
-out:
+free_device_list:
   libusb_free_device_list(devs, 1);
   return ret;
 }
@@ -640,11 +641,14 @@ int usb_open(struct mxt_device *mxt)
     return ret;
   }
 
+  mxt_info(mxt->ctx, "Opening USB device:%03d-%03d VID=0x%04X PID=0x%04X",
+           mxt->conn->usb.bus, mxt->conn->usb.device,
+           mxt->usb.desc.idVendor, mxt->usb.desc.idProduct);
+
   ret = libusb_open(mxt->usb.device, &mxt->usb.handle);
   if (ret != LIBUSB_SUCCESS)
   {
-    mxt_err(mxt->ctx, "%s opening device with VID=0x%04X PID=0x%04X",
-                   libusb_error_name(ret), mxt->usb.desc.idVendor, mxt->usb.desc.idProduct);
+    mxt_err(mxt->ctx, "%s opening USB device", libusb_error_name(ret));
     return ret;
   }
 
@@ -731,7 +735,9 @@ int usb_open(struct mxt_device *mxt)
   return 0;
 }
 
-int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn)
+//******************************************************************************
+/// \brief  Scan for supported devices on the USB bus
+int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
 {
   int ret, count, i;
   struct libusb_device **devs;
@@ -776,16 +782,22 @@ int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn)
               usb_bus, usb_device,
               desc.idVendor, desc.idProduct);
         }
-        else if (conn->type == E_NONE
-            || (conn->type == E_USB && conn->usb.bus == usb_bus && conn->usb.device == usb_device))
+        else
         {
-          conn->type = E_USB;
-          conn->usb.bus = usb_bus;
-          conn->usb.device = usb_device;
+          struct mxt_conn_info *new_conn;
+          ret = mxt_new_conn(&new_conn, E_USB);
+          if (ret < 0)
+            return ret;
+
+          new_conn->usb.bus = usb_bus;
+          new_conn->usb.device = usb_device;
 
           mxt_verb(ctx, "Found VID=%04X PID=%04X",
-              desc.idVendor, desc.idProduct);
-          return 1;
+                   desc.idVendor, desc.idProduct);
+
+          *conn = new_conn;
+          ret = 1;
+          goto free_device_list;
         }
       }
       else
@@ -795,8 +807,11 @@ int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn)
     }
   }
 
+  ret = 0;
+
+free_device_list:
   libusb_free_device_list(devs, 1);
-  return 0;
+  return ret;
 }
 
 //******************************************************************************

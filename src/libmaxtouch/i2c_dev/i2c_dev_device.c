@@ -55,7 +55,7 @@ int i2c_dev_open(struct mxt_device *mxt)
   mxt_info
   (
     mxt->ctx, "Registered i2c-dev adapter:%d address:0x%x",
-    mxt->conn.i2c_dev.adapter, mxt->conn.i2c_dev.address
+    mxt->conn->i2c_dev.adapter, mxt->conn->i2c_dev.address
   );
 
   return 0;
@@ -75,14 +75,14 @@ static int open_and_set_slave_address(struct mxt_device *mxt)
   int ret;
   char filename[20];
 
-  snprintf(filename, 19, "/dev/i2c-%d", mxt->conn.i2c_dev.adapter);
+  snprintf(filename, 19, "/dev/i2c-%d", mxt->conn->i2c_dev.adapter);
   fd = open(filename, O_RDWR);
   if (fd < 0) {
     mxt_err(mxt->ctx, "Could not open %s, error %s (%d)", filename, strerror(errno), errno);
     return fd;
   }
 
-  ret = ioctl(fd, I2C_SLAVE_FORCE, mxt->conn.i2c_dev.address);
+  ret = ioctl(fd, I2C_SLAVE_FORCE, mxt->conn->i2c_dev.address);
   if (ret < 0) {
     mxt_err(mxt->ctx, "Error setting slave address, error %s (%d)", strerror(errno), errno);
     close(fd);

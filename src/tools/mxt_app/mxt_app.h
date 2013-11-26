@@ -51,7 +51,7 @@
 #define SELF_TEST_INVALID      0xFD
 #define SELF_TEST_TIMEOUT      0xFC
 
-int mxt_flash_firmware(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, const char *filename, const char *new_version, struct mxt_conn_info conn);
+int mxt_flash_firmware(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, const char *filename, const char *new_version, struct mxt_conn_info *conn);
 int mxt_socket_server(struct mxt_device *mxt, uint16_t port);
 int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port);
 int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file, uint16_t frames);

@@ -71,42 +71,26 @@ typedef enum mxt_app_cmd_t {
 //******************************************************************************
 /// \brief Initialize mXT device and read the info block
 static int mxt_init_chip(struct libmaxtouch_ctx *ctx, struct mxt_device **mxt,
-                         struct mxt_conn_info conn)
+                         struct mxt_conn_info **conn)
 {
   int ret;
 
-  switch (conn.type)
+  if (!*conn)
   {
-    case E_NONE:
-      ret = mxt_scan(ctx, &conn, false);
-      if (ret == 0)
-      {
-        mxt_err(ctx, "Unable to find a device");
-        return -1;
-      }
-      else if (ret < 0)
-      {
-        mxt_err(ctx, "Failed to find device");
-        return -1;
-      }
-      break;
-    case E_I2C_DEV:
-      mxt_info(ctx, "i2c-dev device: %d-%04x",
-               conn.i2c_dev.adapter, conn.i2c_dev.address);
-      break;
-
-#ifdef HAVE_LIBUSB
-    case E_USB:
-      mxt_info(ctx, "USB device:%03d-%03d", conn.usb.bus, conn.usb.device);
-      break;
-#endif
-
-    default:
-      mxt_err(ctx, "Unhandled connection parameters");
+    ret = mxt_scan(ctx, conn, false);
+    if (ret == 0)
+    {
+      mxt_err(ctx, "Unable to find a device");
       return -1;
+    }
+    else if (ret < 0)
+    {
+      mxt_err(ctx, "Failed to find device");
+      return -1;
+    }
   }
 
-  if (mxt_new_device(ctx, conn, mxt) < 0)
+  if (mxt_new_device(ctx, *conn, mxt) < 0)
   {
     mxt_err(ctx, "Failed to open device");
     return -1;
@@ -196,7 +180,7 @@ int main (int argc, char *argv[])
   uint16_t address = 0;
   uint16_t object_address = 0;
   uint16_t count = 0;
-  struct mxt_conn_info conn = { .type = E_NONE };
+  struct mxt_conn_info *conn = NULL;
   uint16_t object_type = 0;
   uint8_t instance = 0;
   uint8_t verbose = 0;
@@ -381,26 +365,40 @@ int main (int argc, char *argv[])
         if (optarg) {
           if (!strncmp(optarg, "i2c-dev:", 8))
           {
+            ret = mxt_new_conn(&conn, E_I2C_DEV);
+
             if (sscanf(optarg, "i2c-dev:%d-%x",
-                  &conn.i2c_dev.adapter, &conn.i2c_dev.address) != 2)
+                  &conn->i2c_dev.adapter, &conn->i2c_dev.address) != 2)
             {
-              fprintf(stderr, "Invalid device string %s", optarg);
+              fprintf(stderr, "Invalid device string %s\n", optarg);
+              conn = mxt_unref_conn(conn);
+              return -1;
+            }
+          }
+          else if (!strncmp(optarg, "sysfs:", 6))
+          {
+            ret = mxt_new_conn(&conn, E_SYSFS);
+
+            conn->sysfs.path = (char *)calloc(strlen(optarg) + 1, sizeof(char));
+            if (!conn->sysfs.path)
+            {
+              fprintf(stderr, "malloc failure\n");
+              conn = mxt_unref_conn(conn);
               return -1;
             }
 
-            conn.type = E_I2C_DEV;
-
+            memcpy(conn->sysfs.path, optarg + 6, strlen(optarg) - 6);
           }
 #ifdef HAVE_LIBUSB
           else if (!strncmp(optarg, "usb:", 4))
           {
-            if (sscanf(optarg, "usb:%d-%d", &conn.usb.bus, &conn.usb.device) != 2)
+            ret = mxt_new_conn(&conn, E_USB);
+            if (sscanf(optarg, "usb:%d-%d", &conn->usb.bus, &conn->usb.device) != 2)
             {
-              fprintf(stderr, "Invalid device string %s", optarg);
+              fprintf(stderr, "Invalid device string %s\n", optarg);
+              conn = mxt_unref_conn(conn);
               return -1;
             }
-
-            conn.type = E_USB;
           }
 #endif
         }
@@ -561,13 +559,16 @@ int main (int argc, char *argv[])
   /* initialise chip, bootloader mode handles this itself */
   if (cmd == CMD_QUERY)
   {
-    return mxt_scan(ctx, &conn, true);
+    ret = mxt_scan(ctx, &conn, true);
+    goto free;
   }
   else if (cmd != CMD_FLASH)
   {
-    ret = mxt_init_chip(ctx, &mxt, conn);
-    if (ret < 0)
-      return ret;
+    ret = mxt_init_chip(ctx, &mxt, &conn);
+    if (ret < 0) {
+      fprintf(stderr, "Failed to init device\n");
+      goto free;
+    }
 
     /*! Turn on kernel dmesg output of MSG */
     mxt_set_debug(mxt, true);
@@ -594,12 +595,14 @@ int main (int argc, char *argv[])
         }
       } else if (count == 0) {
         fprintf(stderr, "Not enough arguments!\n");
-        return -1;
+        ret = -1;
+        goto free;
       }
 
       if (optind != (argc - 1)) {
         fprintf(stderr, "Must give hex input\n");
-        return -1;
+        ret = -1;
+        goto free;
       }
 
       ret = mxt_convert_hex(argv[optind], &databuf[0], &count, sizeof(databuf));
@@ -735,6 +738,7 @@ int main (int argc, char *argv[])
     mxt_free_device(mxt);
   }
 
+free:
   mxt_free(ctx);
 
   return ret;

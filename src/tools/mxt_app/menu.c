@@ -90,7 +90,7 @@ static void save_config(struct mxt_device *mxt)
 static void flash_firmware_command(struct mxt_device *mxt)
 {
   char fw_file[255];
-  struct mxt_conn_info conn = { .type = E_NONE };
+  struct mxt_conn_info *conn = NULL;
 
   /* Save config file */
   printf("Give firmware .enc file name: ");

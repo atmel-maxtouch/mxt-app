@@ -37,7 +37,7 @@
 #include <android/log.h>
 
 struct libmaxtouch_ctx *ctx;
-struct mxt_conn_info conn;
+struct mxt_conn_info *conn;
 struct mxt_device *mxt;
 
 //******************************************************************************

@@ -31,6 +31,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <string.h>
+#include <libgen.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -67,36 +68,38 @@
 struct flash_context
 {
   struct mxt_device *mxt;
-  struct mxt_conn_info conn;
+  struct mxt_conn_info *conn;
   struct libmaxtouch_ctx *ctx;
   bool have_bootloader_version;
   bool extended_id_mode;
   FILE *fp;
   char curr_version[MXT_FW_VER_LEN];
+  int i2c_adapter;
   int appmode_address;
+  int bootloader_address;
   bool check_version;
   const char *new_version;
   bool usb_bootloader;
 };
 
-static int wait_for_chg(struct flash_context *fw)
+static int wait_for_chg(struct mxt_device *mxt)
 {
 #ifdef HAVE_LIBUSB
   int try = 0;
-  if (fw->mxt->conn.type == E_USB)
+  if (mxt->conn->type == E_USB)
   {
-    while (usb_read_chg(fw->mxt))
+    while (usb_read_chg(mxt))
     {
       if (++try > 100)
       {
-        mxt_warn(fw->ctx, "Timed out awaiting CHG");
+        mxt_warn(mxt->ctx, "Timed out awaiting CHG");
         return -1;
       }
 
       usleep(1000);
     }
 
-    mxt_verb(fw->ctx, "CHG line cycles %d", try);
+    mxt_verb(mxt->ctx, "CHG line cycles %d", try);
   }
   else
 #endif
@@ -126,7 +129,7 @@ static int mxt_check_bootloader(struct flash_context *fw, unsigned int state)
 
 recheck:
     if (state != MXT_WAITING_BOOTLOAD_CMD)
-      wait_for_chg(fw);
+      wait_for_chg(fw->mxt);
 
     if ((!fw->have_bootloader_version) && fw->extended_id_mode
         && (state == MXT_WAITING_FRAME_DATA))
@@ -370,32 +373,41 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
 {
   int ret;
 
-  if (fw->conn.type == E_I2C_DEV)
+  if (!fw->conn)
   {
-    if (lookup_bootloader_addr(fw, fw->conn.i2c_dev.address) == -1)
-    {
-      mxt_info(fw->ctx, "Trying bootloader");
-      fw->appmode_address = -1;
-      return 0;
-    }
-  }
-  else if (fw->conn.type == E_NONE)
-  {
-    ret = mxt_scan(fw->ctx, false, &fw->conn);
+    ret = mxt_scan(fw->ctx, &fw->conn, false);
     if (ret < 1)
     {
       mxt_info(fw->ctx, "Could not find a device");
       return -1;
     }
+  }
 
-    switch (fw->conn.type)
-    {
+  switch (fw->conn->type)
+  {
     case E_SYSFS:
-    case E_SYSFS_DEBUG_NG:
       mxt_info(fw->ctx, "Switching to i2c-dev mode");
-      fw->conn.type = E_I2C_DEV;
-      fw->conn.i2c_dev.adapter = sysfs_get_i2c_adapter(fw->mxt);
-      fw->conn.i2c_dev.address = sysfs_get_i2c_address(fw->mxt);
+
+      struct mxt_conn_info *new_conn;
+      ret = mxt_new_conn(&new_conn, E_I2C_DEV);
+      if (ret < 0)
+        return ret;
+
+      mxt_ref_conn(new_conn);
+
+      ret = sscanf(basename(fw->conn->sysfs.path), "%d-%x",
+                   &fw->i2c_adapter, &fw->appmode_address);
+      if (ret != 2)
+      {
+        mxt_err(fw->ctx, "Couldn't parse sysfs path for adapter/address");
+        return -1;
+      }
+
+      new_conn->i2c_dev.adapter = fw->i2c_adapter;
+      new_conn->i2c_dev.address = fw->appmode_address;
+
+      mxt_unref_conn(fw->conn);
+      fw->conn = new_conn;
       break;
 
 #ifdef HAVE_LIBUSB
@@ -403,10 +415,14 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
       break;
 #endif
 
-    default:
-      mxt_err(fw->ctx, "Unsupported device type");
-      return -1;
-    }
+    case E_I2C_DEV:
+      if (lookup_bootloader_addr(fw, fw->conn->i2c_dev.address) == -1)
+      {
+        mxt_info(fw->ctx, "Trying bootloader");
+        fw->appmode_address = -1;
+        return 0;
+      }
+      break;
   }
 
   ret = mxt_new_device(fw->ctx, fw->conn, &fw->mxt);
@@ -416,17 +432,8 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
     return ret;
   }
 
-  ret = mxt_get_info(fw->mxt);
-  if (ret)
-  {
-    mxt_err(fw->ctx, "Could not get info block");
-    return ret;
-  }
-
-  mxt_info(fw->ctx, "Chip detected");
-
 #ifdef HAVE_LIBUSB
-  if (fw->conn.type == E_USB && usb_is_bootloader(fw->mxt))
+  if (fw->conn->type == E_USB && usb_is_bootloader(fw->mxt))
   {
     mxt_info(fw->ctx, "USB device in bootloader mode");
     fw->usb_bootloader = true;
@@ -438,6 +445,15 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
     fw->usb_bootloader = false;
   }
 #endif
+
+  ret = mxt_get_info(fw->mxt);
+  if (ret)
+  {
+    mxt_err(fw->ctx, "Could not get info block");
+    return ret;
+  }
+
+  mxt_info(fw->ctx, "Chip detected");
 
   mxt_get_firmware_version(fw->mxt, (char *)&fw->curr_version);
   mxt_info(fw->ctx, "Current firmware version: %s", fw->curr_version);
@@ -465,10 +481,20 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
     sleep(MXT_RESET_TIME);
   }
 
-  if (fw->mxt->conn.type == E_I2C_DEV)
+  if (fw->conn->type == E_I2C_DEV)
   {
-    fw->appmode_address = fw->conn.i2c_dev.address;
-    fw->conn.i2c_dev.address = lookup_bootloader_addr(fw, fw->appmode_address);
+    fw->appmode_address = fw->conn->i2c_dev.address;
+
+    fw->conn->i2c_dev.address = lookup_bootloader_addr(fw, fw->appmode_address);
+    if (fw->conn->i2c_dev.address == -1)
+    {
+      mxt_err(fw->ctx, "No bootloader address!");
+      return -1;
+    }
+
+    mxt_dbg(fw->ctx, "I2C Adapter:%d", fw->conn->i2c_dev.adapter);
+    mxt_dbg(fw->ctx, "Bootloader addr:0x%02x", fw->conn->i2c_dev.address);
+    mxt_dbg(fw->ctx, "App mode addr:0x%02x", fw->appmode_address);
   }
 
   mxt_free_device(fw->mxt);
@@ -481,7 +507,7 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
 int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
                        struct mxt_device *maxtouch,
                        const char *filename, const char *new_version,
-                       struct mxt_conn_info conn)
+                       struct mxt_conn_info *conn)
 {
   struct flash_context fw;
   int ret;
@@ -515,19 +541,6 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
   if (ret)
     return ret;
 
-  if (fw.conn.type == E_I2C_DEV)
-  {
-    if (fw.conn.i2c_dev.address == -1)
-    {
-      mxt_err(fw.ctx, "No bootloader address!");
-      return -1;
-    }
-
-    mxt_dbg(fw.ctx, "i2c_adapter:%d", fw.conn.i2c_dev.adapter);
-    mxt_dbg(fw.ctx, "bootloader_address:%02X", fw.conn.i2c_dev.address);
-    mxt_dbg(fw.ctx, "appmode_address:%02X", fw.appmode_address);
-  }
-
   ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
   if (ret < 0)
   {
@@ -539,18 +552,31 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
   if (ret != 0)
     return ret;
 
+  /* Handle transition back to appmode address */
+  if (fw.mxt->conn->type == E_I2C_DEV)
+  {
+    if (fw.appmode_address < 0)
+    {
+      mxt_info(fw.ctx, "Sent all firmware frames");
+      ret = 0;
+      goto release;
+    }
+    else
+    {
+      struct mxt_conn_info *new_conn;
+      ret = mxt_new_conn(&new_conn, E_I2C_DEV);
+      if (ret < 0)
+        return ret;
+
+      new_conn->i2c_dev.adapter = fw.i2c_adapter;
+      new_conn->i2c_dev.address = fw.appmode_address;
+
+      mxt_unref_conn(fw.conn);
+      fw.conn = new_conn;
+    }
+  }
+
   mxt_free_device(fw.mxt);
-
-  if (fw.conn.type == E_I2C_DEV && fw.conn.i2c_dev.address < 0)
-  {
-    mxt_info(fw.ctx, "Sent all firmware frames");
-    return 0;
-  }
-
-  if (fw.mxt->conn.type == E_I2C_DEV)
-  {
-    fw.conn.i2c_dev.address = fw.appmode_address;
-  }
 
   ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
   if (ret != 0)
@@ -560,7 +586,7 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
   }
 
 #ifdef HAVE_LIBUSB
-  if (fw.mxt->conn.type == E_USB && usb_is_bootloader(fw.mxt))
+  if (fw.mxt->conn->type == E_USB && usb_is_bootloader(fw.mxt))
   {
     mxt_err(fw.ctx, "USB device still in bootloader mode");
     ret = -1;
@@ -598,5 +624,6 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
 
 release:
   mxt_free_device(fw.mxt);
+  mxt_unref_conn(fw.conn);
   return ret;
 }

@@ -83,13 +83,12 @@ void mxt_set_log_fn(struct libmaxtouch_ctx *ctx,
 /// \brief  Scan for devices on the I2C bus and USB
 /// \note   Checks for I2C devices first
 /// \return 0 = no device found, 1 = device found, negative = error
-int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
+int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn,
              bool query)
 {
   int ret = 0;
 
   ctx->query = query;
-  conn->type = E_NONE;
 
   /* Scan the I2C bus first because it will return quicker */
   ret = sysfs_scan(ctx, conn);
@@ -107,9 +106,65 @@ int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
   return ret;
 }
 
+
+//******************************************************************************
+/// \brief Create connection object
+int mxt_new_conn(struct mxt_conn_info **conn, enum mxt_device_type type)
+{
+  struct mxt_conn_info *c = calloc(1, sizeof(struct mxt_conn_info));
+  if (!c)
+    return -ENOMEM;
+
+  c->type = type;
+  c->refcount = 1;
+
+  *conn = c;
+  return 0;
+}
+
+//******************************************************************************
+/// \brief Take a reference to the connection object
+struct mxt_conn_info *mxt_ref_conn(struct mxt_conn_info *conn)
+{
+  if (conn == NULL)
+    return NULL;
+
+  conn->refcount++;
+  return conn;
+}
+
+//******************************************************************************
+/// \brief Free connection object
+struct mxt_conn_info *mxt_unref_conn(struct mxt_conn_info *conn)
+{
+  if (conn == NULL)
+    return NULL;
+
+  conn->refcount--;
+
+  if (conn->refcount > 0)
+    return conn;
+
+  switch (conn->type)
+  {
+    case E_SYSFS:
+      free(conn->sysfs.path);
+      break;
+
+    default:
+      break;
+  }
+
+  free(conn);
+  return NULL;
+}
+
 //******************************************************************************
 /// \brief Open device
-int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info conn, struct mxt_device **mxt)
+/// \note Ownership of mxt_conn_info passes to device and it is freed when the
+///       device is freed.
+int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
+                   struct mxt_device **mxt)
 {
   int ret;
   struct mxt_device *new_dev;
@@ -121,15 +176,12 @@ int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info conn, struc
   new_dev->ctx = ctx;
   new_dev->conn = conn;
 
-  switch (conn.type)
-  {
-    case E_NONE:
-      mxt_err(ctx, "Device uninitialised");
-      ret = -1;
-      goto failure;
+  if (conn == NULL)
+    mxt_err(ctx, "New device connection parameters not valid");
 
+  switch (conn->type)
+  {
     case E_SYSFS:
-    case E_SYSFS_DEBUG_NG:
       ret = sysfs_open(new_dev);
       break;
 
@@ -190,14 +242,9 @@ int mxt_get_info(struct mxt_device *mxt)
 /// \brief  Close device
 void mxt_free_device(struct mxt_device *mxt)
 {
-  switch (mxt->conn.type)
+  switch (mxt->conn->type)
   {
-    case E_NONE:
-      mxt_err(mxt->ctx, "Device uninitialised");
-      break;
-
     case E_SYSFS:
-    case E_SYSFS_DEBUG_NG:
       sysfs_release(mxt);
       break;
 
@@ -215,8 +262,11 @@ void mxt_free_device(struct mxt_device *mxt)
       mxt_err(mxt->ctx, "Device type not supported");
   }
 
-  // Free memory
+
+  mxt->conn = mxt_unref_conn(mxt->conn);
+
   free(mxt->raw_info);
+  free(mxt->report_id_map);
   free(mxt);
 }
 
@@ -227,14 +277,9 @@ void mxt_free_device(struct mxt_device *mxt)
 ///         need to be edited to run on different sysfs devices
 const char* mxt_get_input_event_file(struct mxt_device *mxt)
 {
-  switch (mxt->conn.type)
+  switch (mxt->conn->type)
   {
-    case E_NONE:
-      mxt_err(mxt->ctx, "Device uninitialised");
-      break;
-
     case E_SYSFS:
-    case E_SYSFS_DEBUG_NG:
       /* This must be adjusted depending on which sysfs device the code is running on */
       return "/dev/input/event2";
 
@@ -259,14 +304,9 @@ int mxt_read_register(struct mxt_device *mxt, unsigned char *buf,
 {
   int ret = -1;
 
-  switch (mxt->conn.type)
+  switch (mxt->conn->type)
   {
-    case E_NONE:
-      mxt_err(mxt->ctx, "Device uninitialised");
-      break;
-
     case E_SYSFS:
-    case E_SYSFS_DEBUG_NG:
       ret = sysfs_read_register(mxt, buf, start_register, count);
       break;
 
@@ -298,14 +338,9 @@ int mxt_write_register(struct mxt_device *mxt, unsigned char const *buf,
 {
   int ret = -1;
 
-  switch (mxt->conn.type)
+  switch (mxt->conn->type)
   {
-    case E_NONE:
-      mxt_err(mxt->ctx, "Device uninitialised");
-      break;
-
     case E_SYSFS:
-    case E_SYSFS_DEBUG_NG:
       ret = sysfs_write_register(mxt, buf, start_register, count);
       break;
 
@@ -336,14 +371,9 @@ int mxt_set_debug(struct mxt_device *mxt, bool debug_state)
 {
   int ret = -1;
 
-  switch (mxt->conn.type)
+  switch (mxt->conn->type)
   {
-    case E_NONE:
-      mxt_err(mxt->ctx, "Device uninitialised");
-      break;
-
     case E_SYSFS:
-    case E_SYSFS_DEBUG_NG:
       ret = sysfs_set_debug(mxt, debug_state);
       break;
 
@@ -369,14 +399,9 @@ bool mxt_get_debug(struct mxt_device *mxt)
 {
   bool ret = false;
 
-  switch (mxt->conn.type)
+  switch (mxt->conn->type)
   {
-    case E_NONE:
-      mxt_err(mxt->ctx, "Device uninitialised");
-      break;
-
     case E_SYSFS:
-    case E_SYSFS_DEBUG_NG:
       ret = sysfs_get_debug(mxt);
       break;
 
@@ -435,15 +460,10 @@ int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
 {
   int ret = -1;
 
-  switch (mxt->conn.type)
+  switch (mxt->conn->type)
   {
-    case E_NONE:
-      mxt_err(mxt->ctx, "Device uninitialised");
-      break;
-
     case E_SYSFS:
     case E_I2C_DEV:
-    case E_SYSFS_DEBUG_NG:
       ret = mxt_send_reset_command(mxt, bootloader_mode);
       break;
 
@@ -474,26 +494,19 @@ int mxt_calibrate_chip(struct mxt_device *mxt)
   if (t6_addr == OBJECT_NOT_FOUND)
     return -1;
 
-  if (mxt->conn.type == E_NONE)
+  /* Write to command processor register to perform command */
+  ret = mxt_write_register
+  (
+    mxt, &write_value, t6_addr + CALIBRATE_OFFSET, 1
+  );
+
+  if (ret == 0)
   {
-    mxt_err(mxt->ctx, "Device uninitialised");
+    mxt_info(mxt->ctx, "Send calibration command");
   }
   else
   {
-    /* Write to command processor register to perform command */
-    ret = mxt_write_register
-    (
-      mxt, &write_value, t6_addr + CALIBRATE_OFFSET, 1
-    );
-
-    if (ret == 0)
-    {
-      mxt_info(mxt->ctx, "Send calibration command");
-    }
-    else
-    {
-      mxt_err(mxt->ctx, "Failed to send calibration command");
-    }
+    mxt_err(mxt->ctx, "Failed to send calibration command");
   }
 
   return ret;
@@ -513,26 +526,19 @@ int mxt_backup_config(struct mxt_device *mxt)
   if (t6_addr == OBJECT_NOT_FOUND)
     return -1;
 
-  if (mxt->conn.type == E_NONE)
+  /* Write to command processor register to perform command */
+  ret = mxt_write_register
+  (
+    mxt, &write_value, t6_addr + BACKUPNV_OFFSET, 1
+  );
+
+  if (ret == 0)
   {
-    mxt_err(mxt->ctx, "Device uninitialised");
+    mxt_info(mxt->ctx, "Backed up settings to the non-volatile memory");
   }
   else
   {
-    /* Write to command processor register to perform command */
-    ret = mxt_write_register
-    (
-      mxt, &write_value, t6_addr + BACKUPNV_OFFSET, 1
-    );
-
-    if (ret == 0)
-    {
-      mxt_info(mxt->ctx, "Backed up settings to the non-volatile memory");
-    }
-    else
-    {
-      mxt_err(mxt->ctx, "Failed to back up settings");
-    }
+    mxt_err(mxt->ctx, "Failed to back up settings");
   }
 
   return ret;
@@ -545,18 +551,14 @@ int mxt_get_msg_count(struct mxt_device *mxt)
 {
   int count = -1;
 
-  switch (mxt->conn.type)
+  switch (mxt->conn->type)
   {
-    case E_NONE:
-      mxt_err(mxt->ctx, "Device uninitialised");
-      break;
-
     case E_SYSFS:
-      count = sysfs_get_msg_count(mxt);
-      break;
+      if (sysfs_has_debug_v2(mxt))
+        count = sysfs_get_msg_count_v2(mxt);
+      else
+        count = sysfs_get_msg_count(mxt);
 
-    case E_SYSFS_DEBUG_NG:
-      count = sysfs_get_msg_count_ng(mxt);
       break;
 
 #ifdef HAVE_LIBUSB
@@ -581,18 +583,13 @@ char *mxt_get_msg_string(struct mxt_device *mxt)
 {
   char *msg_string = NULL;
 
-  switch (mxt->conn.type)
+  switch (mxt->conn->type)
   {
-    case E_NONE:
-      mxt_err(mxt->ctx, "Device uninitialised");
-      break;
-
     case E_SYSFS:
-      msg_string = sysfs_get_msg_string(mxt);
-      break;
-
-    case E_SYSFS_DEBUG_NG:
-      msg_string = sysfs_get_msg_string_ng(mxt);
+      if (sysfs_has_debug_v2(mxt))
+        msg_string = sysfs_get_msg_string_v2(mxt);
+      else
+        msg_string = sysfs_get_msg_string(mxt);
       break;
 
 #ifdef HAVE_LIBUSB
@@ -624,18 +621,13 @@ int mxt_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen)
   int byte, length;
   char msg_string[50];
 
-  switch (mxt->conn.type)
+  switch (mxt->conn->type)
   {
-    case E_NONE:
-      mxt_err(mxt->ctx, "Device uninitialised");
-      break;
-
     case E_SYSFS:
-      count = sysfs_get_msg_bytes(mxt, buf, buflen);
-      break;
-
-    case E_SYSFS_DEBUG_NG:
-      count = sysfs_get_msg_bytes_ng(mxt, buf, buflen);
+      if (sysfs_has_debug_v2(mxt))
+        count = sysfs_get_msg_bytes_v2(mxt, buf, buflen);
+      else
+        count = sysfs_get_msg_bytes(mxt, buf, buflen);
       break;
 
 #ifdef HAVE_LIBUSB
@@ -671,18 +663,14 @@ int mxt_msg_reset(struct mxt_device *mxt)
 {
   int ret = -1;
 
-  switch (mxt->conn.type)
+  switch (mxt->conn->type)
   {
-    case E_NONE:
-      mxt_err(mxt->ctx, "Device uninitialised");
-      break;
-
     case E_SYSFS:
-      ret = sysfs_msg_reset(mxt);
-      break;
+      if (sysfs_has_debug_v2(mxt))
+        ret = sysfs_msg_reset_v2(mxt);
+      else
+        ret = sysfs_msg_reset(mxt);
 
-    case E_SYSFS_DEBUG_NG:
-      ret = sysfs_msg_reset_ng(mxt);
       break;
 
 #ifdef HAVE_LIBUSB
@@ -704,8 +692,8 @@ int mxt_msg_reset(struct mxt_device *mxt)
 /// \brief  Get fd for message polling
 int mxt_get_msg_poll_fd(struct mxt_device *mxt)
 {
-  if (mxt->conn.type == E_SYSFS_DEBUG_NG)
-    return sysfs_get_debug_ng_fd(mxt);
+  if (sysfs_has_debug_v2(mxt))
+    return sysfs_get_debug_v2_fd(mxt);
   else
     return 0;
 }
@@ -745,12 +733,8 @@ int mxt_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count)
 {
   int ret = -1;
 
-  switch (mxt->conn.type)
+  switch (mxt->conn->type)
   {
-    case E_NONE:
-      mxt_err(mxt->ctx, "Device uninitialised");
-      break;
-
 #ifdef HAVE_LIBUSB
     case E_USB:
       ret = usb_bootloader_read(mxt, buf, count);
@@ -775,12 +759,8 @@ int mxt_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int c
 {
   int ret = -1;
 
-  switch (mxt->conn.type)
+  switch (mxt->conn->type)
   {
-    case E_NONE:
-      mxt_err(mxt->ctx, "Device uninitialised");
-      break;
-
 #ifdef HAVE_LIBUSB
     case E_USB:
       ret = usb_bootloader_write(mxt, buf, count);

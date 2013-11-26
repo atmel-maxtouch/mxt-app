@@ -60,7 +60,7 @@ struct usb_device
   int report_id;
 };
 
-int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn);
+int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn);
 int usb_open(struct mxt_device *mxt);
 int usb_close(struct libmaxtouch_ctx *ctx);
 void usb_release(struct mxt_device *mxt);

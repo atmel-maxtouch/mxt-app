@@ -59,9 +59,7 @@ struct mxt_conn_info;
 //******************************************************************************
 /// \brief Device connection type
 enum mxt_device_type {
-  E_NONE,
   E_SYSFS,
-  E_SYSFS_DEBUG_NG,
 #ifdef HAVE_LIBUSB
   E_USB,
 #endif
@@ -91,6 +89,7 @@ struct libmaxtouch_ctx
 struct mxt_conn_info
 {
   enum mxt_device_type type;
+  int refcount;
 
   union
   {
@@ -106,7 +105,7 @@ struct mxt_conn_info
 /// \brief Device context
 struct mxt_device
 {
-  struct mxt_conn_info conn;
+  struct mxt_conn_info *conn;
   struct libmaxtouch_ctx *ctx;
   struct info_block info_block;
   struct report_id_map *report_id_map;
@@ -124,8 +123,11 @@ struct mxt_device
 
 int mxt_new(struct libmaxtouch_ctx **ctx);
 int mxt_free(struct libmaxtouch_ctx *ctx);
-int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn, bool query);
-int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info conn, struct mxt_device **mxt);
+int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn, bool query);
+int mxt_new_conn(struct mxt_conn_info **conn, enum mxt_device_type type);
+struct mxt_conn_info *mxt_ref_conn(struct mxt_conn_info *conn);
+struct mxt_conn_info *mxt_unref_conn(struct mxt_conn_info *conn);
+int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn, struct mxt_device **mxt);
 void mxt_set_log_fn(struct libmaxtouch_ctx *ctx, void (*log_fn)(struct libmaxtouch_ctx *ctx, enum mxt_log_level level, const char *format, va_list args));
 void mxt_free_device(struct mxt_device *mxt);
 int mxt_get_info(struct mxt_device *mxt);
