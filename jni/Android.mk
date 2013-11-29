@@ -7,7 +7,7 @@ GIT_VERSION = $(shell sh -c 'build-aux/version.sh')
 subdirs := $(addprefix $(SRC_PATH)/,$(addsuffix /Android.mk, \
     libmaxtouch \
     jni \
-    tools/mxt_app \
+    mxt-app \
   ))
 
 include $(subdirs)

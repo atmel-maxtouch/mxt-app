@@ -50,16 +50,16 @@ endif
 mxt_app_LDADD = libmaxtouch.la
 EXTRA_mxt_app_DEPENDENCIES = obp-version
 mxt_app_SOURCES =\
-	src/tools/mxt_app/mxt_app.c \
-	src/tools/mxt_app/menu.c \
-	src/tools/mxt_app/bootloader.c \
-	src/tools/mxt_app/diagnostic_data.c \
-	src/tools/mxt_app/touch_app.c \
-	src/tools/mxt_app/self_test.c \
-	src/tools/mxt_app/bridge.c \
-	src/tools/mxt_app/gr.c \
-	src/tools/mxt_app/serial_data.c \
-	src/tools/mxt_app/buffer.c
+	src/mxt-app/mxt_app.c \
+	src/mxt-app/menu.c \
+	src/mxt-app/bootloader.c \
+	src/mxt-app/diagnostic_data.c \
+	src/mxt-app/touch_app.c \
+	src/mxt-app/self_test.c \
+	src/mxt-app/bridge.c \
+	src/mxt-app/gr.c \
+	src/mxt-app/serial_data.c \
+	src/mxt-app/buffer.c
 
 man1_MANS = mxt-app.1
 
