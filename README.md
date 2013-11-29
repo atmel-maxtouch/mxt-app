@@ -27,61 +27,67 @@ given a T number. *mxt-app* can inspect and alter the object configuration,
 and to view diagnostic data, while the device is running.
 
 For a description of object protocol, see *Atmel AT42QT1085
-Object Protocol Guide*, available from `atmel.com`.
+Object Protocol Guide*, available from atmel.com.
 
 # GENERAL COMMANDS
 
--h [--help]
+`-h [--help]`
 :   Display a brief summary of available options and exit.
 
--i [--info]
+`-i [--info]`
 :   Print the ID information and object table.
 
---reset
+`--reset`
 :   Reset device.
 
---reset-bootloader
+`--reset-bootloader`
 :   Reset device in bootloader mode.
 
---calibrate
+`--calibrate`
 :   Send calibrate command.
 
---backup
+`--backup`
 :   Backup configuration to NVRAM.
 
--g
+`-g`
 :   Write Golden Reference calibration to NVRAM.
 
--t [--test]
+`-t [--test]`
 :   Run all self tests using the T25 Self Test object.
 
---version
+`--version`
 :   print version of mxt-app.
 
 # CONFIGURATION FILE COMMANDS
 
---load *FILE*
+`--load *FILE*`
 :   Upload config from *FILE*, write it to NVRAM, and reset device. The
     configuration must be in `.xcfg` format.
 
---save *FILE*
+`--save *FILE*`
 :   Save config to *FILE* in `OBP_RAW` format.
 
 # REGISTER READ/WRITE COMMANDS
 
--R [--read]
+`-R [--read]`
 :   Read data from the device.
--W [--write]
+
+`-W [--write]`
 :   Write data to the device.
--n [--count] *COUNT*
+
+`-n [--count] *COUNT*`
 :   read/write *COUNT* registers
--f [--format]
+
+`-f [--format]`
 :   format register output
--I [--instance] *INSTANCE*
+
+`-I [--instance] *INSTANCE*`
 :   select object *INSTANCE*
--r [--register] *REGISTER*
+
+`-r [--register] *REGISTER*`
 :   start at *REGISTER*
--T [--type] *TYPE*
+
+`-T [--type] *TYPE*`
 :   select object *TYPE*
 
 ## EXAMPLES
@@ -116,21 +122,21 @@ Object Protocol Guide*, available from `atmel.com`.
 mxt-app to act as a bridge so that Atmel proprietary tools such as *Object
 Server* can access the device.
 
--C [--bridge-client] *HOST*
+`-C [--bridge-client] *HOST*`
 :   Connect over TCP to *HOST*
 
--S [--bridge-server]
+`-S [--bridge-server]`
 :   Start TCP socket server
 
--p [--port] PORT
+`-p [--port] PORT`
 :   TCP port (default 4000)
 
 # BOOTLOADER OPTIONS
 
---flash *FIRMWARE*
+`--flash *FIRMWARE*`
 :   Flash *FIRMWARE* to device. The firmware file should be in `.enc` format.
 
---firmware-version *VERSION*
+`--firmware-version *VERSION*`
 :   The .enc file format does not provide the firmware version in a form
     available to mxt-app. If it is provided via this switch, mxt-app can check
     firmware *VERSION* before and after flash. It will skip the flash process
@@ -141,23 +147,23 @@ Server* can access the device.
 
 # T37 DIAGNOSTIC DATA OPTIONS
 
---debug-dump *FILE*
+`--debug-dump *FILE*`
 :   The T37 Diagnostic Data object provides raw access to touch reference/delta
     measurements from the touch screen. Diagnostic data is written to *FILE* in
     CSV format. The format is compatible with the Atmel Hawkeye utility.
 
---frames *N*
+`--frames *N*`
 :   Capture *N* frames of data
 
---references
+`--references`
 :   Dump references data (normal mode is to capture touch deltas)
 
 # T68 SERIAL DATA COMMANDS
 
---t68-file *FILE*
+`--t68-file *FILE*`
 :   Upload *FILE* to the device via the T68 Serial Data object.
 
---t68-datatype *DATATYPE*
+`--t68-datatype *DATATYPE*`
 :   Set *DATATYPE* of the file. This will be automatically detected from the
     file itself in most cases.
 
@@ -166,9 +172,10 @@ Server* can access the device.
 By default mxt-app will scan available devices and connect to the first device
 it finds.
 
--q [--query]
+`-q [--query]`
 :   Scan for devices and output a list.
--d [--device] *DEVICESTRING*
+
+`-d [--device] *DEVICESTRING*`
 :   Connect to a particular device specified by *DEVICESTRING* which is given
     in the same format as output by `--query`.
 
@@ -185,8 +192,10 @@ Where
 
 d
 :   driver name - `atmel_mxt_ts`, `Atmel MXTXXXX`, etc
+
 b
 :   i2c adapter
+
 xx
 :   i2c address
 
@@ -239,19 +248,9 @@ mode, by specifying the bootloader address.
 
 # DEBUG OPTIONS
 
--v [--verbose] *LEVEL*
-:   print additional debug
-
-    0
-    :    Silent
-    1
-    :    Errors
-    2
-    :    Info
-    3
-    :    Debug (only using debug build)
-    4
-    :    Verbose (only using debug build)
+`-v [--verbose] *LEVEL*`
+:   print additional debug. *LEVEL* is one of 0 (Silent), 1 (Error), 2 (Info),
+    3 (Debug), 4 (Verbose). Debug and Verbose are only available if built in.
 
 # EXIT VALUES
 
