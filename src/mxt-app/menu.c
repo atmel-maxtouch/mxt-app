@@ -30,6 +30,8 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <inttypes.h>
+#include <errno.h>
+#include <string.h>
 
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/utilfuncs.h"
@@ -241,10 +243,11 @@ static bool mxt_app_command(struct mxt_device *mxt, char selection)
       break;
     case 'q':
       printf("Quitting the maxtouch application\n");
-      exit_loop = 1;
+      exit_loop = true;
       break;
     default:
       printf("Invalid menu option\n");
+      exit_loop = true;
       break;
   }
 
@@ -257,6 +260,7 @@ int mxt_menu(struct mxt_device *mxt)
 {
   char menu_input;
   bool exit_loop = false;
+  int ret;
 
   printf("Command line tool for Atmel maXTouch chips version: %s\n\n",
       __GIT_VERSION);
@@ -279,12 +283,16 @@ int mxt_menu(struct mxt_device *mxt)
         "Enter U:   D(U)mp Diagnostic data\n"
         "Enter Q:   (Q)uit the application\n");
 
-    if (scanf("%1s", &menu_input) == 1)
+    ret = scanf("%1s", &menu_input);
+    if (ret == 1)
     {
       /* force lower case */
       menu_input = tolower(menu_input);
 
       exit_loop = mxt_app_command(mxt, menu_input);
+    } else if (ret == EOF) {
+      fprintf(stderr, "Error %s\n", strerror(errno));
+      return ret;
     }
   }
 

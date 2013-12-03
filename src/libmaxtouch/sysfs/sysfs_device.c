@@ -542,14 +542,19 @@ int sysfs_set_debug(struct mxt_device *mxt, bool debug_state)
     if (ret == -1)
       ret = write_boolean_file(mxt, make_path(mxt, "debug_enable"), debug_state);
 
-    ret = sysfs_open_notify_fd(mxt);
-    if (ret < 0)
-      return ret;
+    if (debug_state)
+    {
+      ret = sysfs_open_notify_fd(mxt);
+      if (ret < 0)
+        return ret;
+    }
+    else
+    {
+      close(mxt->sysfs.debug_notify_fd);
+    }
   }
   else
   {
-    close(mxt->sysfs.debug_notify_fd);
-
     ret = write_boolean_file(mxt, make_path(mxt, "debug_enable"), debug_state);
   }
 
