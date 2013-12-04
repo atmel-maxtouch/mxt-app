@@ -353,6 +353,7 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   time_t t2;
 
   ctx.lc = mxt->ctx;
+  ctx.mxt = mxt;
 
   if (frames == 0)
   {
