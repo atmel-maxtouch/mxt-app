@@ -24,10 +24,14 @@ The Atmel Object Based Protocol defines how device registers (normally
 accessed via I2C) are mapped to different functions within the devices. This
 interface organises the register map into separate objects each of which is
 given a T number. *mxt-app* can inspect and alter the object configuration,
-and to view diagnostic data, while the device is running.
+and view diagnostic data, while the device is running.
 
 For a description of object protocol, see *Atmel AT42QT1085
 Object Protocol Guide*, available from atmel.com.
+
+The meaning of the configuration bytes within the objects may be found in the
+Protocol Guide documentation released with each device, and is only provided
+by Atmel under NDA.
 
 # GENERAL COMMANDS
 
@@ -147,9 +151,8 @@ Server* can access the device.
     available to mxt-app. If it is provided via this switch, mxt-app can check
     firmware *VERSION* before and after flash. It will skip the flash process
     if the firmware version is already correct. It will also check for a
-    successful flash on completion.
-
-    The version must be provided in the format `1.0.AA`.
+    successful flash on completion. The version must be provided in the format
+    `1.0.AA`.
 
 # T37 DIAGNOSTIC DATA OPTIONS
 
