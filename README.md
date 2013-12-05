@@ -40,9 +40,6 @@ Object Protocol Guide*, available from atmel.com.
 `--reset`
 :   Reset device.
 
-`--reset-bootloader`
-:   Reset device in bootloader mode.
-
 `--calibrate`
 :   Send calibrate command.
 
@@ -135,6 +132,15 @@ Server* can access the device.
 
 `--flash *FIRMWARE*`
 :   Flash *FIRMWARE* to device. The firmware file should be in `.enc` format.
+
+`--reset-bootloader`
+:   Reset device in bootloader mode. In bootloader mode the device will cease
+    normal operation until a firmware is sent. The I2C address or USB PID will
+    change. The only valid command in this mode is `--flash`. A hard power
+    cycle will return the device to normal Object Protocol mode, unless the
+    firmware image is corrupted. This command is only provided for debugging
+    purposes: in most cases `--flash` will manage the change to/from
+    bootloader mode before/after flash.
 
 `--firmware-version *VERSION*`
 :   The .enc file format does not provide the firmware version in a form
