@@ -30,15 +30,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <string.h>
 
 #include "libmaxtouch.h"
 #include "info_block.h"
 
+#define OBP_RAW_MAGIC      "OBP_RAW V1"
+
 //******************************************************************************
 /// \brief  Save configuration to file
 /// \return 0 = success, negative = fail
-int mxt_save_config_file(struct mxt_device *mxt, const char *cfg_file)
+int mxt_save_raw_file(struct mxt_device *mxt, const char *filename)
 {
   int obj_idx, i, instance, num_bytes;
   uint8_t *temp;
@@ -47,9 +50,9 @@ int mxt_save_config_file(struct mxt_device *mxt, const char *cfg_file)
   FILE *fp;
   int retval;
 
-  mxt_info(mxt->ctx, "Opening config file %s...", cfg_file);
+  mxt_info(mxt->ctx, "Opening config file %s...", filename);
 
-  fp = fopen(cfg_file, "w");
+  fp = fopen(filename, "w");
 
   fprintf(fp, "OBP_RAW V1\n");
 
@@ -106,7 +109,7 @@ close:
 //******************************************************************************
 /// \brief  Load configuration file
 /// \return 0 = success, negative = fail
-int mxt_load_config_file(struct mxt_device *mxt, const char *cfg_file)
+static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
 {
   FILE *fp;
   uint8_t *mem;
@@ -134,13 +137,13 @@ int mxt_load_config_file(struct mxt_device *mxt, const char *cfg_file)
     return -1;
   }
 
-  mxt_info(mxt->ctx, "Opening config file %s...", cfg_file);
+  mxt_info(mxt->ctx, "Opening config file %s...", filename);
 
-  fp = fopen(cfg_file, "r");
+  fp = fopen(filename, "r");
 
   if (fp == NULL)
   {
-    mxt_err(mxt->ctx, "Error opening %s!", cfg_file);
+    mxt_err(mxt->ctx, "Error opening %s!", filename);
     return -1;
   }
 
@@ -292,7 +295,7 @@ int mxt_load_config_file(struct mxt_device *mxt, const char *cfg_file)
       );
     }
 
-    mxt_verb(mxt->ctx, "Writing object of size %d at address %d...", object_size,
+    mxt_dbg(mxt->ctx, "Writing object of size %d at address %d...", object_size,
          object_address);
 
     for (j = 0; j < object_size; j++) {
@@ -360,4 +363,181 @@ int mxt_load_config_file(struct mxt_device *mxt, const char *cfg_file)
     }
   }
   return 0;
+}
+
+//******************************************************************************
+/// \brief  Structure containing configuration data for a particular object
+struct mxt_object_config
+{
+  uint32_t type;
+  uint8_t instance;
+  uint32_t size;
+  uint8_t *data;
+};
+
+//******************************************************************************
+/// \brief  Load configuration from .xcfg or RAW file, automatically detect
+//          format
+//  \return 0 = success, negative error
+static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename)
+{
+  struct mxt_id_info cfg_info;
+  FILE *fp;
+  int ret;
+  size_t i;
+  uint32_t info_crc, config_crc;
+  size_t reg;
+  char line[2048];
+
+  fp = fopen(filename, "r");
+
+  if (fgets(line, sizeof(line), fp) == NULL)
+  {
+    mxt_err(mxt->ctx, "Unexpected EOF");
+  }
+
+  if (strncmp(line, OBP_RAW_MAGIC, strlen(OBP_RAW_MAGIC)))
+  {
+    mxt_warn(mxt->ctx, "Not in OBP_RAW format");
+    ret = -1;
+    goto close;
+  } else {
+    mxt_dbg(mxt->ctx, "Loading OBP_RAW file");
+  }
+
+  /* Load information block and check */
+  for (i = 0; i < sizeof(struct mxt_id_info); i++) {
+    ret = fscanf(fp, "%hhx", (unsigned char *)&cfg_info + i);
+    if (ret != 1) {
+      mxt_err(mxt->ctx, "Bad format");
+      ret = -1;
+      goto close;
+    }
+  }
+
+  /* Read CRCs */
+  ret = fscanf(fp, "%x", &info_crc);
+  if (ret != 1) {
+    mxt_err(mxt->ctx, "Bad format: failed to parse Info CRC");
+    ret = -1;
+    goto close;
+  }
+
+  ret = fscanf(fp, "%x", &config_crc);
+  if (ret != 1) {
+    mxt_err(mxt->ctx, "Bad format: failed to parse Config CRC");
+    ret = -1;
+    goto close;
+  }
+
+  /* The Info Block CRC is calculated over mxt_info and the object table
+   * If it does not match then we are trying to load the configuration
+   * from a different chip or firmware version, so the configuration CRC
+   * is invalid anyway. */
+  if (info_crc != mxt->info.crc) {
+    mxt_warn(mxt->ctx, "Info Block CRC mismatch - device=0x%06X "
+        "file=0x%06X - attempting to apply config",
+        mxt->info.crc, info_crc);
+  }
+
+  while (true)
+  {
+    struct mxt_object_config cfg;
+
+    /* Read type, instance, length */
+    ret = fscanf(fp, "%x %" SCNx8 " %x", &cfg.type, &cfg.instance, &cfg.size);
+    if (ret == EOF) {
+      /* EOF */
+      ret = 0;
+      break;
+    } else if (ret != 3) {
+      mxt_err(mxt->ctx, "Bad format: failed to parse object");
+      ret = -1;
+      goto close;
+    }
+
+    reg = mxt_get_object_address(mxt, cfg.type, cfg.instance);
+    if (reg == OBJECT_NOT_FOUND) {
+      ret = -1;
+      goto close;
+    }
+
+    mxt_dbg(mxt->ctx, "Found cfg for T%u instance %u", cfg.type, cfg.instance);
+
+    if (cfg.size > mxt_get_object_size(mxt, cfg.type)) {
+      /* Either we are in fallback mode due to wrong
+       * config or config from a later fw version,
+       * or the file is corrupt or hand-edited */
+      mxt_warn(mxt->ctx, "Discarding %u bytes in T%u!",
+          cfg.size - mxt_get_object_size(mxt, cfg.type), cfg.type);
+
+      cfg.size = mxt_get_object_size(mxt, cfg.type);
+    } else if (mxt_get_object_size(mxt, cfg.type) > cfg.size) {
+      /* If firmware is upgraded, new bytes may be added to
+       * end of objects. It is generally forward compatible
+       * to zero these bytes - previous behaviour will be
+       * retained. However this does invalidate the CRC and
+       * will force fallback mode until the configuration is
+       * updated. We warn here but do nothing else - the
+       * malloc has zeroed the entire configuration. */
+      mxt_warn(mxt->ctx, "Zeroing %d byte(s) in T%d",
+          mxt_get_object_size(mxt, cfg.type) - cfg.size, cfg.type);
+    }
+
+    /* Malloc memory to store configuration */
+    cfg.data = calloc(mxt_get_object_size(mxt, cfg.type), sizeof(uint8_t));
+    if (!cfg.data) {
+      mxt_err(mxt->ctx, "Failed to allocate memory");
+      ret = -1;
+      goto close;
+    }
+
+    for (i = 0; i < cfg.size; i++) {
+      uint8_t val;
+      ret = fscanf(fp, "%hhx", &val);
+      if (ret != 1) {
+        mxt_err(mxt->ctx, "Parse error in T%d", cfg.type);
+        ret = -1;
+        free(cfg.data);
+        goto close;
+      }
+
+      *(cfg.data + i) = val;
+    }
+
+    mxt_log_buffer(mxt->ctx, LOG_DEBUG, "CFG", cfg.data, cfg.size);
+
+    /* Write object */
+    ret = mxt_write_register(mxt, cfg.data, reg,
+                             mxt_get_object_size(mxt, cfg.type));
+    if (ret != 0) {
+      mxt_err(mxt->ctx, "Config write error, ret=%d", ret);
+      goto close;
+    }
+  }
+
+close:
+  fclose(fp);
+  return ret;
+}
+
+//******************************************************************************
+/// \brief  Load configuration from .xcfg or RAW file, automatically detect
+//          format
+/// \return 0 = success, negative = fail
+int mxt_load_config_file(struct mxt_device *mxt, const char *filename)
+{
+  int ret;
+
+  if (!strcmp(strrchr(filename, '.'), ".xcfg"))
+  {
+    mxt_info(mxt->ctx, "Loading .xcfg file");
+    ret = mxt_load_xcfg_file(mxt, filename);
+  }
+  else
+  {
+    ret = mxt_load_raw_file(mxt, filename);
+  }
+
+  return ret;
 }

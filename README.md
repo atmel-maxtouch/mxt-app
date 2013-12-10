@@ -63,7 +63,7 @@ by Atmel under NDA.
 
 `--load *FILE*`
 :   Upload config from *FILE*, write it to NVRAM, and reset device. The
-    configuration must be in `.xcfg` format.
+    configuration may be in `.xcfg` or `OBP_RAW` format.
 
 `--save *FILE*`
 :   Save config to *FILE* in `OBP_RAW` format.

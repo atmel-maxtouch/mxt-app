@@ -77,7 +77,7 @@ static void save_config(struct mxt_device *mxt)
     return;
   }
 
-  if (mxt_save_config_file(mxt, cfg_file) == 0)
+  if (mxt_save_raw_file(mxt, cfg_file) == 0)
   {
     printf("Successfully saved configuration to file\n");
   }

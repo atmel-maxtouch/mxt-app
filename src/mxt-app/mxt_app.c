@@ -734,7 +734,7 @@ int main (int argc, char *argv[])
     case CMD_SAVE_CFG:
       mxt_verb(ctx, "CMD_SAVE_CFG");
       mxt_verb(ctx, "filename:%s", strbuf);
-      ret = mxt_save_config_file(mxt, strbuf);
+      ret = mxt_save_raw_file(mxt, strbuf);
       break;
 
     case CMD_NONE:
