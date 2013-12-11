@@ -457,9 +457,13 @@ int mxt_convert_hex(char *hex, unsigned char *databuf, uint16_t *count, unsigned
     highnibble = *(hex + pos);
     lownibble = *(hex + pos + 1);
 
-    if (lownibble == '\0' || lownibble == '\n'
-        || highnibble == '\0' || highnibble == '\n')
+    /* end of string */
+    if (highnibble == '\0' || highnibble == '\n')
       break;
+
+    /* uneven number of hex digits */
+    if (lownibble == '\0' || lownibble == '\n')
+      return -1;
 
     *(databuf + datapos) = (to_digit(highnibble) << 4)
       | to_digit(lownibble);

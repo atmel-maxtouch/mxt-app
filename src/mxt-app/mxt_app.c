@@ -618,7 +618,7 @@ int main (int argc, char *argv[])
       }
 
       ret = mxt_convert_hex(argv[optind], &databuf[0], &count, sizeof(databuf));
-      if (ret < 0) {
+      if (ret < 0 || count == 0) {
         fprintf(stderr, "Hex convert error\n");
       } else {
         ret = mxt_write_register(mxt, &databuf[0], address, count);
