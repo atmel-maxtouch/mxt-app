@@ -42,7 +42,8 @@ int mxt_save_config_file(struct mxt_device *mxt, const char *cfg_file)
 {
   int obj_idx, i, instance, num_bytes;
   uint8_t *temp;
-  struct object *object;
+  struct mxt_object object;
+  struct mxt_id_info *id = mxt->info.id;
   FILE *fp;
   int retval;
 
@@ -53,20 +54,20 @@ int mxt_save_config_file(struct mxt_device *mxt, const char *cfg_file)
   fprintf(fp, "OBP_RAW V1\n");
 
   fprintf(fp, "%02X %02X %02X %02X %02X %02X %02X\n",
-          mxt->info_block.id->family_id, mxt->info_block.id->variant_id,
-          mxt->info_block.id->version, mxt->info_block.id->build,
-          mxt->info_block.id->matrix_x_size, mxt->info_block.id->matrix_y_size,
-          mxt->info_block.id->num_declared_objects);
+          id->family, id->variant,
+          id->version, id->build,
+          id->matrix_x_size, id->matrix_y_size,
+          id->num_objects);
 
-  fprintf(fp, "%06X\n", info_block_crc(mxt->info_block.crc));
+  fprintf(fp, "%06X\n", mxt->info.crc);
 
   /* can't read object table CRC at present */
   fprintf(fp, "000000\n");
 
-  for (obj_idx = 0; obj_idx < mxt->info_block.id->num_declared_objects; obj_idx++)
+  for (obj_idx = 0; obj_idx < id->num_objects; obj_idx++)
   {
-    object = &(mxt->info_block.objects[obj_idx]);
-    num_bytes = object->size + 1;
+    object = mxt->info.objects[obj_idx];
+    num_bytes = MXT_SIZE(object);
 
     temp = (uint8_t *)calloc(num_bytes, sizeof(char));
     if (temp == NULL)
@@ -76,12 +77,12 @@ int mxt_save_config_file(struct mxt_device *mxt, const char *cfg_file)
       goto close;
     }
 
-    for (instance = 0; instance < object->instances + 1; instance++)
+    for (instance = 0; instance < MXT_INSTANCES(object); instance++)
     {
-      fprintf(fp, "%04X %04X %04X", object->object_type, instance, num_bytes);
+      fprintf(fp, "%04X %04X %04X", object.type, instance, num_bytes);
 
       mxt_read_register(mxt, temp,
-                       get_start_position(*object, instance),
+                       mxt_get_start_position(object, instance),
                        num_bytes);
 
       for (i=0; i< num_bytes; i++)
@@ -262,7 +263,7 @@ int mxt_load_config_file(struct mxt_device *mxt, const char *cfg_file)
         object, object_id, object_address, object_size);
 
     /* Check the address of the object */
-    expected_address = get_object_address(mxt, (uint8_t)object_id, (uint8_t)instance);
+    expected_address = mxt_get_object_address(mxt, (uint8_t)object_id, (uint8_t)instance);
     if (expected_address == OBJECT_NOT_FOUND)
     {
       mxt_err(mxt->ctx, "T%u not present on chip", object_id);
@@ -280,7 +281,7 @@ int mxt_load_config_file(struct mxt_device *mxt, const char *cfg_file)
     }
 
     /* Check the size of the object */
-    expected_size = get_object_size(mxt, (uint8_t)object_id);
+    expected_size = mxt_get_object_size(mxt, (uint8_t)object_id);
     if (object_size != (int)expected_size)
     {
       mxt_warn

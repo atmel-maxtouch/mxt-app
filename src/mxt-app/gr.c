@@ -116,7 +116,7 @@ static int mxt_gr_get_status(struct mxt_device *mxt, uint8_t *state, int timeout
 
         if (len > 0)
         {
-          object_type = report_id_to_type(mxt, buf[0]);
+          object_type = mxt_report_id_to_type(mxt, buf[0]);
 
           mxt_verb(mxt->ctx, "Received message from T%u", object_type);
 
@@ -178,7 +178,7 @@ int mxt_store_golden_refs(struct mxt_device *mxt)
   if (ret < 0)
     return ret;
 
-  addr = get_object_address(mxt, SPT_GOLDENREFERENCES_T66, 0);
+  addr = mxt_get_object_address(mxt, SPT_GOLDENREFERENCES_T66, 0);
   if (addr == OBJECT_NOT_FOUND)
     return -1;
 

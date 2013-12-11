@@ -1000,7 +1000,7 @@ int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
   int tries = 10;
 
   /* Obtain command processor's address */
-  t6_addr = get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
+  t6_addr = mxt_get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
   if (t6_addr == OBJECT_NOT_FOUND)
     return -1;
 

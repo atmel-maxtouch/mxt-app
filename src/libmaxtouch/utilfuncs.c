@@ -51,37 +51,37 @@
 
 //******************************************************************************
 /// \brief Print out info block
-void print_info_block(struct mxt_device *mxt)
+void mxt_print_info_block(struct mxt_device *mxt)
 {
   int i;
   int report_id = 1;
   int report_id_start, report_id_end;
-  struct object obj;
-  struct info_id *id = mxt->info_block.id;
+  struct mxt_object obj;
+  struct mxt_id_info *id = mxt->info.id;
 
   /* Show the Version Info */
   printf("\nFamily: %u Variant: %u Firmware V%u.%u.%02X Objects: %u\n",
-         id->family_id, id->variant_id,
+         id->family, id->variant,
          id->version >> 4,
          id->version & 0x0F,
-         id->build, id->num_declared_objects);
+         id->build, id->num_objects);
 
   printf("Matrix size: X%uY%u\n",
          id->matrix_x_size, id->matrix_y_size);
   /* Show the CRC */
-  printf("Information Block CRC: 0x%06X\n\n", info_block_crc(mxt->info_block.crc));
+  printf("Information Block CRC: 0x%06X\n\n", mxt->info.crc);
 
   /* Show the object table */
   printf("Type Start Size Instances ReportIds Name\n");
   printf("-----------------------------------------------------------------\n");
-  for (i = 0; i < id->num_declared_objects; i++)
+  for (i = 0; i < id->num_objects; i++)
   {
-    obj = mxt->info_block.objects[i];
+    obj = mxt->info.objects[i];
 
     if (obj.num_report_ids > 0)
     {
       report_id_start = report_id;
-      report_id_end = report_id_start + obj.num_report_ids * (obj.instances + 1) - 1;
+      report_id_end = report_id_start + obj.num_report_ids * MXT_INSTANCES(obj) - 1;
       report_id = report_id_end + 1;
     }
     else
@@ -91,12 +91,12 @@ void print_info_block(struct mxt_device *mxt)
     }
 
     printf("T%-3u %4u  %4u    %2u       %2u-%-2u   %s\n",
-           obj.object_type,
-           get_start_position(obj, 0),
-           obj.size + 1,
-           obj.instances + 1,
+           obj.type,
+           mxt_get_start_position(obj, 0),
+           MXT_SIZE(obj),
+           MXT_INSTANCES(obj),
            report_id_start, report_id_end,
-           get_object_name(obj.object_type));
+           mxt_get_object_name(obj.type));
   }
 
   printf("\n");
@@ -104,7 +104,7 @@ void print_info_block(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief Convert object type to object name
-const char *get_object_name(uint8_t objtype)
+const char *mxt_get_object_name(uint8_t objtype)
 {
   switch(objtype)
   {
@@ -298,66 +298,9 @@ const char *get_object_name(uint8_t objtype)
       return("UNKNOWN");
   }
 }
-
-//******************************************************************************
-/// \brief Menu function to write values to object
-void write_to_object(struct mxt_device *mxt, int obj_num, uint8_t instance)
-{
-  uint8_t obj_tbl_num, i;
-  uint8_t *buffer;
-  uint16_t start_position;
-  int yn;
-  uint8_t value;
-  uint8_t size;
-
-  obj_tbl_num = get_object_table_num(mxt, obj_num);
-  if (obj_tbl_num == 255) {
-    printf("Object not found\n");
-    return;
-  }
-
-  buffer = (uint8_t *)calloc(mxt->info_block.objects[obj_tbl_num].size + 1, sizeof(char));
-  if (buffer == NULL)
-  {
-    mxt_err(mxt->ctx, "Memory error");
-    return;
-  }
-
-  printf("%s:\n", get_object_name(mxt->info_block.objects[obj_tbl_num].object_type));
-
-  start_position = get_start_position(mxt->info_block.objects[obj_tbl_num], instance);
-  size = get_object_size(mxt, obj_num);
-
-  mxt_read_register(mxt, buffer, start_position, size);
-
-  for(i = 0; i < size; i++)
-  {
-    printf("Object element %d =\t %d\n",i, *(buffer+i));
-    printf("Do you want to change this value? (1 for yes/2 for no)");
-    if (scanf("%d", &yn) != 1)
-    {
-      printf("Input error\n");
-      return;
-    }
-    if (yn == 1)
-    {
-      printf("Enter the value to be written to object element %d\t :", i);
-      if (scanf("%" SCNu8, &value) != 1)
-      {
-        printf("Input error\n");
-        return;
-      }
-      *(buffer+i) = value;
-      printf("Wrote %d\n", value);
-    }
-  }
-
-  mxt_write_register(mxt, buffer, start_position, size);
-}
-
 //******************************************************************************
 /// \brief Menu function to read values from object
-int read_object(struct mxt_device *mxt, uint16_t object_type, uint8_t instance, uint16_t address, size_t count, bool format)
+int mxt_read_object(struct mxt_device *mxt, uint16_t object_type, uint8_t instance, uint16_t address, size_t count, bool format)
 {
   uint8_t *databuf;
   uint16_t object_address = 0;
@@ -366,7 +309,7 @@ int read_object(struct mxt_device *mxt, uint16_t object_type, uint8_t instance, 
 
   if (object_type > 0)
   {
-    object_address = get_object_address(mxt, object_type, instance);
+    object_address = mxt_get_object_address(mxt, object_type, instance);
     if (object_address == OBJECT_NOT_FOUND) {
       printf("No such object\n");
       return -1;
@@ -377,7 +320,7 @@ int read_object(struct mxt_device *mxt, uint16_t object_type, uint8_t instance, 
     address = object_address + address;
 
     if (count == 0) {
-      count = get_object_size(mxt, object_type);
+      count = mxt_get_object_size(mxt, object_type);
     }
   }
   else if (count == 0)
@@ -402,7 +345,7 @@ int read_object(struct mxt_device *mxt, uint16_t object_type, uint8_t instance, 
   if (format)
   {
     if (object_type > 0)
-      printf("%s\n\n", get_object_name(object_type));
+      printf("%s\n\n", mxt_get_object_name(object_type));
 
     for (i = 0; i < count; i++) {
       printf("%02d:\t0x%02X\t%3d\t" BYTETOBINARYPATTERN "\n",
@@ -478,6 +421,8 @@ int mxt_convert_hex(char *hex, unsigned char *databuf, uint16_t *count, unsigned
   return 0;
 }
 
+//******************************************************************************
+/// \brief Output timestamp to stream with millisecond accuracy
 void mxt_print_timestamp(FILE *stream)
 {
   struct timeval tv;

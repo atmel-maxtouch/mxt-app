@@ -93,18 +93,18 @@ static int get_objects_addr(struct t37_ctx *ctx)
   int t6_addr;
 
   /* Obtain command processor's address */
-  t6_addr = get_object_address(ctx->mxt, GEN_COMMANDPROCESSOR_T6, 0);
+  t6_addr = mxt_get_object_address(ctx->mxt, GEN_COMMANDPROCESSOR_T6, 0);
   if (t6_addr == OBJECT_NOT_FOUND) return -1;
 
   /* T37 commands address */
   ctx->diag_cmd_addr = t6_addr + MXT_CP_T6_DIAGNOSTIC_OFFSET;
 
   /* Obtain Debug Diagnostic object's address */
-  ctx->t37_addr = get_object_address(ctx->mxt, DEBUG_DIAGNOSTIC_T37, 0);
+  ctx->t37_addr = mxt_get_object_address(ctx->mxt, DEBUG_DIAGNOSTIC_T37, 0);
   if (ctx->t37_addr == OBJECT_NOT_FOUND) return -1;
 
   /* Obtain Debug Diagnostic object's size */
-  ctx->t37_size = get_object_size(ctx->mxt, DEBUG_DIAGNOSTIC_T37);
+  ctx->t37_size = mxt_get_object_size(ctx->mxt, DEBUG_DIAGNOSTIC_T37);
   if (ctx->t37_size == OBJECT_NOT_FOUND) return -1;
 
   return 0;
@@ -361,8 +361,8 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
      frames = 1;
   }
 
-  x_size = mxt->info_block.id->matrix_x_size;
-  y_size = mxt->info_block.id->matrix_y_size;
+  x_size = mxt->info.id->matrix_x_size;
+  y_size = mxt->info.id->matrix_y_size;
 
   ctx.mode = mode;
 
@@ -377,7 +377,7 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   ctx.page_size = ctx.t37_size - 2;
   mxt_dbg(ctx.lc, "page_size: %d", ctx.page_size);
 
-  if (mxt->info_block.id->family_id == 0xA0 && mxt->info_block.id->variant_id == 0x00)
+  if (mxt->info.id->family == 0xA0 && mxt->info.id->variant == 0x00)
   {
     /* mXT1386 */
     num_stripes = 3;

@@ -571,7 +571,7 @@ char *sysfs_get_msg_string_v2(struct mxt_device *mxt)
   unsigned char databuf[20];
   static char msg_string[255];
 
-  t5_size = get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5) - 1;
+  t5_size = mxt_get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5) - 1;
 
   ret = sysfs_get_msg_bytes_v2(mxt, &databuf[0], sizeof(databuf));
   if (ret < 0)
@@ -596,7 +596,7 @@ int sysfs_get_msg_bytes_v2(struct mxt_device *mxt, unsigned char *buf, size_t bu
   if (!mxt->sysfs.debug_v2_msg_buf)
     return -1;
 
-  t5_size = get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5) - 1;
+  t5_size = mxt_get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5) - 1;
 
   if (buflen < t5_size)
     return -1;
@@ -661,7 +661,7 @@ int sysfs_get_msg_count_v2(struct mxt_device *mxt)
     goto close;
   }
 
-  t5_size = get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5) - 1;
+  t5_size = mxt_get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5) - 1;
 
   count = read(fd, mxt->sysfs.debug_v2_msg_buf, mxt->sysfs.debug_v2_size);
   if (count < 0)

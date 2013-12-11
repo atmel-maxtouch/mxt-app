@@ -123,7 +123,7 @@ static void read_object_command(struct mxt_device *mxt)
     if (obj_num == 0)
       return;
 
-    if (mxt->info_block.objects[obj_num].instances > 0) {
+    if (MXT_INSTANCES(mxt->info.objects[obj_num]) > 1) {
       printf("Enter object instance\n");
       if (scanf("%" SCNu8, &instance) != 1) {
         printf("Input parse error\n");
@@ -131,8 +131,64 @@ static void read_object_command(struct mxt_device *mxt)
       }
     }
 
-    read_object(mxt, obj_num, instance, 0, 0, true);
+    mxt_read_object(mxt, obj_num, instance, 0, 0, true);
   }
+}
+
+//******************************************************************************
+/// \brief Menu function to write values to object
+static void write_to_object(struct mxt_device *mxt, int obj_num, uint8_t instance)
+{
+  uint8_t obj_tbl_num, i;
+  uint8_t *buffer;
+  uint16_t start_position;
+  int yn;
+  uint8_t value;
+  uint8_t size;
+
+  obj_tbl_num = mxt_get_object_table_num(mxt, obj_num);
+  if (obj_tbl_num == 255) {
+    printf("Object not found\n");
+    return;
+  }
+
+  buffer = (uint8_t *)calloc(MXT_SIZE(mxt->info.objects[obj_tbl_num]), sizeof(char));
+  if (buffer == NULL)
+  {
+    mxt_err(mxt->ctx, "Memory error");
+    return;
+  }
+
+  printf("%s:\n", mxt_get_object_name(mxt->info.objects[obj_tbl_num].type));
+
+  start_position = mxt_get_start_position(mxt->info.objects[obj_tbl_num], instance);
+  size = mxt_get_object_size(mxt, obj_num);
+
+  mxt_read_register(mxt, buffer, start_position, size);
+
+  for(i = 0; i < size; i++)
+  {
+    printf("Object element %d =\t %d\n",i, *(buffer+i));
+    printf("Do you want to change this value? (1 for yes/2 for no)");
+    if (scanf("%d", &yn) != 1)
+    {
+      printf("Input error\n");
+      return;
+    }
+    if (yn == 1)
+    {
+      printf("Enter the value to be written to object element %d\t :", i);
+      if (scanf("%" SCNu8, &value) != 1)
+      {
+        printf("Input error\n");
+        return;
+      }
+      *(buffer+i) = value;
+      printf("Wrote %d\n", value);
+    }
+  }
+
+  mxt_write_register(mxt, buffer, start_position, size);
 }
 
 //******************************************************************************
@@ -154,7 +210,7 @@ static void write_object_command(struct mxt_device *mxt)
     if (obj_num == 0)
       return;
 
-    if (mxt->info_block.objects[obj_num].instances > 0) {
+    if (MXT_INSTANCES(mxt->info.objects[obj_num]) > 1) {
       printf("Enter object instance\n");
       if (scanf("%" SCNu8, &instance) != 1) {
         printf("Input parse error\n");
@@ -182,7 +238,7 @@ static bool mxt_app_command(struct mxt_device *mxt, char selection)
     case 'i':
       /* Print info block */
       printf("Reading info block.....\n");
-      print_info_block(mxt);
+      mxt_print_info_block(mxt);
       break;
     case 'd':
       read_object_command(mxt);

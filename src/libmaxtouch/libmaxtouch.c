@@ -220,21 +220,21 @@ int mxt_get_info(struct mxt_device *mxt)
 {
   int ret;
 
-  ret = read_information_block(mxt);
+  ret = mxt_read_info_block(mxt);
   if (ret != 0)
   {
     mxt_err(mxt->ctx, "Failed to read information block from mXT device");
     return ret;
   }
 
-  ret = calc_report_ids(mxt);
+  ret = mxt_calc_report_ids(mxt);
   if (ret != 0)
   {
     mxt_err(mxt->ctx, "Failed to generate report ID look-up table");
     return ret;
   }
 
-  display_chip_info(mxt);
+  mxt_display_chip_info(mxt);
 
   return 0;
 }
@@ -266,7 +266,7 @@ void mxt_free_device(struct mxt_device *mxt)
 
   mxt->conn = mxt_unref_conn(mxt->conn);
 
-  free(mxt->raw_info);
+  free(mxt->info.raw_info);
   free(mxt->report_id_map);
   free(mxt);
 }
@@ -430,7 +430,7 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode)
   unsigned char write_value = RESET_COMMAND;
 
   /* Obtain command processor's address */
-  t6_addr = get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
+  t6_addr = mxt_get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
   if (t6_addr == OBJECT_NOT_FOUND)
     return -1;
 
@@ -491,7 +491,7 @@ int mxt_calibrate_chip(struct mxt_device *mxt)
   unsigned char write_value = CALIBRATE_COMMAND;
 
   /* Obtain command processor's address */
-  t6_addr = get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
+  t6_addr = mxt_get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
   if (t6_addr == OBJECT_NOT_FOUND)
     return -1;
 
@@ -523,7 +523,7 @@ int mxt_backup_config(struct mxt_device *mxt)
   unsigned char write_value = BACKUPNV_COMMAND;
 
   /* Obtain command processor's address */
-  t6_addr = get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
+  t6_addr = mxt_get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
   if (t6_addr == OBJECT_NOT_FOUND)
     return -1;
 

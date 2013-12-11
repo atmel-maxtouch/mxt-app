@@ -349,7 +349,7 @@ static int lookup_bootloader_addr(struct flash_context *fw, int addr)
   {
     case 0x4a:
     case 0x4b:
-      if (fw->mxt->info_block.id->family_id >= 0xa2)
+      if (fw->mxt->info.id->family >= 0xa2)
       {
         return (addr - 0x24);
       }

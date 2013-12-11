@@ -128,7 +128,7 @@ static int mxt_t68_get_status(struct t68_ctx *ctx)
           return ret;
         }
 
-        object_type = report_id_to_type(ctx->mxt, buf[0]);
+        object_type = mxt_report_id_to_type(ctx->mxt, buf[0]);
 
         mxt_verb(ctx->lc, "Received message from T%u", object_type);
 
@@ -387,7 +387,7 @@ static int mxt_t68_check_power_cfg(struct t68_ctx *ctx)
   uint8_t buf[2];
   int ret;
 
-  t7_addr = get_object_address(ctx->mxt, GEN_POWERCONFIG_T7, 0);
+  t7_addr = mxt_get_object_address(ctx->mxt, GEN_POWERCONFIG_T7, 0);
   if (t7_addr == OBJECT_NOT_FOUND)
     return 0;
 
@@ -432,12 +432,12 @@ int mxt_serial_data_upload(struct mxt_device *mxt, const char *filename, uint16_
     return ret;
 
   /* Check for existence of T68 object */
-  ctx.t68_addr = get_object_address(mxt, SERIAL_DATA_COMMAND_T68, 0);
+  ctx.t68_addr = mxt_get_object_address(mxt, SERIAL_DATA_COMMAND_T68, 0);
   if (ctx.t68_addr == OBJECT_NOT_FOUND)
     return -1;
 
   /* Calculate position of CMD register */
-  ctx.t68_size = get_object_size(mxt, SERIAL_DATA_COMMAND_T68);
+  ctx.t68_size = mxt_get_object_size(mxt, SERIAL_DATA_COMMAND_T68);
   ctx.t68_cmd_addr = ctx.t68_addr + ctx.t68_size - 3;
 
   /* Calculate frame size */

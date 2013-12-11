@@ -46,7 +46,7 @@ int t44_get_msg_count(struct mxt_device *mxt)
   uint8_t count;
   uint16_t addr;
 
-  addr = get_object_address(mxt, SPT_MESSAGECOUNT_T44, 0);
+  addr = mxt_get_object_address(mxt, SPT_MESSAGECOUNT_T44, 0);
   if (addr == OBJECT_NOT_FOUND)
     return -1;
 
@@ -67,7 +67,7 @@ char *t44_get_msg_string(struct mxt_device *mxt)
   uint16_t size;
   size_t length;
 
-  size = get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5);
+  size = mxt_get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5);
 
   ret = t44_get_msg_bytes(mxt, &databuf[0], sizeof(databuf));
   if (ret < 0)
@@ -92,12 +92,12 @@ int t44_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen)
   uint16_t addr;
   uint16_t size;
 
-  addr = get_object_address(mxt, GEN_MESSAGEPROCESSOR_T5, 0);
+  addr = mxt_get_object_address(mxt, GEN_MESSAGEPROCESSOR_T5, 0);
   if (addr == OBJECT_NOT_FOUND)
     return -1;
 
   /* Do not read CRC byte */
-  size = get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5) - 1;
+  size = mxt_get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5) - 1;
   if (size > buflen)
   {
     mxt_err(mxt->ctx, "buffer too small!");

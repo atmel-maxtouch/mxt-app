@@ -107,9 +107,8 @@ struct mxt_device
 {
   struct mxt_conn_info *conn;
   struct libmaxtouch_ctx *ctx;
-  struct info_block info_block;
-  struct report_id_map *report_id_map;
-  uint8_t *raw_info;
+  struct mxt_info info;
+  struct mxt_report_id_map *report_id_map;
 
   union
   {

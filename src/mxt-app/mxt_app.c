@@ -591,7 +591,7 @@ int main (int argc, char *argv[])
       mxt_verb(ctx, "Write command");
 
       if (object_type > 0) {
-        object_address = get_object_address(mxt, object_type, instance);
+        object_address = mxt_get_object_address(mxt, object_type, instance);
         if (object_address == OBJECT_NOT_FOUND) {
           fprintf(stderr, "No such object\n");
           ret = -1;
@@ -603,7 +603,7 @@ int main (int argc, char *argv[])
         address = object_address + address;
 
         if (count == 0) {
-          count = get_object_size(mxt, object_type);
+          count = mxt_get_object_size(mxt, object_type);
         }
       } else if (count == 0) {
         fprintf(stderr, "Not enough arguments!\n");
@@ -630,12 +630,12 @@ int main (int argc, char *argv[])
 
     case CMD_READ:
       mxt_verb(ctx, "Read command");
-      ret = read_object(mxt, object_type, instance, address, count, format);
+      ret = mxt_read_object(mxt, object_type, instance, address, count, format);
       break;
 
     case CMD_INFO:
       mxt_verb(ctx, "CMD_INFO");
-      print_info_block(mxt);
+      mxt_print_info_block(mxt);
       break;
 
     case CMD_GOLDEN_REFERENCES:

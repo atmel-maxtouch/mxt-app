@@ -30,9 +30,90 @@
 
 #include <stdint.h>
 
-#include "info_block_driver.h"
-
 struct mxt_device;
+
+#define MXT_INSTANCES(o) ((uint16_t)((o).instances_minus_one) + 1)
+#define MXT_SIZE(o) ((uint16_t)((o).size_minus_one) + 1)
+
+/*! \brief Checksum element struct */
+struct mxt_raw_crc
+{
+  /*! CRC field */
+  uint16_t CRC;
+
+  /*! CRC field: higher byte */
+  uint8_t CRC_hi;
+};
+
+/*! \brief Object table element struct */
+struct mxt_object
+{
+  uint8_t type;                  /*!< Object type ID */
+  uint8_t start_pos_lsb;         /*!< LSByte of the start address of the obj config structure */
+  uint8_t start_pos_msb;         /*!< MSByte of the start address of the obj config structure */
+  uint8_t size_minus_one;        /*!< Byte length of the obj config structure - 1 */
+  uint8_t instances_minus_one;   /*!< Number of objects of this obj. type - 1 */
+  uint8_t num_report_ids;        /*!< The max number of touches in a screen,
+                                  *  max number of sliders in a slider array, etc.*/
+};
+
+/*! \brief ID Information fields in the Information Block*/
+struct mxt_id_info
+{
+  uint8_t family;           /*!< Device family */
+  uint8_t variant;          /*!< Device variant */
+
+  uint8_t version;          /*!< Firmware version (Major/minor nibbles) */
+  uint8_t build;            /*!< Firmware build number */
+
+  uint8_t matrix_x_size;    /*!< Matrix X Size */
+  uint8_t matrix_y_size;    /*!< Matrix Y Size */
+
+  /*! Number of elements in the object table. The actual number of objects
+   * can be different if any object has more than one instance. */
+  uint8_t num_objects;
+};
+
+/*! \brief Info block struct holding ID and object table data and their CRC sum.
+ *
+ * Info block struct. Similar to one in info_block.h, but since
+ * the size of object table is not known beforehand, it's pointer to an
+ * array instead of an array. This is not defined in info_block.h unless
+ * we are compiling with IAR AVR or AVR32 compiler (__ICCAVR__ or __ICCAVR32__
+ * is defined). If this driver is compiled with those compilers, the
+ * info_block.h needs to be edited to not include that struct definition.
+ *
+ * CRC is 24 bits, consisting of CRC and CRC_hi; CRC is the lower 16 bits and
+ * CRC_hi the upper 8.
+ *
+ */
+struct mxt_info
+{
+  /*! Pointer to the struct containing ID Information. */
+  struct mxt_id_info *id;
+
+  /*! Pointer to an array of objects */
+  struct mxt_object *objects;
+
+  /*! Information block checksum */
+  uint32_t crc;
+
+  /*! Raw info block data */
+  uint8_t *raw_info;
+};
+
+/*!
+ * @brief Struct holding the object type / instance info.
+ *
+ * Struct holding the object type / instance info. An array of these maps
+ * report id's to object type / instance (array index = report id).  Note
+ * that the report ID number 0 is reserved.
+ */
+struct mxt_report_id_map
+{
+   uint16_t object_type;  /*!< Object type */
+   uint8_t instance;      /*!< Instance number */
+};
 
 /*! Object types */
 enum mxt_object_type {
@@ -139,32 +220,18 @@ enum mxt_object_type {
   RESERVED_T255 = 255,
 };
 
-/*! Returned by get_object_address() if object is not found. */
+/*! Returned by get_object_address() if object is not found */
 #define OBJECT_NOT_FOUND   0u
 
 #define MXT_FW_VER_LEN     10u
 
 /* Function prototypes */
-int read_information_block(struct mxt_device *dev);
-int calc_report_ids(struct mxt_device *dev);
-void display_chip_info(struct mxt_device *dev);
-uint16_t get_object_address(struct mxt_device *dev, uint16_t object_type, uint8_t instance);
-uint8_t get_object_size(struct mxt_device *dev, uint16_t object_type);
-uint8_t get_object_table_num(struct mxt_device *dev, uint16_t object_type);
-uint16_t get_start_position(struct object obj, uint8_t instance);
+int mxt_read_info_block(struct mxt_device *dev);
+int mxt_calc_report_ids(struct mxt_device *dev);
+void mxt_display_chip_info(struct mxt_device *dev);
+uint16_t mxt_get_object_address(struct mxt_device *dev, uint16_t object_type, uint8_t instance);
+uint8_t mxt_get_object_size(struct mxt_device *dev, uint16_t object_type);
+uint8_t mxt_get_object_table_num(struct mxt_device *dev, uint16_t object_type);
+uint16_t mxt_get_start_position(struct mxt_object obj, uint8_t instance);
 int mxt_get_firmware_version(struct mxt_device *dev, char *version_str);
-uint32_t info_block_crc(struct raw_crc *crc);
-uint16_t report_id_to_type(struct mxt_device *dev, int report_id);
-
-/*!
- * @brief Struct holding the object type / instance info.
- *
- * Struct holding the object type / instance info. An array of these maps
- * report id's to object type / instance (array index = report id).  Note
- * that the report ID number 0 is reserved.
- */
-struct report_id_map
-{
-   uint16_t object_type;  /*!< Object type. */
-   uint8_t instance;      /*!< Instance number. */
-};
+uint16_t mxt_report_id_to_type(struct mxt_device *dev, int report_id);

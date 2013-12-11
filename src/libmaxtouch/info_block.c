@@ -36,7 +36,7 @@
  * @brief Information block checksum return function.
  * @return 24-bit checksum value in 32-bit integer.
  */
-uint32_t info_block_crc(struct raw_crc * crc)
+static uint32_t convert_crc(struct mxt_raw_crc *crc)
 {
   return ((crc->CRC_hi<<16u) | (crc->CRC));
 }
@@ -66,16 +66,14 @@ static uint32_t crc24(uint32_t crc, uint8_t firstbyte, uint8_t secondbyte)
  * @brief  Calculates and reports the Information Block Checksum.
  * @return Zero on success, negative for error.
  */
-static int info_block_checksum(struct mxt_device *mxt, uint32_t read_crc,
-                               uint8_t *base_addr, size_t size)
+static int calculate_crc(struct mxt_device *mxt, uint32_t read_crc,
+                         uint8_t *base_addr, size_t size)
 {
   uint32_t calc_crc = 0; /* Checksum calculated by the driver code */
   uint16_t crc_byte_index = 0;
 
   /* Call the CRC function crc24() iteratively to calculate the CRC,
-   * passing it two characters at a time.
-   */
-
+   * passing it two characters at a time.  */
   while (crc_byte_index < ((size % 2) ? (size - 1) : size))
   {
     calc_crc = crc24(calc_crc, *(base_addr + crc_byte_index), *(base_addr + crc_byte_index + 1));
@@ -83,14 +81,14 @@ static int info_block_checksum(struct mxt_device *mxt, uint32_t read_crc,
   }
 
   /* Call crc24() for the final byte, plus an extra
-   *  0 value byte to make the sequence even if it's odd
-   */
+   *  0 value byte to make the sequence even if it's odd */
   if (size % 2)
   {
     calc_crc = crc24(calc_crc, *(base_addr + crc_byte_index), 0);
   }
 
-  calc_crc &= calc_crc & 0x00FFFFFF; /* Mask 32-bit calculated checksum to 24-bit */
+  /* Mask 32-bit calculated checksum to 24-bit */
+  calc_crc &= calc_crc & 0x00FFFFFF;
 
   /* Compare the read checksum with calculated checksum */
   if (calc_crc == 0)
@@ -114,68 +112,57 @@ static int info_block_checksum(struct mxt_device *mxt, uint32_t read_crc,
  * @brief  Reads the information block from the chip.
  * @return Zero on success, negative for error.
  */
-int read_information_block(struct mxt_device *mxt)
+int mxt_read_info_block(struct mxt_device *mxt)
 {
-  int ret = -1;
+  int ret;
 
-  int memory_offset = 0;
+  /* Read the ID Information from the chip */
+  uint8_t *info_blk = (uint8_t *)calloc(1, sizeof(struct mxt_id_info));
+  if (info_blk == NULL)
+  {
+    mxt_err(mxt->ctx, "Memory allocation failure");
+    return -1;
+  }
 
-  const uint8_t ID_OBJECTS_OFFSET = 6; /* Offset to number of objects */
-  const uint8_t NUM_ID_BYTES = 7; /* Number of bytes of information in ID block */
-  static const int CRC_LENGTH = 3; /* Number of CRC bytes */
-
-  size_t info_block_size;
-  size_t crc_area_size; /* Size of data for CRC calculation */
-  uint8_t num_declared_objects;
-  uint32_t read_crc = 0; /* Checksum value as read from the chip */
-  uint8_t *info_block_buffer;
-
-  /* Read "num_declared_objects" field of ID Information block */
-  ret = mxt_read_register(mxt, (unsigned char *)&num_declared_objects, ID_OBJECTS_OFFSET, 1);
+  ret = mxt_read_register(mxt, info_blk, 0, sizeof(struct mxt_id_info));
   if (ret < 0)
   {
-    mxt_err(mxt->ctx, "Failed to read information about number of objects");
+    mxt_err(mxt->ctx, "Failed to read ID information");
     return -1;
   }
 
   /* Determine the number of data bytes in Information Block for checksum calculation */
-  crc_area_size = NUM_ID_BYTES + num_declared_objects * sizeof(struct object);
+  int num_objects = ((struct mxt_id_info*) info_blk)->num_objects;
+  size_t crc_area_size = sizeof(struct mxt_id_info)
+                         + num_objects * sizeof(struct mxt_object);
 
   /* Allocate space to read Information Block AND Checksum from the chip */
-  info_block_size = crc_area_size + CRC_LENGTH;
+  size_t info_block_size = crc_area_size + sizeof(struct mxt_raw_crc);
 
-  info_block_buffer = (unsigned char *)calloc(info_block_size, sizeof(unsigned char));
-  if (info_block_buffer == NULL)
+  info_blk = (uint8_t *)realloc(info_blk, info_block_size);
+  if (info_blk == NULL)
   {
-    mxt_err(mxt->ctx, "Failed to allocate %zu bytes for the Information Block data",
-        info_block_size);
+    mxt_err(mxt->ctx, "Memory allocation failure");
     return -1;
   }
-  mxt_verb(mxt->ctx, "Allocated %zu bytes to store Information Block data",
-      info_block_size);
 
-  /* Read the Information Block from the chip */
-  ret = mxt_read_register(mxt, info_block_buffer, memory_offset, info_block_size);
+  /* Read the entire Information Block from the chip */
+  ret = mxt_read_register(mxt, info_blk, 0, info_block_size);
   if (ret < 0)
   {
-    mxt_err(mxt->ctx, "Failed to read the Information Block");
+    mxt_err(mxt->ctx, "Failed to read Information Block");
     return -1;
   }
 
-  /*
-   * id, objects, and crc pointers should be pointing
-   * to the memory areas storing these values from the chip
-   */
-  mxt->info_block.id = (struct info_id*) info_block_buffer;
-  mxt->info_block.objects = (struct object *) (info_block_buffer + NUM_ID_BYTES);
-  mxt->info_block.crc = (struct raw_crc*) (info_block_buffer + crc_area_size);
-  mxt->raw_info = info_block_buffer;
+  /* Update pointers in device structure */
+  mxt->info.raw_info = info_blk;
+  mxt->info.id = (struct mxt_id_info*) info_blk;
+  mxt->info.objects = (struct mxt_object*)(info_blk + sizeof(struct mxt_id_info));
 
-  /* Read CRC for checksum comparision */
-  read_crc = info_block_crc(mxt->info_block.crc);
+  mxt->info.crc = convert_crc((struct mxt_raw_crc*) (info_blk + crc_area_size));
 
   /* Calculate and compare Information Block Checksum */
-  ret = info_block_checksum(mxt, read_crc, info_block_buffer, crc_area_size);
+  ret = calculate_crc(mxt, mxt->info.crc, info_blk, crc_area_size);
   if (ret < 0)
     return ret;
 
@@ -188,27 +175,27 @@ int read_information_block(struct mxt_device *mxt)
  * @brief  Populates a look-up table for the report IDs.
  * @return Zero on success, negative for error.
  */
-int calc_report_ids(struct mxt_device *mxt)
+int mxt_calc_report_ids(struct mxt_device *mxt)
 {
   /* Report ID zero is reserved - start from one */
   int num_report_ids = 1;
   int report_id_count = 1;
 
-  int element_index;
-  int instance_index;
+  int i;
+  int instance;
   int report_index;
 
-  struct object element;
+  struct mxt_object obj;
 
   /* Calculate the number of report IDs */
-  for (element_index = 0; element_index < mxt->info_block.id->num_declared_objects; element_index++)
+  for (i = 0; i < mxt->info.id->num_objects; i++)
   {
-    element = mxt->info_block.objects[element_index];
-    num_report_ids += (element.instances + 1) * element.num_report_ids;
+    obj = mxt->info.objects[i];
+    num_report_ids += MXT_INSTANCES(obj) * obj.num_report_ids;
   }
 
   /* Allocate memory for report ID look-up table */
-  mxt->report_id_map = calloc(num_report_ids, sizeof(struct report_id_map));
+  mxt->report_id_map = calloc(num_report_ids, sizeof(struct mxt_report_id_map));
   if (mxt->report_id_map == NULL)
   {
     mxt_err(mxt->ctx, "calloc failure");
@@ -216,16 +203,16 @@ int calc_report_ids(struct mxt_device *mxt)
   }
 
   /* Store the object and instance for each report ID */
-  for (element_index = 0; element_index < mxt->info_block.id->num_declared_objects; element_index++)
+  for (i = 0; i < mxt->info.id->num_objects; i++)
   {
-    element = mxt->info_block.objects[element_index];
+    obj = mxt->info.objects[i];
 
-    for (instance_index = 0; instance_index < (element.instances + 1); instance_index++)
+    for (instance = 0; instance < MXT_INSTANCES(obj); instance++)
     {
-      for (report_index = 0; report_index < element.num_report_ids; report_index++)
+      for (report_index = 0; report_index < obj.num_report_ids; report_index++)
       {
-        mxt->report_id_map[report_id_count].object_type = element.object_type;
-        mxt->report_id_map[report_id_count].instance = instance_index;
+        mxt->report_id_map[report_id_count].object_type = obj.type;
+        mxt->report_id_map[report_id_count].instance = instance;
         report_id_count++;
       }
     }
@@ -238,13 +225,13 @@ int calc_report_ids(struct mxt_device *mxt)
 
 int mxt_get_firmware_version(struct mxt_device *mxt, char *version_str)
 {
-  if (mxt->info_block.id == NULL)
+  if (mxt->info.id == NULL)
     return -1;
 
   snprintf(version_str, MXT_FW_VER_LEN, "%u.%u.%02X",
-           (mxt->info_block.id->version & 0xF0) >> 4,
-           (mxt->info_block.id->version & 0x0F),
-           mxt->info_block.id->build);
+           (mxt->info.id->version & 0xF0) >> 4,
+           (mxt->info.id->version & 0x0F),
+           mxt->info.id->build);
 
   return 0;
 }
@@ -252,33 +239,34 @@ int mxt_get_firmware_version(struct mxt_device *mxt, char *version_str)
 /*!
  * @brief  Logs information about the chip.
  */
-void display_chip_info(struct mxt_device *mxt)
+void mxt_display_chip_info(struct mxt_device *mxt)
 {
-  struct object element;
-  int element_index;
+  struct mxt_object obj;
   char firmware_version[MXT_FW_VER_LEN];
+  struct mxt_id_info *id = mxt->info.id;
+  int i;
 
   mxt_get_firmware_version(mxt, (char *)&firmware_version);
 
   /* Display ID information */
   mxt_info(mxt->ctx, "Family ID = %u (0x%02X)",
-      mxt->info_block.id->family_id, mxt->info_block.id->family_id);
+      id->family, id->family);
   mxt_info(mxt->ctx, "Variant ID = %u (0x%02X)",
-      mxt->info_block.id->variant_id, mxt->info_block.id->variant_id);
+      id->variant, id->variant);
   mxt_info(mxt->ctx, "Firmware Version = %s", firmware_version);
-  mxt_info(mxt->ctx, "Matrix X Size = %d", mxt->info_block.id->matrix_x_size);
-  mxt_info(mxt->ctx, "Matrix Y Size = %d", mxt->info_block.id->matrix_y_size);
+  mxt_info(mxt->ctx, "Matrix X Size = %d", id->matrix_x_size);
+  mxt_info(mxt->ctx, "Matrix Y Size = %d", id->matrix_y_size);
   mxt_info(mxt->ctx, "Number of elements in the Object Table = %d",
-      mxt->info_block.id->num_declared_objects);
+      id->num_objects);
 
   /* Display information about specific objects */
-  for (element_index = 0; element_index < mxt->info_block.id->num_declared_objects; element_index++)
+  for (i = 0; i < id->num_objects; i++)
   {
-    element = mxt->info_block.objects[element_index];
+    obj = mxt->info.objects[i];
 
     mxt_info(mxt->ctx, "T%u size:%u instances:%u address:%u",
-      element.object_type, element.size + 1,
-      element.instances + 1, get_start_position(element, 0));
+      obj.type, MXT_SIZE(obj),
+      MXT_INSTANCES(obj), mxt_get_start_position(obj, 0));
   }
 }
 
@@ -291,22 +279,23 @@ void display_chip_info(struct mxt_device *mxt)
  *         in the chip's memory map.
  * @return Object address, or OBJECT_NOT_FOUND if object/instance not found.
  */
-uint16_t get_object_address(struct mxt_device *mxt, uint16_t object_type, uint8_t instance)
+uint16_t mxt_get_object_address(struct mxt_device *mxt, uint16_t object_type, uint8_t instance)
 {
-  int element_index = 0;
-  struct object element;
+  struct mxt_id_info *id = mxt->info.id;
+  int i = 0;
+  struct mxt_object obj;
 
-  for (element_index = 0; element_index < mxt->info_block.id->num_declared_objects; element_index++)
+  for (i = 0; i < id->num_objects; i++)
   {
-    element = mxt->info_block.objects[element_index];
+    obj = mxt->info.objects[i];
 
     /* Does object type match? */
-    if (element.object_type == object_type)
+    if (obj.type == object_type)
     {
       /* Are there enough instances defined in the firmware? */
-      if (element.instances >= instance)
+      if (obj.instances_minus_one >= instance)
       {
-        return get_start_position(element, instance);
+        return mxt_get_start_position(obj, instance);
       }
       else
       {
@@ -328,15 +317,15 @@ uint16_t get_object_address(struct mxt_device *mxt, uint16_t object_type, uint8_
  * @brief  Returns the size of the specified type in the object table.
  * @return Object size, or OBJECT_NOT_FOUND if object not found.
  */
-uint8_t get_object_size(struct mxt_device *mxt, uint16_t object_type)
+uint8_t mxt_get_object_size(struct mxt_device *mxt, uint16_t object_type)
 {
-  int element_index = get_object_table_num(mxt, object_type);
-  if (element_index == 255)
+  int i = mxt_get_object_table_num(mxt, object_type);
+  if (i == 255)
   {
     return OBJECT_NOT_FOUND;
   }
 
-  return mxt->info_block.objects[element_index].size + 1;
+  return MXT_SIZE(mxt->info.objects[i]);
 }
 
 /*!
@@ -346,15 +335,16 @@ uint8_t get_object_size(struct mxt_device *mxt, uint16_t object_type)
  * @brief  Returns the index of the specified type in the object table.
  * @return Element index, or 255 if object type not found.
  */
-uint8_t get_object_table_num(struct mxt_device *mxt, uint16_t object_type)
+uint8_t mxt_get_object_table_num(struct mxt_device *mxt, uint16_t object_type)
 {
-  int element_index;
+  struct mxt_id_info *id = mxt->info.id;
+  int i;
 
-  for (element_index = 0; element_index < mxt->info_block.id->num_declared_objects; element_index++)
+  for (i = 0; i < id->num_objects; i++)
   {
-    if (mxt->info_block.objects[element_index].object_type == object_type)
+    if (mxt->info.objects[i].type == object_type)
     {
-      return element_index;
+      return i;
     }
   }
 
@@ -363,17 +353,17 @@ uint8_t get_object_table_num(struct mxt_device *mxt, uint16_t object_type)
 }
 
 /*!
- * @param element Object table element.
- * @param instance Object instance.
+ * @param obj Object table element.
+ * @param instance Object instance index.
  *
  * @brief  Returns the start position for the specified object element by
  *         combining the least significant and most significant bytes.
  * @return Start position as a single value.
  */
-uint16_t get_start_position(struct object obj, uint8_t instance)
+uint16_t mxt_get_start_position(struct mxt_object obj, uint8_t instance)
 {
-  return (obj.start_pos_msbyte * 256) + obj.start_pos_lsbyte
-         + ((obj.size + 1) * instance);
+  return (obj.start_pos_msb * 256) + obj.start_pos_lsb
+         + (MXT_SIZE(obj) * instance);
 }
 
 /*!
@@ -382,7 +372,7 @@ uint16_t get_start_position(struct object obj, uint8_t instance)
  * @param  report_id Report ID
  * @return Object type number
  */
-uint16_t report_id_to_type(struct mxt_device *mxt, int report_id)
+uint16_t mxt_report_id_to_type(struct mxt_device *mxt, int report_id)
 {
   return (mxt->report_id_map[report_id].object_type);
 }
