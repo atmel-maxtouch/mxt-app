@@ -134,7 +134,7 @@ recheck:
     if ((!fw->have_bootloader_version) && fw->extended_id_mode
         && (state == MXT_WAITING_FRAME_DATA))
     {
-       mxt_info(fw->ctx, "Attempting to retrieve bootloader version");
+       mxt_dbg(fw->ctx, "Attempting to retrieve bootloader version");
        if (mxt_bootloader_read(fw->mxt, &buf[0], 3) != 0) {
            return -1;
        }
@@ -200,7 +200,7 @@ recheck:
     {
       if (bootloader_id | 0x20)
       {
-        mxt_info(fw->ctx, "Bootloader using extended ID mode");
+        mxt_dbg(fw->ctx, "Bootloader using extended ID mode");
         fw->extended_id_mode = true;
       }
       else

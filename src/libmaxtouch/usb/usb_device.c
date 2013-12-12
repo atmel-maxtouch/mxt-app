@@ -1027,7 +1027,7 @@ int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
     return -1;
   }
 
-  mxt_dbg(mxt->ctx, "Sent reset command");
+  mxt_info(mxt->ctx, "Sent reset command");
 
   usb_release(mxt);
 
