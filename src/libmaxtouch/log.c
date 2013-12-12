@@ -153,7 +153,7 @@ void mxt_log_stderr(struct libmaxtouch_ctx *ctx, enum mxt_log_level level,
   }
 
   vfprintf(stderr, format, va_args);
-  printf("\n");
+  fprintf(stderr, "\n");
 }
 
 #if ANDROID
