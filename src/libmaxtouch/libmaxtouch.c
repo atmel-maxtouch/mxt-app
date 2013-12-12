@@ -613,6 +613,7 @@ char *mxt_get_msg_string(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief  Get T5 message as byte array
+/// \param  mxt  Maxtouch Device
 /// \param  buf  Pointer to buffer
 /// \param  buflen  Length of buffer
 /// \return number of bytes read, negative for error

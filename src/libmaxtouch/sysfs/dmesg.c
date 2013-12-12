@@ -47,6 +47,10 @@
 
 //******************************************************************************
 /// \brief  Add new node to linked list of dmesg items
+/// \param  mxt  Maxtouch Device
+/// \param  sec  Seconds value of item
+/// \param  msec Milliseconds value of item
+/// \param  msg  Message string data
 static void dmesg_list_add(struct mxt_device *mxt, unsigned long sec, unsigned long msec, char *msg)
 {
   // create new node
@@ -77,6 +81,7 @@ static void dmesg_list_add(struct mxt_device *mxt, unsigned long sec, unsigned l
 
 //******************************************************************************
 /// \brief  Remove all items from the linked list
+/// \param  mxt  Maxtouch Device
 static void dmesg_list_empty(struct mxt_device *mxt)
 {
   if (mxt->sysfs.dmesg_head == NULL)
@@ -104,6 +109,7 @@ static void dmesg_list_empty(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief  Get debug messages
+/// \param  mxt  Maxtouch Device
 /// \return Number of messages
 int sysfs_get_msg_count(struct mxt_device *mxt)
 {
@@ -179,6 +185,7 @@ int sysfs_get_msg_count(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief  Get the next debug message
+/// \param  mxt  Maxtouch Device
 /// \return Message string
 char *sysfs_get_msg_string(struct mxt_device *mxt)
 {
@@ -197,6 +204,7 @@ char *sysfs_get_msg_string(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief  Get debug message as byte array
+/// \param  mxt  Maxtouch Device
 /// \param  buf  Pointer to buffer
 /// \param  buflen  Length of buffer
 /// \return number of bytes read

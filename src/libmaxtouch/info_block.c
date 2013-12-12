@@ -283,6 +283,7 @@ void display_chip_info(struct mxt_device *mxt)
 }
 
 /*!
+ * @param  mxt Maxtouch Device
  * @param  object_type Object ID number.
  * @param  instance Instance number of the object.
  *
@@ -321,6 +322,7 @@ uint16_t get_object_address(struct mxt_device *mxt, uint16_t object_type, uint8_
 }
 
 /*!
+ * @param mxt Maxtouch Device
  * @param object_type Object ID number.
  *
  * @brief  Returns the size of the specified type in the object table.
@@ -338,6 +340,7 @@ uint8_t get_object_size(struct mxt_device *mxt, uint16_t object_type)
 }
 
 /*!
+ * @param mxt Maxtouch Device
  * @param object_type Object ID number.
  *
  * @brief  Returns the index of the specified type in the object table.
@@ -375,6 +378,7 @@ uint16_t get_start_position(struct object obj, uint8_t instance)
 
 /*!
  * @brief  Look up object type from report ID
+ * @param  mxt Maxtouch Device
  * @param  report_id Report ID
  * @return Object type number
  */
