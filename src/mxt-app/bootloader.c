@@ -452,15 +452,15 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
   mxt_get_firmware_version(fw->mxt, (char *)&fw->curr_version);
   mxt_info(fw->ctx, "Current firmware version: %s", fw->curr_version);
 
-  if (fw->check_version && !strcmp((char *)&fw->curr_version, fw->new_version))
-  {
-    mxt_info(fw->ctx, "Version already %s, exiting",
-        fw->curr_version);
-    return -1;
-  }
-  else
+  if (!fw->check_version)
   {
     mxt_info(fw->ctx, "Skipping version check");
+  }
+  else if (!strcmp((char *)&fw->curr_version, fw->new_version))
+  {
+    mxt_info(fw->ctx, "Version already %s, exiting",
+             fw->curr_version);
+    return -1;
   }
 
   /* Change to the bootloader mode */
