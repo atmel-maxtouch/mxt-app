@@ -39,14 +39,14 @@
 
 //******************************************************************************
 /// \brief  Initialise libmaxtouch library
-/// \return 0 = success, negative = error
+/// \return #mxt_rc
 int mxt_new(struct libmaxtouch_ctx **ctx)
 {
   struct libmaxtouch_ctx *new_ctx;
 
   new_ctx = calloc(1, sizeof(struct libmaxtouch_ctx));
   if (!new_ctx)
-    return -ENOMEM;
+    return MXT_ERROR_NO_MEM;
 
   new_ctx->log_level = LOG_ERROR;
   new_ctx->query = false;
@@ -54,24 +54,24 @@ int mxt_new(struct libmaxtouch_ctx **ctx)
 
   *ctx = new_ctx;
 
-  return 0;
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
 /// \brief  Close libmaxtouch library
-/// \return 0 = success, negative = error
+/// \return #mxt_rc
 int mxt_free(struct libmaxtouch_ctx *ctx)
 {
 #ifdef HAVE_LIBUSB
   usb_close(ctx);
 #endif
   free(ctx);
-  return 0;
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
-/// \brief  Close libmaxtouch library
-/// \return 0 = success, negative = error
+/// \brief  Set function for logging output
+/// \return #mxt_rc
 void mxt_set_log_fn(struct libmaxtouch_ctx *ctx,
                     void (*log_fn)(struct libmaxtouch_ctx *ctx,
                     enum mxt_log_level level, const char *format, va_list args))
@@ -82,18 +82,18 @@ void mxt_set_log_fn(struct libmaxtouch_ctx *ctx,
 //******************************************************************************
 /// \brief  Scan for devices on the I2C bus and USB
 /// \note   Checks for I2C devices first
-/// \return 0 = no device found, 1 = device found, negative = error
+/// \return #mxt_rc
 int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn,
              bool query)
 {
-  int ret = 0;
+  int ret;
 
   ctx->query = query;
 
   /* Scan the I2C bus first because it will return quicker */
   ret = sysfs_scan(ctx, conn);
 #ifdef HAVE_LIBUSB
-  if (ret != 1)
+  if (ret)
   {
     /* If no I2C devices are found then scan the USB */
     ret = usb_scan(ctx, conn);
@@ -109,17 +109,18 @@ int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn,
 
 //******************************************************************************
 /// \brief Create connection object
+/// \return #mxt_rc
 int mxt_new_conn(struct mxt_conn_info **conn, enum mxt_device_type type)
 {
   struct mxt_conn_info *c = calloc(1, sizeof(struct mxt_conn_info));
   if (!c)
-    return -ENOMEM;
+    return MXT_ERROR_NO_MEM;
 
   c->type = type;
   c->refcount = 1;
 
   *conn = c;
-  return 0;
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
@@ -161,8 +162,7 @@ struct mxt_conn_info *mxt_unref_conn(struct mxt_conn_info *conn)
 
 //******************************************************************************
 /// \brief Open device
-/// \note Ownership of mxt_conn_info passes to device and it is freed when the
-///       device is freed.
+/// \return #mxt_rc
 int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
                    struct mxt_device **mxt)
 {
@@ -171,7 +171,7 @@ int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
 
   new_dev = calloc(1, sizeof(struct mxt_device));
   if (!new_dev)
-    return -ENOMEM;
+    return MXT_ERROR_NO_MEM;
 
   new_dev->ctx = ctx;
   new_dev->conn = mxt_ref_conn(conn);
@@ -197,7 +197,7 @@ int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
 
     default:
       mxt_err(ctx, "Device type not supported");
-      ret = -1;
+      ret = MXT_ERROR_NOT_SUPPORTED;
       goto failure;
   }
 
@@ -205,7 +205,7 @@ int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
     goto failure;
 
   *mxt = new_dev;
-  return 0;
+  return MXT_SUCCESS;
 
 failure:
   mxt_unref_conn(conn);
@@ -216,19 +216,20 @@ failure:
 
 //******************************************************************************
 /// \brief Read information block
+/// \return #mxt_rc
 int mxt_get_info(struct mxt_device *mxt)
 {
   int ret;
 
   ret = mxt_read_info_block(mxt);
-  if (ret != 0)
+  if (ret)
   {
     mxt_err(mxt->ctx, "Failed to read information block from mXT device");
     return ret;
   }
 
   ret = mxt_calc_report_ids(mxt);
-  if (ret != 0)
+  if (ret)
   {
     mxt_err(mxt->ctx, "Failed to generate report ID look-up table");
     return ret;
@@ -236,7 +237,7 @@ int mxt_get_info(struct mxt_device *mxt)
 
   mxt_display_chip_info(mxt);
 
-  return 0;
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
@@ -299,11 +300,11 @@ const char* mxt_get_input_event_file(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief  Read register from MXT chip
-/// \return 0 = success, negative = fail
-int mxt_read_register(struct mxt_device *mxt, unsigned char *buf,
+/// \return #mxt_rc
+int mxt_read_register(struct mxt_device *mxt, uint8_t *buf,
                       int start_register, int count)
 {
-  int ret = -1;
+  int ret;
 
   switch (mxt->conn->type)
   {
@@ -323,21 +324,22 @@ int mxt_read_register(struct mxt_device *mxt, unsigned char *buf,
 
     default:
       mxt_err(mxt->ctx, "Device type not supported");
+      ret = MXT_ERROR_NOT_SUPPORTED;
   }
 
-  if (ret == 0)
+  if (ret == MXT_SUCCESS)
     mxt_log_buffer(mxt->ctx, LOG_VERBOSE, "RX", buf, count);
 
-  return (ret);
+  return ret;
 }
 
 //******************************************************************************
 /// \brief  Write register to MXT chip
-/// \return 0 = success, negative = fail
-int mxt_write_register(struct mxt_device *mxt, unsigned char const *buf,
+/// \return #mxt_rc
+int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf,
                        int start_register, int count)
 {
-  int ret = -1;
+  int ret;
 
   switch (mxt->conn->type)
   {
@@ -357,9 +359,10 @@ int mxt_write_register(struct mxt_device *mxt, unsigned char const *buf,
 
     default:
       mxt_err(mxt->ctx, "Device type not supported");
+      ret = MXT_ERROR_NOT_SUPPORTED;
   }
 
-  if (ret == 0)
+  if (ret == MXT_SUCCESS)
     mxt_log_buffer(mxt->ctx, LOG_VERBOSE, "TX", buf, count);
 
   return ret;
@@ -367,10 +370,10 @@ int mxt_write_register(struct mxt_device *mxt, unsigned char const *buf,
 
 //******************************************************************************
 /// \brief  Enable/disable MSG retrieval
-/// \return 0 = success, negative = fail
+/// \return #mxt_rc
 int mxt_set_debug(struct mxt_device *mxt, bool debug_state)
 {
-  int ret = -1;
+  int ret;
 
   switch (mxt->conn->type)
   {
@@ -383,10 +386,12 @@ int mxt_set_debug(struct mxt_device *mxt, bool debug_state)
 #endif
     case E_I2C_DEV:
       /* No need to enable MSG output */
+      ret = MXT_SUCCESS;
       break;
 
     default:
       mxt_err(mxt->ctx, "Device type not supported");
+      ret = MXT_ERROR_NOT_SUPPORTED;
   }
 
   return ret;
@@ -395,25 +400,28 @@ int mxt_set_debug(struct mxt_device *mxt, bool debug_state)
 
 //******************************************************************************
 /// \brief  Get debug state
-/// \return true (debug enabled) or false (debug disabled)
-bool mxt_get_debug(struct mxt_device *mxt)
+/// \param  value true (debug enabled) or false (debug disabled)
+/// \return #mxt_rc
+int mxt_get_debug(struct mxt_device *mxt, bool *value)
 {
-  bool ret = false;
+  int ret;
 
   switch (mxt->conn->type)
   {
     case E_SYSFS:
-      ret = sysfs_get_debug(mxt);
+      ret = sysfs_get_debug(mxt, value);
       break;
 
 #ifdef HAVE_LIBUSB
     case E_USB:
       mxt_warn(mxt->ctx, "Kernel debug not supported for USB devices");
+      ret = MXT_ERROR_NOT_SUPPORTED;
       break;
 #endif /* HAVE_LIBUSB */
 
     case E_I2C_DEV:
     default:
+      ret = MXT_ERROR_NOT_SUPPORTED;
       mxt_err(mxt->ctx, "Device type not supported");
   }
 
@@ -422,7 +430,7 @@ bool mxt_get_debug(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief  Perform fallback reset
-/// \return 0 = success, negative = fail
+/// \return #mxt_rc
 static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode)
 {
   int ret;
@@ -432,7 +440,7 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode)
   /* Obtain command processor's address */
   t6_addr = mxt_get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
   if (t6_addr == OBJECT_NOT_FOUND)
-    return -1;
+    return MXT_ERROR_OBJECT_NOT_FOUND;
 
   /* The value written determines which mode the chip will boot into */
   if (bootloader_mode)
@@ -459,7 +467,7 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode)
 /// \return 0 = success, negative = fail
 int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
 {
-  int ret = -1;
+  int ret;
 
   switch (mxt->conn->type)
   {
@@ -476,6 +484,7 @@ int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
 
     default:
       mxt_err(mxt->ctx, "Device type not supported");
+      ret = MXT_ERROR_NOT_SUPPORTED;
   }
 
   return ret;
@@ -486,14 +495,14 @@ int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
 /// \return 0 = success, negative = fail
 int mxt_calibrate_chip(struct mxt_device *mxt)
 {
-  int ret = -1;
+  int ret;
   uint16_t t6_addr;
   unsigned char write_value = CALIBRATE_COMMAND;
 
   /* Obtain command processor's address */
   t6_addr = mxt_get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
   if (t6_addr == OBJECT_NOT_FOUND)
-    return -1;
+    return MXT_ERROR_OBJECT_NOT_FOUND;
 
   /* Write to command processor register to perform command */
   ret = mxt_write_register
@@ -515,17 +524,17 @@ int mxt_calibrate_chip(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief  Backup configuration settings to non-volatile memory
-/// \return 0 = success, negative = fail
+/// \return #mxt_rc
 int mxt_backup_config(struct mxt_device *mxt)
 {
-  int ret = -1;
+  int ret;
   uint16_t t6_addr;
   unsigned char write_value = BACKUPNV_COMMAND;
 
   /* Obtain command processor's address */
   t6_addr = mxt_get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
   if (t6_addr == OBJECT_NOT_FOUND)
-    return -1;
+    return MXT_ERROR_OBJECT_NOT_FOUND;
 
   /* Write to command processor register to perform command */
   ret = mxt_write_register
@@ -533,32 +542,29 @@ int mxt_backup_config(struct mxt_device *mxt)
     mxt, &write_value, t6_addr + BACKUPNV_OFFSET, 1
   );
 
-  if (ret == 0)
-  {
+  if (ret == MXT_SUCCESS)
     mxt_info(mxt->ctx, "Backed up settings to the non-volatile memory");
-  }
   else
-  {
     mxt_err(mxt->ctx, "Failed to back up settings");
-  }
 
   return ret;
 }
 
 //******************************************************************************
-/// \brief  Get debug messages
-/// \return Number of messages, negative error
-int mxt_get_msg_count(struct mxt_device *mxt)
+/// \brief  Get number of debug messages available
+/// \note   This may retrieve and buffer messages
+/// \return #mxt_rc
+int mxt_get_msg_count(struct mxt_device *mxt, int *count)
 {
-  int count = -1;
+  int ret;
 
   switch (mxt->conn->type)
   {
     case E_SYSFS:
       if (sysfs_has_debug_v2(mxt))
-        count = sysfs_get_msg_count_v2(mxt);
+        ret = sysfs_get_msg_count_v2(mxt, count);
       else
-        count = sysfs_get_msg_count(mxt);
+        ret = sysfs_get_msg_count(mxt, count);
 
       break;
 
@@ -566,15 +572,16 @@ int mxt_get_msg_count(struct mxt_device *mxt)
     case E_USB:
 #endif /* HAVE_LIBUSB */
     case E_I2C_DEV:
-      count = t44_get_msg_count(mxt);
+      ret = t44_get_msg_count(mxt, count);
       break;
 
     default:
       mxt_err(mxt->ctx, "Device type not supported");
+      ret = MXT_ERROR_NOT_SUPPORTED;
       break;
   }
 
-  return count;
+  return ret;
 }
 
 //******************************************************************************
@@ -616,54 +623,46 @@ char *mxt_get_msg_string(struct mxt_device *mxt)
 /// \param  mxt  Maxtouch Device
 /// \param  buf  Pointer to buffer
 /// \param  buflen  Length of buffer
-/// \return number of bytes read, negative for error
-int mxt_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen)
+/// \return #mxt_rc
+int mxt_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf,
+                      size_t buflen, int *count)
 {
-  int count = -1;
-  int byte, length;
-  char msg_string[50];
+  int ret;
 
   switch (mxt->conn->type)
   {
     case E_SYSFS:
       if (sysfs_has_debug_v2(mxt))
-        count = sysfs_get_msg_bytes_v2(mxt, buf, buflen);
+        ret = sysfs_get_msg_bytes_v2(mxt, buf, buflen, count);
       else
-        count = sysfs_get_msg_bytes(mxt, buf, buflen);
+        ret = sysfs_get_msg_bytes(mxt, buf, buflen, count);
       break;
 
 #ifdef HAVE_LIBUSB
     case E_USB:
 #endif /* HAVE_LIBUSB */
     case E_I2C_DEV:
-      count = t44_get_msg_bytes(mxt, buf, buflen);
+      ret = t44_get_msg_bytes(mxt, buf, buflen, count);
       break;
+
     default:
       mxt_err(mxt->ctx, "Device type not supported");
+      ret = MXT_ERROR_NOT_SUPPORTED;
+      break;
   }
 
-  if (count > 0)
-  {
-    length = snprintf(msg_string, sizeof(msg_string), MSG_PREFIX);
+  if (ret == MXT_SUCCESS)
+    mxt_log_buffer(mxt->ctx, LOG_DEBUG, MSG_PREFIX, buf, *count);
 
-    /* Dump message to debug */
-    for (byte = 0; byte < count; byte++)
-    {
-      length += snprintf(msg_string + length, sizeof(msg_string) - length,
-                         "%02X ", buf[byte]);
-    }
-
-    mxt_dbg(mxt->ctx, "%s", msg_string);
-  }
-  return count;
+  return ret;
 }
 
 //******************************************************************************
 /// \brief  Discard all previous messages
-/// \return Number of messages, negative error
+/// \return #mxt_rc
 int mxt_msg_reset(struct mxt_device *mxt)
 {
-  int ret = -1;
+  int ret;
 
   switch (mxt->conn->type)
   {
@@ -684,6 +683,7 @@ int mxt_msg_reset(struct mxt_device *mxt)
 
     default:
       mxt_err(mxt->ctx, "Device type not supported");
+      ret = MXT_ERROR_NOT_SUPPORTED;
       break;
   }
 
@@ -702,7 +702,7 @@ int mxt_get_msg_poll_fd(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief  Wait for messages
-void mxt_msg_wait(struct mxt_device *mxt, int timeout_ms)
+int mxt_msg_wait(struct mxt_device *mxt, int timeout_ms)
 {
   int ret;
   int fd = 0;
@@ -721,19 +721,23 @@ void mxt_msg_wait(struct mxt_device *mxt, int timeout_ms)
   if (ret == -1 && errno == EINTR)
   {
     mxt_dbg(mxt->ctx, "Interrupted");
+    return MXT_ERROR_INTERRUPTED;
   }
-  else if (ret == -1)
+  else if (ret < 0)
   {
-    ret = -errno;
     mxt_err(mxt->ctx, "poll returned %d (%s)", errno, strerror(errno));
+    return MXT_ERROR_IO;
   }
+
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
 /// \brief Read from bootloader
+/// \return #mxt_rc
 int mxt_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count)
 {
-  int ret = -1;
+  int ret;
 
   switch (mxt->conn->type)
   {
@@ -749,6 +753,7 @@ int mxt_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count)
 
     default:
       mxt_err(mxt->ctx, "Device type not supported");
+      ret = MXT_ERROR_NOT_SUPPORTED;
       break;
   }
 
@@ -757,9 +762,10 @@ int mxt_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count)
 
 //******************************************************************************
 /// \brief Write to bootloader
+/// \return #mxt_rc
 int mxt_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int count)
 {
-  int ret = -1;
+  int ret;
 
   switch (mxt->conn->type)
   {
@@ -775,8 +781,30 @@ int mxt_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int c
 
     default:
       mxt_err(mxt->ctx, "Device type not supported");
+      ret = MXT_ERROR_NOT_SUPPORTED;
       break;
   }
 
   return ret;
+}
+
+//******************************************************************************
+/// \brief Convert errno codes from the Linux API to #mxt_rc values
+/// \return #mxt_rc
+int mxt_errno_to_rc(int errno_in)
+{
+  switch (errno_in)
+  {
+    case EACCES:
+      return MXT_ERROR_ACCESS;
+
+    case ENOMEM:
+      return MXT_ERROR_NO_MEM;
+
+    case ETIMEDOUT:
+      return MXT_ERROR_TIMEOUT;
+
+    default:
+      return MXT_ERROR_IO;
+  }
 }

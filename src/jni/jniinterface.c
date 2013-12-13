@@ -93,14 +93,7 @@ JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetInfo
 
   ret = mxt_get_info(mxt);
 
-  if (ret == 0)
-  {
-    return JNI_TRUE;
-  }
-  else
-  {
-    return JNI_FALSE;
-  }
+  return (ret == MXT_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
 
 //******************************************************************************
@@ -119,7 +112,7 @@ JNIEXPORT jbyteArray JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_ReadRegister
 
   ret = mxt_read_register(mxt, buf, start_register, count);
 
-  if (ret == 0)
+  if (ret == MXT_SUCCESS)
   {
     jb=(*env)->NewByteArray(env, count);
     (*env)->SetByteArrayRegion(env, jb, 0, count, buf);
@@ -171,10 +164,11 @@ JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetDebugEnable
   (JNIEnv *end, jobject this)
 {
   bool bDebugState;
+  int ret;
 
-  bDebugState = mxt_get_debug(mxt);
+  ret = mxt_get_debug(mxt, &bDebugState);
 
-  return (bDebugState == true ? JNI_TRUE : JNI_FALSE);
+  return (bDebugState == true) ? JNI_TRUE : JNI_FALSE;
 }
 
 //******************************************************************************
@@ -213,14 +207,14 @@ JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_SaveConfigFile
 JNIEXPORT jobjectArray JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetDebugMessages
   (JNIEnv *env, jobject this)
 {
-  int count, i;
+  int count, i, ret;
   jobjectArray stringarray;
   jclass stringClass;
   char *szMessage;
 
-  count = mxt_get_msg_count(mxt);
+  ret = mxt_get_msg_count(mxt, &count);
   /* suppress error and return empty array */
-  if (count < 0)
+  if (ret)
     count = 0;
 
   // Create JNI array of strings to return
@@ -233,7 +227,8 @@ JNIEXPORT jobjectArray JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetDebugMessa
     for (i = 0; i < count; i++)
     {
       szMessage = mxt_get_msg_string(mxt);
-      (*env)->SetObjectArrayElement(env, stringarray, i, (*env)->NewStringUTF(env, szMessage));
+      (*env)->SetObjectArrayElement(env, stringarray, i,
+                                    (*env)->NewStringUTF(env, szMessage));
     }
   }
 

@@ -45,17 +45,18 @@
 
 //******************************************************************************
 /// \brief Handle messages from the self test object
+/// \return #mxt_rc
 static int self_test_handle_messages(struct mxt_device *mxt)
 {
    bool done = false;
-   uint16_t count, i;
+   int count, i;
    time_t now;
    time_t start_time = time(NULL);
    static const uint8_t TIMEOUT = 10; // seconds
    uint8_t buf[10];
-   size_t len;
+   int len;
    unsigned int object_type;
-   int ret = -1;
+   int ret;
 
    while (!done)
    {
@@ -65,16 +66,20 @@ static int self_test_handle_messages(struct mxt_device *mxt)
       if ((now - start_time) > TIMEOUT)
       {
          mxt_err(mxt->ctx, "Timeout");
-         return -2;
+         return MXT_ERROR_TIMEOUT;
       }
 
-      count = mxt_get_msg_count(mxt);
+      ret = mxt_get_msg_count(mxt, &count);
+      if (ret)
+        return ret;
 
       if (count > 0)
       {
          for (i = 0; i < count; i++)
          {
-            len = mxt_get_msg_bytes(mxt, buf, sizeof(buf));
+            ret = mxt_get_msg_bytes(mxt, buf, sizeof(buf), &len);
+            if (ret)
+              return ret;
 
             if (len > 0)
             {
@@ -88,43 +93,43 @@ static int self_test_handle_messages(struct mxt_device *mxt)
                   {
                   case SELF_TEST_ALL:
                      mxt_info(mxt->ctx, "PASS: All tests passed");
-                     ret = 0;
+                     ret = MXT_SUCCESS;
                      break;
                   case SELF_TEST_INVALID:
                      mxt_err(mxt->ctx, "FAIL: Invalid test command");
-                     ret = -SELF_TEST_INVALID;
+                     ret = MXT_ERROR_NOT_SUPPORTED;
                      break;
                   case SELF_TEST_TIMEOUT:
                      mxt_err(mxt->ctx, "FAIL: Test timeout");
-                     ret = -SELF_TEST_TIMEOUT;
+                     ret = MXT_ERROR_TIMEOUT;
                      break;
                   case SELF_TEST_ANALOG:
                      mxt_err(mxt->ctx, "FAIL: AVdd Analog power is not present");
-                     ret = -SELF_TEST_ANALOG;
+                     ret = MXT_ERROR_SELF_TEST_ANALOG;
                      break;
                   case SELF_TEST_PIN_FAULT:
                      mxt_err(mxt->ctx, "FAIL: Pin fault");
-                     ret = -SELF_TEST_PIN_FAULT;
+                     ret = MXT_ERROR_SELF_TEST_PIN_FAULT;
                      break;
                   case SELF_TEST_PIN_FAULT_2:
                      mxt_err(mxt->ctx, "FAIL: Pin fault 2");
-                     ret = -SELF_TEST_PIN_FAULT_2;
+                     ret = MXT_ERROR_SELF_TEST_PIN_FAULT;
                      break;
                   case SELF_TEST_AND_GATE:
                      mxt_err(mxt->ctx, "FAIL: AND Gate Fault");
-                     ret = -SELF_TEST_AND_GATE;
+                     ret = MXT_ERROR_SELF_TEST_AND_GATE;
                      break;
                   case SELF_TEST_SIGNAL_LIMIT:
                      mxt_err(mxt->ctx, "FAIL: Signal limit fault");
-                     ret = -SELF_TEST_SIGNAL_LIMIT;
+                     ret = MXT_ERROR_SELF_TEST_SIGNAL_LIMIT;
                      break;
                   case SELF_TEST_GAIN:
                      mxt_err(mxt->ctx, "FAIL: Gain error");
-                     ret = -SELF_TEST_GAIN;
+                     ret = MXT_ERROR_SELF_TEST_GAIN;
                      break;
                   default:
                      mxt_err(mxt->ctx, "Unrecognised status %02X", buf[1]);
-                     ret = -1;
+                     ret = MXT_ERROR_UNEXPECTED_DEVICE_STATE;
                      break;
                   }
 
@@ -258,7 +263,7 @@ uint8_t self_test_menu(struct mxt_device *mxt)
    int self_test;
    uint8_t cmd;
 
-   while(1)
+   while (1)
    {
       cmd = 0;
 
@@ -275,7 +280,7 @@ uint8_t self_test_menu(struct mxt_device *mxt)
       if (scanf("%d", &self_test) != 1)
       {
         printf("Input error\n");
-        return -1;
+        return MXT_ERROR_BAD_INPUT;
       }
 
       switch(self_test)

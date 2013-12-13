@@ -29,6 +29,7 @@
 
 #include <stdlib.h>
 
+#include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/log.h"
 
 #include "buffer.h"
@@ -37,6 +38,7 @@
 
 //******************************************************************************
 /// \brief Allocate memory associated with buffer
+/// \return #mxt_rc
 int mxt_buf_init(struct mxt_buffer *ctx)
 {
   int *ptr;
@@ -48,16 +50,17 @@ int mxt_buf_init(struct mxt_buffer *ctx)
   if (ptr)
   {
     ctx->data = (uint8_t *)ptr;
-    return 0;
+    return MXT_SUCCESS;
   }
   else
   {
-    return -1;
+    return MXT_ERROR_NO_MEM;
   }
 }
 
 //******************************************************************************
 /// \brief Reallocate buffer memory if necessary
+/// \return #mxt_rc
 static int mxt_buf_realloc(struct mxt_buffer *ctx, size_t new_size)
 {
   int *ptr = 0;
@@ -65,7 +68,7 @@ static int mxt_buf_realloc(struct mxt_buffer *ctx, size_t new_size)
 
   /* Check whether we are still within bounds of buffer */
   if (new_size <= ctx->capacity)
-    return 0;
+    return MXT_SUCCESS;
 
   new_capacity = ctx->capacity + BUFFER_BLOCKSIZE;
   ptr = realloc(ctx->data, new_capacity * sizeof(uint8_t));
@@ -74,23 +77,24 @@ static int mxt_buf_realloc(struct mxt_buffer *ctx, size_t new_size)
   {
     ctx->data = (uint8_t *)ptr;
     ctx->capacity = new_capacity;
-    return 0;
+    return MXT_SUCCESS;
   }
   else
   {
-    return -1;
+    return MXT_ERROR_NO_MEM;
   }
 }
 
 //******************************************************************************
 /// \brief Add value to buffer
+/// \return #mxt_rc
 int mxt_buf_add(struct mxt_buffer *ctx, uint8_t value)
 {
   int ret;
   size_t new_size = ctx->size + 1;
 
   ret = mxt_buf_realloc(ctx, new_size);
-  if (ret < 0)
+  if (ret)
     return ret;
 
   *(ctx->data + ctx->size) = value;
@@ -98,7 +102,7 @@ int mxt_buf_add(struct mxt_buffer *ctx, uint8_t value)
   /* update new size */
   ctx->size = new_size;
 
-  return 0;
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************

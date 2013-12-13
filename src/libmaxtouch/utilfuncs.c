@@ -300,7 +300,10 @@ const char *mxt_get_object_name(uint8_t objtype)
 }
 //******************************************************************************
 /// \brief Menu function to read values from object
-int mxt_read_object(struct mxt_device *mxt, uint16_t object_type, uint8_t instance, uint16_t address, size_t count, bool format)
+/// \return #mxt_rc
+int mxt_read_object(struct mxt_device *mxt, uint16_t object_type,
+                    uint8_t instance, uint16_t address,
+                    size_t count, bool format)
 {
   uint8_t *databuf;
   uint16_t object_address = 0;
@@ -312,7 +315,7 @@ int mxt_read_object(struct mxt_device *mxt, uint16_t object_type, uint8_t instan
     object_address = mxt_get_object_address(mxt, object_type, instance);
     if (object_address == OBJECT_NOT_FOUND) {
       printf("No such object\n");
-      return -1;
+      return MXT_ERROR_OBJECT_NOT_FOUND;
     }
 
     mxt_dbg(mxt->ctx, "T%u address:%u offset:%u", object_type,
@@ -326,18 +329,18 @@ int mxt_read_object(struct mxt_device *mxt, uint16_t object_type, uint8_t instan
   else if (count == 0)
   {
     mxt_err(mxt->ctx, "No length information");
-    return -1;
+    return MXT_ERROR_BAD_INPUT;
   }
 
   databuf = (uint8_t *)calloc(count, sizeof(uint8_t));
   if (databuf == NULL)
   {
     mxt_err(mxt->ctx, "Memory allocation failure");
-    return -1;
+    return MXT_ERROR_NO_MEM;
   }
 
   ret = mxt_read_register(mxt, databuf, address, count);
-  if (ret < 0) {
+  if (ret) {
     printf("Read error\n");
     goto free;
   }
@@ -362,7 +365,7 @@ int mxt_read_object(struct mxt_device *mxt, uint16_t object_type, uint8_t instan
     printf("\n");
   }
 
-  ret = 0;
+  ret = MXT_SUCCESS;
 
 free:
   free(databuf);
@@ -389,7 +392,9 @@ static char to_digit(char hex)
 
 //******************************************************************************
 /// \brief Convert ASCII buffer containing hex digits to binary
-int mxt_convert_hex(char *hex, unsigned char *databuf, uint16_t *count, unsigned int buf_size)
+/// \return #mxt_rc
+int mxt_convert_hex(char *hex, unsigned char *databuf,
+                    uint16_t *count, unsigned int buf_size)
 {
   unsigned int pos = 0;
   uint16_t datapos = 0;
@@ -400,13 +405,15 @@ int mxt_convert_hex(char *hex, unsigned char *databuf, uint16_t *count, unsigned
     highnibble = *(hex + pos);
     lownibble = *(hex + pos + 1);
 
+    printf("%c %c\n", highnibble, lownibble);
+
     /* end of string */
     if (highnibble == '\0' || highnibble == '\n')
       break;
 
     /* uneven number of hex digits */
     if (lownibble == '\0' || lownibble == '\n')
-      return -1;
+      return MXT_ERROR_BAD_INPUT;
 
     *(databuf + datapos) = (to_digit(highnibble) << 4)
       | to_digit(lownibble);
@@ -414,26 +421,30 @@ int mxt_convert_hex(char *hex, unsigned char *databuf, uint16_t *count, unsigned
 
     pos += 2;
     if (pos > buf_size)
-      return -1;
+      return MXT_ERROR_NO_MEM;
   }
 
   *count = datapos;
-  return 0;
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
 /// \brief Output timestamp to stream with millisecond accuracy
-void mxt_print_timestamp(FILE *stream)
+/// \return #mxt_rc
+int mxt_print_timestamp(FILE *stream)
 {
   struct timeval tv;
   time_t nowtime;
   struct tm *nowtm;
   char tmbuf[64];
+  int ret;
 
   gettimeofday(&tv, NULL);
   nowtime = tv.tv_sec;
   nowtm = localtime(&nowtime);
   strftime(tmbuf, sizeof tmbuf, "%H:%M:%S", nowtm);
 
-  fprintf(stream, "%s.%06ld", tmbuf, tv.tv_usec);
+  ret = fprintf(stream, "%s.%06ld", tmbuf, tv.tv_usec);
+
+  return (ret < 0) ? MXT_ERROR_IO : MXT_SUCCESS;
 }

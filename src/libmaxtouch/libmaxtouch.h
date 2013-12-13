@@ -29,6 +29,7 @@
 //------------------------------------------------------------------------------
 
 #include <stdbool.h>
+#include <stddef.h>
 
 struct libmaxtouch_ctx;
 struct mxt_device;
@@ -55,6 +56,41 @@ struct mxt_conn_info;
 
 /* Prefix for T5 messages */
 #define MSG_PREFIX "MXT MSG:"
+
+//******************************************************************************
+/// \brief Return codes
+enum mxt_rc {
+  MXT_SUCCESS = 0,                           /*!< Success */
+  MXT_INTERNAL_ERROR = 1,                    /*!< Internal error/assert */
+  MXT_ERROR_IO = 2,                          /*!< Input/output error */
+  MXT_ERROR_NO_MEM = 3,                      /*!< Memory allocation failure */
+  MXT_ERROR_TIMEOUT = 4,                     /*!< Timeout */
+  MXT_ERROR_NO_DEVICE = 5,                   /*!< Could not find a device or device went away */
+  MXT_ERROR_ACCESS = 6,                      /*!< Permission denied */
+  MXT_ERROR_NOT_SUPPORTED = 7,               /*!< Operation not allowed for this device type */
+  MXT_ERROR_INTERRUPTED = 8,                 /*!< Interrupt function call */
+  MXT_ERROR_OBJECT_NOT_FOUND = 9,            /*!< Object not available on device */
+  MXT_ERROR_NO_MESSAGE = 10,                 /*!< Received unexpected invalid message from message processor */
+  MXT_ERROR_SELF_TEST_INVALID = 11,          /*!< Self test invalid test command */
+  MXT_ERROR_SELF_TEST_ANALOG = 12,           /*!< Self test AVdd Analog power is not present */
+  MXT_ERROR_SELF_TEST_PIN_FAULT = 13,        /*!< Self test Pin fault */
+  MXT_ERROR_SELF_TEST_AND_GATE = 14,         /*!< Self test AND Gate Fault */
+  MXT_ERROR_SELF_TEST_SIGNAL_LIMIT = 15,     /*!< Self test Signal limit fault */
+  MXT_ERROR_SELF_TEST_GAIN = 16,             /*!< Self test Gain error */
+  MXT_ERROR_INFO_CHECKSUM_MISMATCH = 17,     /*!< Information block checksum error */
+  MXT_ERROR_BOOTLOADER_UNLOCKED = 18,        /*!< Bootloader already unlocked */
+  MXT_ERROR_BOOTLOADER_FRAME_CRC_FAIL = 19,  /*!< Bootloader CRC failure (transmission failure) */
+  MXT_ERROR_FILE_FORMAT = 20,                /*!< File format error */
+  MXT_FIRMWARE_UPDATE_NOT_REQUIRED = 21,     /*!< Device firmware already required version */
+  MXT_ERROR_BOOTLOADER_NO_ADDRESS = 22,      /*!< Could not identify bootloader address */
+  MXT_ERROR_FIRMWARE_UPDATE_FAILED = 23,     /*!< Version on device did not match version given after bootloading operation */
+  MXT_ERROR_RESET_FAILURE = 24,              /*!< Device did not reset */
+  MXT_ERROR_UNEXPECTED_DEVICE_STATE = 25,    /*!< Device in unexpected state */
+  MXT_ERROR_BAD_INPUT = 26,                  /*!< Incorrect command line parameters or menu input given */
+  MXT_ERROR_PROTOCOL_FAULT = 27,             /*!< Bridge TCP protocol parse error */
+  MXT_ERROR_CONNECTION_FAILURE = 28,         /*!< Bridge connection error */
+  MXT_ERROR_SERIAL_DATA_FAILURE = 29,        /*!< Serial data download failed */
+};
 
 //******************************************************************************
 /// \brief Device connection type
@@ -131,21 +167,22 @@ void mxt_set_log_fn(struct libmaxtouch_ctx *ctx, void (*log_fn)(struct libmaxtou
 void mxt_free_device(struct mxt_device *mxt);
 int mxt_get_info(struct mxt_device *mxt);
 const char *mxt_get_input_event_file(struct mxt_device *mxt);
-int mxt_read_register(struct mxt_device *mxt, unsigned char *buf, int start_register, int count);
-int mxt_write_register(struct mxt_device *mxt, unsigned char const *buf, int start_register, int count);
+int mxt_read_register(struct mxt_device *mxt, uint8_t *buf, int start_register, int count);
+int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf, int start_register, int count);
 int mxt_set_debug(struct mxt_device *mxt, bool debug_state);
-bool mxt_get_debug(struct mxt_device *mxt);
+int mxt_get_debug(struct mxt_device *mxt, bool *value);
 int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode);
 int mxt_calibrate_chip(struct mxt_device *mxt);
 int mxt_backup_config(struct mxt_device *mxt);
 int mxt_load_config_file(struct mxt_device *mxt, const char *cfg_file);
 int mxt_save_raw_file(struct mxt_device *mxt, const char *cfg_file);
-int mxt_get_msg_count(struct mxt_device *mxt);
+int mxt_get_msg_count(struct mxt_device *mxt, int *count);
 char *mxt_get_msg_string(struct mxt_device *mxt);
-int mxt_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen);
+int mxt_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen, int *count);
 int mxt_msg_reset(struct mxt_device *mxt);
 int mxt_get_msg_poll_fd(struct mxt_device *mxt);
 int mxt_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count);
 int mxt_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int count);
-void mxt_msg_wait(struct mxt_device *mxt, int timeout_ms);
+int mxt_msg_wait(struct mxt_device *mxt, int timeout_ms);
 int mxt_new_i2c_dev(struct mxt_device **mxt, int adapter, int address);
+int mxt_errno_to_rc(int errno_in);

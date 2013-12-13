@@ -27,22 +27,26 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
+#include <errno.h>
+#include "libmaxtouch/libmaxtouch.h"
+
 #ifndef ANDROID
 #include <sys/sysinfo.h>
 #include "sysinfo.h"
 //******************************************************************************
 /// \brief  Get system uptime in seconds since boot
+/// \return #mxt_rc
 int get_uptime(unsigned long *uptime)
 {
   int ret;
   struct sysinfo sys_info;
 
   ret = sysinfo(&sys_info);
-  if (ret != 0)
-    return ret;
+  if (ret)
+    return mxt_errno_to_rc(errno);
 
   *uptime = sys_info.uptime;
-  return ret;
+  return MXT_SUCCESS;
 }
 #else
 #include <stdio.h>
@@ -52,29 +56,33 @@ int get_uptime(unsigned long *uptime)
 int get_uptime(unsigned long *uptime)
 {
   FILE *fp;
-  int ret = -1;
+  int ret;
   unsigned long upsecs;
   char buf[64];
   char *b;
 
   fp = fopen("/proc/uptime", "r");
-  if (fp != NULL)
-  {
-    b = fgets(buf, BUFSIZ, fp);
-    if (b == buf)
-    {
-      /* The following sscanf must use the C locale.  */
-      setlocale(LC_NUMERIC, "C");
-      ret = sscanf(buf, "%lf", &upsecs);
-      setlocale(LC_NUMERIC, "");
-      if (ret == 1) {
-        *uptime = upsecs;
-        ret = 0;
-      }
-    }
+  if (!fp)
+    return mxt_errno_to_rc(errno);
 
-    fclose(fp);
+  b = fgets(buf, BUFSIZ, fp);
+  if (b == buf)
+  {
+    /* The following sscanf must use the C locale.  */
+    setlocale(LC_NUMERIC, "C");
+    ret = sscanf(buf, "%lf", &upsecs);
+    setlocale(LC_NUMERIC, "");
+    if (ret == 1) {
+      *uptime = upsecs;
+      ret = MXT_SUCCESS;
+    }
   }
+  else
+  {
+    ret = MXT_ERROR_IO;
+  }
+
+  fclose(fp);
 
   return ret;
 }

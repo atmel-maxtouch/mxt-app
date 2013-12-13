@@ -70,6 +70,7 @@ typedef enum mxt_app_cmd_t {
 
 //******************************************************************************
 /// \brief Initialize mXT device and read the info block
+/// \return #mxt_rc
 static int mxt_init_chip(struct libmaxtouch_ctx *ctx, struct mxt_device **mxt,
                          struct mxt_conn_info **conn)
 {
@@ -78,40 +79,39 @@ static int mxt_init_chip(struct libmaxtouch_ctx *ctx, struct mxt_device **mxt,
   if (!*conn)
   {
     ret = mxt_scan(ctx, conn, false);
-    if (ret == 0)
+    if (ret == MXT_ERROR_NO_DEVICE)
     {
       mxt_err(ctx, "Unable to find a device");
-      return -1;
+      return ret;
     }
-    else if (ret < 0)
+    else if (ret)
     {
       mxt_err(ctx, "Failed to find device");
-      return -1;
+      return ret;
     }
   }
 
-  if (mxt_new_device(ctx, *conn, mxt) < 0)
-  {
-    mxt_err(ctx, "Failed to open device");
-    return -1;
-  }
+  ret = mxt_new_device(ctx, *conn, mxt);
+  if (ret)
+    return ret;
 
 #ifdef HAVE_LIBUSB
   if ((*mxt)->conn->type == E_USB && usb_is_bootloader(*mxt))
   {
     mxt_err(ctx, "USB device in bootloader mode");
     mxt_free_device(*mxt);
-    return -1;
+    return MXT_ERROR_UNEXPECTED_DEVICE_STATE;
   }
 #endif
 
-  if (mxt_get_info(*mxt) < 0)
+  ret = mxt_get_info(*mxt);
+  if (ret)
   {
     mxt_err(ctx, "Failed to read information block");
-    return -1;
+    return ret;
   }
 
-  return 0;
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
@@ -241,7 +241,6 @@ int main (int argc, char *argv[])
     };
 
     c = getopt_long(argc, argv, "C:d:D:fghiI:n:p:qRr:StT:v:W", long_options, &option_index);
-
     if (c == -1)
       break;
 
@@ -256,7 +255,7 @@ int main (int argc, char *argv[])
             strbuf[sizeof(strbuf) - 1] = '\0';
           } else {
             print_usage(argv[0]);
-            return -1;
+            return MXT_ERROR_BAD_INPUT;
           }
         }
         else if (!strcmp(long_options[option_index].name, "t68-datatype"))
@@ -271,7 +270,7 @@ int main (int argc, char *argv[])
             strbuf[sizeof(strbuf) - 1] = '\0';
           } else {
             print_usage(argv[0]);
-            return -1;
+            return MXT_ERROR_BAD_INPUT;
           }
         }
         else if (!strcmp(long_options[option_index].name, "backup"))
@@ -280,7 +279,7 @@ int main (int argc, char *argv[])
             cmd = CMD_BACKUP;
           } else {
             print_usage(argv[0]);
-            return -1;
+            return MXT_ERROR_BAD_INPUT;
           }
         }
         else if (!strcmp(long_options[option_index].name, "calibrate"))
@@ -289,7 +288,7 @@ int main (int argc, char *argv[])
             cmd = CMD_CALIBRATE;
           } else {
             print_usage(argv[0]);
-            return -1;
+            return MXT_ERROR_BAD_INPUT;
           }
         }
         else if (!strcmp(long_options[option_index].name, "debug-dump"))
@@ -300,7 +299,7 @@ int main (int argc, char *argv[])
             strbuf[sizeof(strbuf) - 1] = '\0';
           } else {
             print_usage(argv[0]);
-            return -1;
+            return MXT_ERROR_BAD_INPUT;
           }
         }
         else if (!strcmp(long_options[option_index].name, "reset"))
@@ -309,7 +308,7 @@ int main (int argc, char *argv[])
             cmd = CMD_RESET;
           } else {
             print_usage(argv[0]);
-            return -1;
+            return MXT_ERROR_BAD_INPUT;
           }
         }
         else if (!strcmp(long_options[option_index].name, "load"))
@@ -320,7 +319,7 @@ int main (int argc, char *argv[])
             strbuf[sizeof(strbuf) - 1] = '\0';
           } else {
             print_usage(argv[0]);
-            return -1;
+            return MXT_ERROR_BAD_INPUT;
           }
         }
         else if (!strcmp(long_options[option_index].name, "save"))
@@ -331,7 +330,7 @@ int main (int argc, char *argv[])
             strbuf[sizeof(strbuf) - 1] = '\0';
           } else {
             print_usage(argv[0]);
-            return -1;
+            return MXT_ERROR_BAD_INPUT;
           }
         }
         else if (!strcmp(long_options[option_index].name, "reset-bootloader"))
@@ -340,7 +339,7 @@ int main (int argc, char *argv[])
             cmd = CMD_RESET_BOOTLOADER;
           } else {
             print_usage(argv[0]);
-            return -1;
+            return MXT_ERROR_BAD_INPUT;
           }
         }
         else if (!strcmp(long_options[option_index].name, "firmware-version"))
@@ -358,7 +357,7 @@ int main (int argc, char *argv[])
         else if (!strcmp(long_options[option_index].name, "version"))
         {
           printf("mxt-app %s\n", __GIT_VERSION);
-          return 0;
+          return MXT_SUCCESS;
         }
         else
         {
@@ -372,25 +371,29 @@ int main (int argc, char *argv[])
           if (!strncmp(optarg, "i2c-dev:", 8))
           {
             ret = mxt_new_conn(&conn, E_I2C_DEV);
+            if (ret)
+              return ret;
 
             if (sscanf(optarg, "i2c-dev:%d-%x",
                   &conn->i2c_dev.adapter, &conn->i2c_dev.address) != 2)
             {
               fprintf(stderr, "Invalid device string %s\n", optarg);
               conn = mxt_unref_conn(conn);
-              return -1;
+              return MXT_ERROR_NO_MEM;
             }
           }
           else if (!strncmp(optarg, "sysfs:", 6))
           {
             ret = mxt_new_conn(&conn, E_SYSFS);
+            if (ret)
+              return ret;
 
             conn->sysfs.path = (char *)calloc(strlen(optarg) + 1, sizeof(char));
             if (!conn->sysfs.path)
             {
               fprintf(stderr, "malloc failure\n");
               conn = mxt_unref_conn(conn);
-              return -1;
+              return MXT_ERROR_NO_MEM;
             }
 
             memcpy(conn->sysfs.path, optarg + 6, strlen(optarg) - 6);
@@ -399,11 +402,14 @@ int main (int argc, char *argv[])
           else if (!strncmp(optarg, "usb:", 4))
           {
             ret = mxt_new_conn(&conn, E_USB);
+            if (ret)
+              return ret;
+
             if (sscanf(optarg, "usb:%d-%d", &conn->usb.bus, &conn->usb.device) != 2)
             {
               fprintf(stderr, "Invalid device string %s\n", optarg);
               conn = mxt_unref_conn(conn);
-              return -1;
+              return MXT_ERROR_NO_MEM;
             }
           }
 #endif
@@ -411,7 +417,7 @@ int main (int argc, char *argv[])
           {
             fprintf(stderr, "Invalid device string %s\n", optarg);
             conn = mxt_unref_conn(conn);
-            return -1;
+            return MXT_ERROR_BAD_INPUT;
           }
         }
         break;
@@ -423,7 +429,7 @@ int main (int argc, char *argv[])
           strbuf[sizeof(strbuf) - 1] = '\0';
         } else {
           print_usage(argv[0]);
-          return -1;
+          return MXT_ERROR_BAD_INPUT;
         }
         break;
 
@@ -432,13 +438,13 @@ int main (int argc, char *argv[])
           cmd = CMD_GOLDEN_REFERENCES;
         } else {
           print_usage(argv[0]);
-          return -1;
+          return MXT_ERROR_BAD_INPUT;
         }
         break;
 
       case 'h':
         print_usage(argv[0]);
-        return 0;
+        return MXT_SUCCESS;
 
       case 'f':
         format = true;
@@ -467,7 +473,7 @@ int main (int argc, char *argv[])
           cmd = CMD_QUERY;
         } else {
           print_usage(argv[0]);
-          return -1;
+          return MXT_ERROR_BAD_INPUT;
         }
         break;
 
@@ -482,7 +488,7 @@ int main (int argc, char *argv[])
           cmd = CMD_READ;
         } else {
           print_usage(argv[0]);
-          return -1;
+          return MXT_ERROR_BAD_INPUT;
         }
         break;
 
@@ -491,7 +497,7 @@ int main (int argc, char *argv[])
           cmd = CMD_BRIDGE_SERVER;
         } else {
           print_usage(argv[0]);
-          return -1;
+          return MXT_ERROR_BAD_INPUT;
         }
         break;
 
@@ -506,7 +512,7 @@ int main (int argc, char *argv[])
           cmd = CMD_INFO;
         } else {
           print_usage(argv[0]);
-          return -1;
+          return MXT_ERROR_BAD_INPUT;
         }
         break;
 
@@ -515,7 +521,7 @@ int main (int argc, char *argv[])
           cmd = CMD_TEST;
         } else {
           print_usage(argv[0]);
-          return -1;
+          return MXT_ERROR_BAD_INPUT;
         }
         break;
 
@@ -530,7 +536,7 @@ int main (int argc, char *argv[])
           cmd = CMD_WRITE;
         } else {
           print_usage(argv[0]);
-          return -1;
+          return MXT_ERROR_BAD_INPUT;
         }
         break;
 
@@ -538,7 +544,7 @@ int main (int argc, char *argv[])
         /* Output newline to create space under getopt error output */
         fprintf(stderr, "\n\n");
         print_usage(argv[0]);
-        return -1;
+        return MXT_ERROR_BAD_INPUT;
     }
   }
 
@@ -546,7 +552,7 @@ int main (int argc, char *argv[])
   struct libmaxtouch_ctx *ctx;
 
   ret = mxt_new(&ctx);
-  if (ret < 0)
+  if (ret)
   {
     mxt_err(ctx, "Failed to init libmaxtouch");
     return ret;
@@ -577,7 +583,7 @@ int main (int argc, char *argv[])
   else if (cmd != CMD_FLASH)
   {
     ret = mxt_init_chip(ctx, &mxt, &conn);
-    if (ret < 0) {
+    if (ret) {
       fprintf(stderr, "Failed to init device\n");
       goto free;
     }
@@ -594,7 +600,7 @@ int main (int argc, char *argv[])
         object_address = mxt_get_object_address(mxt, object_type, instance);
         if (object_address == OBJECT_NOT_FOUND) {
           fprintf(stderr, "No such object\n");
-          ret = -1;
+          ret = MXT_ERROR_OBJECT_NOT_FOUND;
           break;
         }
 
@@ -607,24 +613,24 @@ int main (int argc, char *argv[])
         }
       } else if (count == 0) {
         fprintf(stderr, "Not enough arguments!\n");
-        ret = -1;
+        ret = MXT_ERROR_BAD_INPUT;
         goto free;
       }
 
       if (optind != (argc - 1)) {
         fprintf(stderr, "Must give hex input\n");
-        ret = -1;
+        ret = MXT_ERROR_BAD_INPUT;
         goto free;
       }
 
       ret = mxt_convert_hex(argv[optind], &databuf[0], &count, sizeof(databuf));
-      if (ret < 0 || count == 0) {
+      if (ret || count == 0) {
         fprintf(stderr, "Hex convert error\n");
+        ret = MXT_ERROR_BAD_INPUT;
       } else {
         ret = mxt_write_register(mxt, &databuf[0], address, count);
-        if (ret < 0) {
+        if (ret)
           fprintf(stderr, "Write error\n");
-        }
       }
       break;
 
@@ -636,6 +642,7 @@ int main (int argc, char *argv[])
     case CMD_INFO:
       mxt_verb(ctx, "CMD_INFO");
       mxt_print_info_block(mxt);
+      ret = MXT_SUCCESS;
       break;
 
     case CMD_GOLDEN_REFERENCES:
@@ -701,7 +708,7 @@ int main (int argc, char *argv[])
       mxt_verb(ctx, "CMD_LOAD_CFG");
       mxt_verb(ctx, "filename:%s", strbuf);
       ret = mxt_load_config_file(mxt, strbuf);
-      if (ret < 0)
+      if (ret)
       {
         mxt_err(ctx, "Error loading the configuration");
       }
@@ -710,7 +717,7 @@ int main (int argc, char *argv[])
         mxt_info(ctx, "Configuration loaded");
 
         ret = mxt_backup_config(mxt);
-        if (ret < 0)
+        if (ret)
         {
           mxt_err(ctx, "Error backing up");
         }
@@ -719,7 +726,7 @@ int main (int argc, char *argv[])
           mxt_info(ctx, "Configuration backed up");
 
           ret = mxt_reset_chip(mxt, false);
-          if (ret < 0)
+          if (ret)
           {
             mxt_err(ctx, "Error resetting");
           }

@@ -88,28 +88,34 @@ struct t37_ctx {
   FILE *hawkeye;
 };
 
+//******************************************************************************
+/// \brief Retrieve and store object addresses for debug data operation
+/// \return #mxt_rc
 static int get_objects_addr(struct t37_ctx *ctx)
 {
   int t6_addr;
 
   /* Obtain command processor's address */
   t6_addr = mxt_get_object_address(ctx->mxt, GEN_COMMANDPROCESSOR_T6, 0);
-  if (t6_addr == OBJECT_NOT_FOUND) return -1;
+  if (t6_addr == OBJECT_NOT_FOUND) return MXT_ERROR_OBJECT_NOT_FOUND;
 
   /* T37 commands address */
   ctx->diag_cmd_addr = t6_addr + MXT_CP_T6_DIAGNOSTIC_OFFSET;
 
   /* Obtain Debug Diagnostic object's address */
   ctx->t37_addr = mxt_get_object_address(ctx->mxt, DEBUG_DIAGNOSTIC_T37, 0);
-  if (ctx->t37_addr == OBJECT_NOT_FOUND) return -1;
+  if (ctx->t37_addr == OBJECT_NOT_FOUND) return MXT_ERROR_OBJECT_NOT_FOUND;
 
   /* Obtain Debug Diagnostic object's size */
   ctx->t37_size = mxt_get_object_size(ctx->mxt, DEBUG_DIAGNOSTIC_T37);
-  if (ctx->t37_size == OBJECT_NOT_FOUND) return -1;
+  if (ctx->t37_size == OBJECT_NOT_FOUND) return MXT_ERROR_OBJECT_NOT_FOUND;
 
-  return 0;
+  return MXT_SUCCESS;
 }
 
+//******************************************************************************
+/// \brief Retrieve a single page of diagnostic data
+/// \return #mxt_rc
 static int mxt_debug_dump_page(struct t37_ctx *ctx)
 {
   int failures;
@@ -122,11 +128,15 @@ static int mxt_debug_dump_page(struct t37_ctx *ctx)
   if (ctx->page == 0)
   {
     mxt_verb(ctx->lc, "Writing mode command");
-    mxt_write_register(ctx->mxt, &ctx->mode, ctx->diag_cmd_addr, 1);
+    ret = mxt_write_register(ctx->mxt, &ctx->mode, ctx->diag_cmd_addr, 1);
+    if (ret)
+      return ret;
   }
   else
   {
-    mxt_write_register(ctx->mxt, &page_up_cmd, ctx->diag_cmd_addr, 1);
+    ret = mxt_write_register(ctx->mxt, &page_up_cmd, ctx->diag_cmd_addr, 1);
+    if (ret)
+      return ret;
   }
 
   /* Read back diagnostic register in T6 command processor until is has been
@@ -136,10 +146,10 @@ static int mxt_debug_dump_page(struct t37_ctx *ctx)
   while (read_command)
   {
     ret = mxt_read_register(ctx->mxt, &read_command, ctx->diag_cmd_addr, 1);
-    if (ret < 0)
+    if (ret)
     {
       mxt_err(ctx->lc, "Failed to read the status of diagnostic mode command");
-      return -1;
+      return ret;
     }
 
     if (read_command)
@@ -149,42 +159,44 @@ static int mxt_debug_dump_page(struct t37_ctx *ctx)
       if (failures > 500)
       {
         mxt_err(ctx->lc, "Timeout waiting for command to be actioned");
-        return -1;
+        return MXT_ERROR_TIMEOUT;
       }
     }
   }
 
   ret = mxt_read_register(ctx->mxt, &read_mode, ctx->t37_addr, 1);
-  if (ret < 0)
+  if (ret)
   {
     mxt_err(ctx->lc, "Failed to read current mode");
-    return -1;
+    return ret;
   }
 
   ret = mxt_read_register(ctx->mxt, &read_page, ctx->t37_addr + 1, 1);
-  if (ret < 0)
+  if (ret)
   {
     mxt_err(ctx->lc, "Failed to read page number");
-    return -1;
+    return ret;
   }
 
   if ((read_mode != ctx->mode) || (read_page != ctx->page))
   {
     mxt_err(ctx->lc, "Bad page/mode in diagnostic data read");
-    return -1;
+    return MXT_ERROR_UNEXPECTED_DEVICE_STATE;
   }
 
   ret = mxt_read_register(ctx->mxt, ctx->page_buf,
                           ctx->t37_addr + 2, ctx->page_size);
-  if (ret < 0)
+  if (ret)
   {
     mxt_err(ctx->lc, "Failed to read page");
-    return -1;
+    return ret;
   }
 
-  return 0;
+  return MXT_SUCCESS;
 }
 
+//******************************************************************************
+/// \brief Output header to CSV file
 static void mxt_generate_hawkeye_header(struct t37_ctx *ctx)
 {
   int x;
@@ -204,6 +216,9 @@ static void mxt_generate_hawkeye_header(struct t37_ctx *ctx)
   fprintf(ctx->hawkeye, "\n");
 }
 
+//******************************************************************************
+/// \brief Insert page of data into buffer at appropriate co-ordinates
+/// \return #mxt_rc
 static int mxt_debug_insert_data(struct t37_ctx *ctx)
 {
   int i;
@@ -215,7 +230,7 @@ static int mxt_debug_insert_data(struct t37_ctx *ctx)
     if (ctx->x_ptr > ctx->x_size)
     {
       mxt_err(ctx->lc, "x pointer overrun");
-      return -1;
+      return MXT_INTERNAL_ERROR;
     }
 
     value = (ctx->page_buf[i+1] << 8) | ctx->page_buf[i];
@@ -224,7 +239,7 @@ static int mxt_debug_insert_data(struct t37_ctx *ctx)
 
     /* The last page may overlap the end of the matrix */
     if (ofs >= (ctx->x_size * ctx->y_size))
-      return 0;
+      return MXT_SUCCESS;
 
     ctx->data_buf[ofs] = value;
 
@@ -237,10 +252,13 @@ static int mxt_debug_insert_data(struct t37_ctx *ctx)
     }
   }
 
-  return 0;
+  return MXT_SUCCESS;
 }
 
 #if 0
+//******************************************************************************
+/// \brief Output hawkeye data to terminal
+/// \return #mxt_rc
 static int mxt_debug_print(struct t37_ctx *ctx)
 {
   int x;
@@ -265,10 +283,12 @@ static int mxt_debug_print(struct t37_ctx *ctx)
     printf("\n");
   }
 
-  return 0;
+  return MXT_SUCCESS;
 }
 #endif
 
+//******************************************************************************
+/// \brief Generate hawkeye control file
 static void mxt_hawkeye_generate_control_file(struct t37_ctx *ctx)
 {
   int x;
@@ -295,17 +315,25 @@ static void mxt_hawkeye_generate_control_file(struct t37_ctx *ctx)
   fclose(fp);
 }
 
+//******************************************************************************
+/// \brief Write data to file
+/// \return #mxt_rc
 static int mxt_hawkeye_output(struct t37_ctx *ctx)
 {
   int x;
   int y;
   int ofs;
   int16_t value;
+  int ret;
 
-  mxt_print_timestamp(ctx->hawkeye);
+  ret = mxt_print_timestamp(ctx->hawkeye);
+  if (ret)
+    return ret;
 
   /* print frame number */
-  fprintf(ctx->hawkeye, ",%u,", ctx->frame);
+  ret = fprintf(ctx->hawkeye, ",%u,", ctx->frame);
+  if (ret < 0)
+    return MXT_ERROR_IO;
 
   /* iterate through columns */
   for (x = 0; x < ctx->x_size; x++)
@@ -316,31 +344,39 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
 
       value = (int16_t)ctx->data_buf[ofs];
 
-      fprintf(ctx->hawkeye, "%d,", value);
+      ret = fprintf(ctx->hawkeye, "%d,", value);
+      if (ret < 0)
+        return MXT_ERROR_IO;
     }
   }
-  fprintf(ctx->hawkeye, "\n");
+  ret = fprintf(ctx->hawkeye, "\n");
+  if (ret < 0)
+    return MXT_ERROR_IO;
 
-  return 0;
+  return MXT_SUCCESS;
 }
 
-static uint16_t get_num_frames(void)
+//******************************************************************************
+/// \brief Input number of frames
+/// \return #mxt_rc
+static int get_num_frames(uint16_t *frames)
 {
-  uint16_t frames;
-
   printf("Number of frames: ");
 
-  if (scanf("%hu", &frames) == EOF)
+  if (scanf("%hu", frames) == EOF)
   {
     fprintf(stderr, "Could not handle the input, exiting");
-    return -1;
+    return MXT_ERROR_BAD_INPUT;
   }
 
-  return frames;
+  return MXT_SUCCESS;
 }
 
+//******************************************************************************
+/// \brief Retrieve data from the T37 Diagnostic Data object
+/// \return #mxt_rc
 int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
-                          uint16_t frames)
+                   uint16_t frames)
 {
   struct t37_ctx ctx;
   int x_size, y_size;
@@ -370,7 +406,7 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   if (ret)
   {
     mxt_err(ctx.lc, "Failed to get object information");
-    return -1;
+    return ret;
   }
 
   mxt_dbg(ctx.lc, "t37_size: %d", ctx.t37_size);
@@ -408,7 +444,7 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   ctx.page_buf = (uint8_t *)calloc(ctx.page_size, sizeof(uint8_t));
   if (!ctx.page_buf) {
     mxt_err(ctx.lc, "calloc failure");
-    return -1;
+    return MXT_ERROR_NO_MEM;
   }
 
   ctx.data_buf = (uint16_t *)calloc(ctx.x_size * ctx.y_size, sizeof(uint16_t));
@@ -468,7 +504,7 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   t2 = time(NULL);
   mxt_info(ctx.lc, "%u frames in %d seconds", frames, (int)(t2-t1));
 
-  ret = 0;
+  ret = MXT_SUCCESS;
 
 free:
   free(ctx.data_buf);
@@ -480,25 +516,26 @@ free_page_buf:
   return ret;
 }
 
-/*!
- * @brief
- * @return Zero.
- */
+//******************************************************************************
+/// \brief Handle menu input for diagonistic data functions
 static void mxt_dd_cmd(struct mxt_device *mxt, char selection, const char *csv_file)
 {
   uint16_t frames;
+  int ret;
 
   switch (selection)
   {
     case 'd':
     case 'D':
-      frames = get_num_frames();
-      mxt_debug_dump(mxt, DELTAS_MODE, csv_file, frames);
+      ret = get_num_frames(&frames);
+      if (ret == MXT_SUCCESS)
+        mxt_debug_dump(mxt, DELTAS_MODE, csv_file, frames);
       break;
     case 'r':
     case 'R':
-      frames = get_num_frames();
-      mxt_debug_dump(mxt, REFS_MODE, csv_file, frames);
+      ret = get_num_frames(&frames);
+      if (ret == MXT_SUCCESS)
+        mxt_debug_dump(mxt, REFS_MODE, csv_file, frames);
       break;
     case 'q':
     case 'Q':
@@ -510,10 +547,8 @@ static void mxt_dd_cmd(struct mxt_device *mxt, char selection, const char *csv_f
   }
 }
 
-/*!
- * @brief  Menu function for the debug dump utility.
- * @return Zero.
- */
+//******************************************************************************
+/// \brief Menu interface for diagonistic data functions
 void mxt_dd_menu(struct mxt_device *mxt)
 {
   char menu_input;

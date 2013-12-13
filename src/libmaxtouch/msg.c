@@ -39,23 +39,24 @@ unsigned char databuf[20];
 
 //******************************************************************************
 /// \brief  Get number of messages
-/// \return Number of messages or negative error
-int t44_get_msg_count(struct mxt_device *mxt)
+/// \return #mxt_rc
+int t44_get_msg_count(struct mxt_device *mxt, int *count_out)
 {
+  uint16_t addr;
   int ret;
   uint8_t count;
-  uint16_t addr;
 
   addr = mxt_get_object_address(mxt, SPT_MESSAGECOUNT_T44, 0);
   if (addr == OBJECT_NOT_FOUND)
-    return -1;
+    return MXT_ERROR_OBJECT_NOT_FOUND;
 
   /* Get T44 count */
   ret = mxt_read_register(mxt, &count, addr, 1);
-  if (ret < 0)
+  if (ret)
     return ret;
 
-  return count;
+  *count_out = count;
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
@@ -64,13 +65,11 @@ int t44_get_msg_count(struct mxt_device *mxt)
 char *t44_get_msg_string(struct mxt_device *mxt)
 {
   int ret, i;
-  uint16_t size;
+  int size;
   size_t length;
 
-  size = mxt_get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5);
-
-  ret = t44_get_msg_bytes(mxt, &databuf[0], sizeof(databuf));
-  if (ret < 0)
+  ret = t44_get_msg_bytes(mxt, &databuf[0], sizeof(databuf), &size);
+  if (ret)
     return NULL;
 
   length = snprintf(msg_string, sizeof(msg_string), MSG_PREFIX);
@@ -85,8 +84,9 @@ char *t44_get_msg_string(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief  Get next MSG into byte buffer
-/// \return number of bytes read or negative error
-int t44_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen)
+/// \return #mxt_rc
+int t44_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf,
+                      size_t buflen, int *count)
 {
   int ret;
   uint16_t addr;
@@ -94,44 +94,45 @@ int t44_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen)
 
   addr = mxt_get_object_address(mxt, GEN_MESSAGEPROCESSOR_T5, 0);
   if (addr == OBJECT_NOT_FOUND)
-    return -1;
+    return MXT_ERROR_OBJECT_NOT_FOUND;
 
   /* Do not read CRC byte */
   size = mxt_get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5) - 1;
   if (size > buflen)
   {
-    mxt_err(mxt->ctx, "buffer too small!");
-    return -1;
+    mxt_err(mxt->ctx, "Buffer too small!");
+    return MXT_ERROR_NO_MEM;
   }
 
   ret = mxt_read_register(mxt, buf, addr, size);
-  if (ret < 0)
+  if (ret)
     return ret;
 
   /* Check for invalid message */
   if (buf[0] == 255u)
-    return -1;
+    return MXT_ERROR_NO_MESSAGE;
 
-  return size;
+  *count = size;
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
 /// \brief  Discard all messages
-/// \return zero for success or negative error
+/// \return #mxt_rc
 int t44_msg_reset(struct mxt_device *mxt)
 {
-  int count, i, ret;
+  int count, i, ret, size;
 
-  count = t44_get_msg_count(mxt);
-  if (count < 0)
-    return count;
+  ret = t44_get_msg_count(mxt, &count);
+  if (ret)
+    return ret;
 
   for (i = 0; i < count; i++)
   {
-    ret = t44_get_msg_bytes(mxt, &databuf[0], sizeof(databuf));
-    if (ret < 0)
+    ret = t44_get_msg_bytes(mxt, &databuf[0], sizeof(databuf), &size);
+    if (ret)
       return ret;
   }
 
-  return 0;
+  return MXT_SUCCESS;
 }

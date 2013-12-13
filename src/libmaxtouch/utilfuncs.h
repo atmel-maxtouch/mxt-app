@@ -34,4 +34,4 @@ void mxt_print_info_block(struct mxt_device *dev);
 const char *mxt_get_object_name(uint8_t objtype);
 int mxt_read_object(struct mxt_device *dev, uint16_t object_type, uint8_t instance, uint16_t offset, size_t count, bool format);
 int mxt_convert_hex(char *hex, unsigned char *databuf, uint16_t *count, unsigned int buf_size);
-void mxt_print_timestamp(FILE *stream);
+int mxt_print_timestamp(FILE *stream);

@@ -348,9 +348,9 @@ int mxt_menu(struct mxt_device *mxt)
       exit_loop = mxt_app_command(mxt, menu_input);
     } else if (ret == EOF) {
       fprintf(stderr, "Error %s\n", strerror(errno));
-      return ret;
+      return MXT_ERROR_BAD_INPUT;
     }
   }
 
-  return 0;
+  return MXT_SUCCESS;
 }

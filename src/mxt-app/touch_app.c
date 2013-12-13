@@ -45,7 +45,8 @@
 
 //******************************************************************************
 /// \brief Print input events
-void event_printer(struct mxt_device *mxt)
+/// \return #mxt_rc
+int event_printer(struct mxt_device *mxt)
 {
   FILE *fp;
   struct input_event event;
@@ -55,7 +56,7 @@ void event_printer(struct mxt_device *mxt)
   if (filename == NULL)
   {
     printf("Unable to get input event file - aborting event printer\n");
-    return;
+    return MXT_ERROR_BAD_INPUT;
   }
 
   printf("Opening %s...\n", filename);
@@ -69,21 +70,21 @@ void event_printer(struct mxt_device *mxt)
     {
       fprintf(stderr, "Permission denied - try running the utility as root\n");
     }
-    exit(-1);
+    return mxt_errno_to_rc(errno);
   }
 
-  while(1)
+  while (1)
   {
     if (fread(&event, 1, event_size, fp) < event_size)
     {
       printf("Error reading event file\n");
-      return;
+      return mxt_errno_to_rc(errno);
     }
     switch(event.type)
     {
       case EV_SYN:
         printf("Synchronisation_Event:\t");
-        if(event.code == SYN_REPORT)
+        if (event.code == SYN_REPORT)
         {
           printf("SYN_REPORT\t");
           printf("Value = %d\n", event.value);
@@ -91,53 +92,53 @@ void event_printer(struct mxt_device *mxt)
         break;
       case EV_ABS:
         printf("Absolute Event\t\t");
-        if(event.code == ABS_X)
+        if (event.code == ABS_X)
         {
           printf("Absolute X\t");
           printf("Value = %d\n", event.value);
         }
-        else if(event.code == ABS_Y)
+        else if (event.code == ABS_Y)
         {
           printf("Absolute Y\t");
           printf("Value = %d\n", event.value);
         }
-        else if(event.code == ABS_TOOL_WIDTH)
+        else if (event.code == ABS_TOOL_WIDTH)
         {
           printf("Tool width\t");
           printf("Value = %d\n", event.value);
         }
-        else if(event.code == ABS_PRESSURE)
+        else if (event.code == ABS_PRESSURE)
         {
           printf("Pressure\t");
           printf("Value = %d\n", event.value);
         }
 #ifdef ABS_MT_SLOT
-        else if(event.code == ABS_MT_SLOT)
+        else if (event.code == ABS_MT_SLOT)
         {
           printf("MT slot\t");
           printf("Value = %d\n", event.value);
         }
-        else if(event.code == ABS_MT_TOUCH_MAJOR)
+        else if (event.code == ABS_MT_TOUCH_MAJOR)
         {
           printf("MT Touch Major\t");
           printf("Value = %d\n", event.value);
         }
-        else if(event.code == ABS_MT_POSITION_X)
+        else if (event.code == ABS_MT_POSITION_X)
         {
           printf("MT Touch X position\t");
           printf("Value = %d\n", event.value);
         }
-        else if(event.code == ABS_MT_POSITION_Y)
+        else if (event.code == ABS_MT_POSITION_Y)
         {
           printf("MT Touch Y position\t");
           printf("Value = %d\n", event.value);
         }
-        else if(event.code == ABS_MT_PRESSURE)
+        else if (event.code == ABS_MT_PRESSURE)
         {
           printf("MT Pressure\t");
           printf("Value = %d\n", event.value);
         }
-        else if(event.code == ABS_MT_TRACKING_ID)
+        else if (event.code == ABS_MT_TRACKING_ID)
         {
           printf("MT Tracking ID\t");
           printf("Value = %d\n", event.value);
@@ -151,7 +152,7 @@ void event_printer(struct mxt_device *mxt)
         break;
       case EV_KEY:
         printf("Key Event \t\t");
-        if(event.code == BTN_TOUCH)
+        if (event.code == BTN_TOUCH)
         {
           printf("Button Touch\t");
           printf("Value = %d\n", event.value);
@@ -169,12 +170,15 @@ void event_printer(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief Print messages
+/// \return #mxt_rc
 int print_raw_messages(struct mxt_device *mxt)
 {
-  int count, i;
+  int count, i, ret;
 
   /* Get the number of new messages */
-  count = mxt_get_msg_count(mxt);
+  ret = mxt_get_msg_count(mxt, &count);
+  if (ret)
+    return ret;
 
   /* Print any new messages */
   if (count == 0)
@@ -189,13 +193,8 @@ int print_raw_messages(struct mxt_device *mxt)
       fflush(stdout);
     }
   }
-  else
-  {
-    /* Error reading messages */
-    return -1;
-  }
 
-  return 0;
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************

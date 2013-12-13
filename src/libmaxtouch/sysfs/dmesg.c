@@ -110,8 +110,8 @@ static void dmesg_list_empty(struct mxt_device *mxt)
 //******************************************************************************
 /// \brief  Get debug messages
 /// \param  mxt  Maxtouch Device
-/// \return Number of messages
-int sysfs_get_msg_count(struct mxt_device *mxt)
+/// \return #mxt_rc
+int sysfs_get_msg_count(struct mxt_device *mxt, int *count)
 {
   char buffer[KLOG_BUF_LEN + 1];
   char msg[BUFFERSIZE];
@@ -126,7 +126,7 @@ int sysfs_get_msg_count(struct mxt_device *mxt)
   // Return if no bytes read
   if (op < 0) {
     mxt_info(mxt->ctx, "klogctl error %d (%s)", errno, strerror(errno));
-    return -1;
+    return mxt_errno_to_rc(errno);
   }
 
   buffer[op] = 0;
@@ -149,8 +149,8 @@ int sysfs_get_msg_count(struct mxt_device *mxt)
     if (sscanf(buffer+sp, "<%*c>[%lu.%06lu%*s %255[^\n]",
         &sec, &msec, (char*)&msg) == 3)
     {
-      // Timestamp must be greater than previous messages, slightly complicated by
-      // seconds and microseconds
+      // Timestamp must be greater than previous messages, slightly
+      // complicated by seconds and microseconds
       if ((sec > mxt->sysfs.timestamp) ||
           ((sec == mxt->sysfs.timestamp) && (msec > mxt->sysfs.mtimestamp)))
       {
@@ -159,7 +159,7 @@ int sysfs_get_msg_count(struct mxt_device *mxt)
 
         if (msgptr)
         {
-            dmesg_list_add(mxt, sec, msec, msgptr);
+          dmesg_list_add(mxt, sec, msec, msgptr);
         }
       }
     }
@@ -180,7 +180,8 @@ int sysfs_get_msg_count(struct mxt_device *mxt)
   // Reset pointer to first record
   mxt->sysfs.dmesg_ptr = mxt->sysfs.dmesg_head;
 
-  return mxt->sysfs.dmesg_count;
+  *count = mxt->sysfs.dmesg_count;
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
@@ -207,33 +208,37 @@ char *sysfs_get_msg_string(struct mxt_device *mxt)
 /// \param  mxt  Maxtouch Device
 /// \param  buf  Pointer to buffer
 /// \param  buflen  Length of buffer
-/// \return number of bytes read
-int sysfs_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen)
+/// \param  count number of bytes read
+/// \return #mxt_rc
+int sysfs_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf,
+                        size_t buflen, int *count)
 {
-   unsigned int bufidx = 0;
-   int offset;
-   char *message;
+  unsigned int bufidx = 0;
+  int offset;
+  char *message;
 
-   message = sysfs_get_msg_string(mxt);
+  message = sysfs_get_msg_string(mxt);
 
-   /* Check message begins with prefix */
-   if (strncmp(MSG_PREFIX, message, strlen(MSG_PREFIX)))
-   {
-      return 0;
-   }
+  /* Check message begins with prefix */
+  if (strncmp(MSG_PREFIX, message, strlen(MSG_PREFIX)))
+  {
+    *count = 0;
+    return MXT_SUCCESS;
+  }
 
-   message += strlen(MSG_PREFIX);
+  message += strlen(MSG_PREFIX);
 
-   while (1 == sscanf(message, "%hhx%n", buf + bufidx, &offset))
-   {
-      message += offset;
-      bufidx++;
+  while (1 == sscanf(message, "%hhx%n", buf + bufidx, &offset))
+  {
+    message += offset;
+    bufidx++;
 
-      if (bufidx >= buflen)
-         break;
-   }
+    if (bufidx >= buflen)
+      break;
+  }
 
-   return bufidx;
+  *count = bufidx;
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************

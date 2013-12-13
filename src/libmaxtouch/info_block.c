@@ -64,7 +64,7 @@ static uint32_t crc24(uint32_t crc, uint8_t firstbyte, uint8_t secondbyte)
 
 /*!
  * @brief  Calculates and reports the Information Block Checksum.
- * @return Zero on success, negative for error.
+ * @return #mxt_rc
  */
 static int calculate_crc(struct mxt_device *mxt, uint32_t read_crc,
                          uint8_t *base_addr, size_t size)
@@ -76,7 +76,8 @@ static int calculate_crc(struct mxt_device *mxt, uint32_t read_crc,
    * passing it two characters at a time.  */
   while (crc_byte_index < ((size % 2) ? (size - 1) : size))
   {
-    calc_crc = crc24(calc_crc, *(base_addr + crc_byte_index), *(base_addr + crc_byte_index + 1));
+    calc_crc = crc24(calc_crc, *(base_addr + crc_byte_index),
+                               *(base_addr + crc_byte_index + 1));
     crc_byte_index += 2;
   }
 
@@ -90,27 +91,28 @@ static int calculate_crc(struct mxt_device *mxt, uint32_t read_crc,
   /* Mask 32-bit calculated checksum to 24-bit */
   calc_crc &= calc_crc & 0x00FFFFFF;
 
-  /* Compare the read checksum with calculated checksum */
+  /* A zero CRC indicates a communications error */
   if (calc_crc == 0)
   {
     mxt_err(mxt->ctx, "Information Block Checksum zero");
-    return -1;
+    return MXT_ERROR_IO;
   }
 
+  /* Compare the read checksum with calculated checksum */
   if (read_crc != calc_crc)
   {
     mxt_err(mxt->ctx, "Information Block Checksum error calc=%06X read=%06X",
         calc_crc, read_crc);
-    return -1;
+    return MXT_ERROR_INFO_CHECKSUM_MISMATCH;
   }
 
   mxt_dbg(mxt->ctx, "Information Block Checksum verified %06X", calc_crc);
-  return 0;
+  return MXT_SUCCESS;
 }
 
 /*!
  * @brief  Reads the information block from the chip.
- * @return Zero on success, negative for error.
+ * @return #mxt_rc
  */
 int mxt_read_info_block(struct mxt_device *mxt)
 {
@@ -121,17 +123,17 @@ int mxt_read_info_block(struct mxt_device *mxt)
   if (info_blk == NULL)
   {
     mxt_err(mxt->ctx, "Memory allocation failure");
-    return -1;
+    return MXT_ERROR_NO_MEM;
   }
 
   ret = mxt_read_register(mxt, info_blk, 0, sizeof(struct mxt_id_info));
-  if (ret < 0)
+  if (ret)
   {
     mxt_err(mxt->ctx, "Failed to read ID information");
-    return -1;
+    return ret;
   }
 
-  /* Determine the number of data bytes in Information Block for checksum calculation */
+  /* Determine the number of bytes for checksum calculation */
   int num_objects = ((struct mxt_id_info*) info_blk)->num_objects;
   size_t crc_area_size = sizeof(struct mxt_id_info)
                          + num_objects * sizeof(struct mxt_object);
@@ -143,15 +145,15 @@ int mxt_read_info_block(struct mxt_device *mxt)
   if (info_blk == NULL)
   {
     mxt_err(mxt->ctx, "Memory allocation failure");
-    return -1;
+    return MXT_ERROR_NO_MEM;
   }
 
   /* Read the entire Information Block from the chip */
   ret = mxt_read_register(mxt, info_blk, 0, info_block_size);
-  if (ret < 0)
+  if (ret)
   {
     mxt_err(mxt->ctx, "Failed to read Information Block");
-    return -1;
+    return ret;
   }
 
   /* Update pointers in device structure */
@@ -163,17 +165,17 @@ int mxt_read_info_block(struct mxt_device *mxt)
 
   /* Calculate and compare Information Block Checksum */
   ret = calculate_crc(mxt, mxt->info.crc, info_blk, crc_area_size);
-  if (ret < 0)
+  if (ret)
     return ret;
 
   mxt_verb(mxt->ctx, "Information Block read successfully");
 
-  return 0;
+  return MXT_SUCCESS;
 }
 
 /*!
  * @brief  Populates a look-up table for the report IDs.
- * @return Zero on success, negative for error.
+ * @return #mxt_rc
  */
 int mxt_calc_report_ids(struct mxt_device *mxt)
 {
@@ -199,7 +201,7 @@ int mxt_calc_report_ids(struct mxt_device *mxt)
   if (mxt->report_id_map == NULL)
   {
     mxt_err(mxt->ctx, "calloc failure");
-    return -1;
+    return MXT_ERROR_NO_MEM;
   }
 
   /* Store the object and instance for each report ID */
@@ -220,20 +222,24 @@ int mxt_calc_report_ids(struct mxt_device *mxt)
 
   mxt_verb(mxt->ctx, "Created a look-up table of %d Report IDs", report_id_count);
 
-  return 0;
+  return MXT_SUCCESS;
 }
 
+/*!
+ * @brief  Outputs firmware version as formatted string
+ * @return #mxt_rc
+ */
 int mxt_get_firmware_version(struct mxt_device *mxt, char *version_str)
 {
   if (mxt->info.id == NULL)
-    return -1;
+    return MXT_ERROR_NO_DEVICE;
 
   snprintf(version_str, MXT_FW_VER_LEN, "%u.%u.%02X",
            (mxt->info.id->version & 0xF0) >> 4,
            (mxt->info.id->version & 0x0F),
            mxt->info.id->build);
 
-  return 0;
+  return MXT_SUCCESS;
 }
 
 /*!
