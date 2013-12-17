@@ -357,7 +357,7 @@ int main (int argc, char *argv[])
         }
         else if (!strcmp(long_options[option_index].name, "version"))
         {
-          printf("mxt-app %s", __GIT_VERSION);
+          printf("mxt-app %s\n", __GIT_VERSION);
           return 0;
         }
         else
