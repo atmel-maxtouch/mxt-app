@@ -171,16 +171,16 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
       return -1;
     }
 
-    if (fscanf(fp, "%s", object) != 1)
+    if (fscanf(fp, "%s]", object) != 1)
     {
       printf("Object parse error\n");
       return -1;
     }
 
     /* Ignore the comments and file header sections */
-    if (strncmp(object, "COMMENTS", 8) == 0
-        || strncmp(object, "VERSION_INFO_HEADER", 19) == 0
-        || strncmp(object, "APPLICATION_INFO_HEADER", 23) == 0)
+    if (!strncmp(object, "COMMENTS", 8)
+        || !strncmp(object, "VERSION_INFO_HEADER", 19)
+        || !strncmp(object, "APPLICATION_INFO_HEADER", 23))
     {
       ignore_line = true;
       mxt_dbg(mxt->ctx, "Skipping %s", object);
