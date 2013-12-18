@@ -51,10 +51,9 @@ struct libmaxtouch_ctx;
 
 enum mxt_log_level mxt_get_log_level(struct libmaxtouch_ctx *ctx);
 void mxt_set_log_level(struct libmaxtouch_ctx *ctx, uint8_t verbose);
-void mxt_log_stderr(struct libmaxtouch_ctx *ctx, enum mxt_log_level level,
-                    const char *format, va_list args);
-void mxt_log_android(struct libmaxtouch_ctx *ctx, enum mxt_log_level level,
-                     const char *format, va_list args);
+void mxt_log_stdout(struct libmaxtouch_ctx *ctx, enum mxt_log_level level, const char *format, va_list va_args);
+void mxt_log_stderr(struct libmaxtouch_ctx *ctx, enum mxt_log_level level, const char *format, va_list args);
+void mxt_log_android(struct libmaxtouch_ctx *ctx, enum mxt_log_level level, const char *format, va_list args);
 void mxt_log_buffer(struct libmaxtouch_ctx *ctx, enum mxt_log_level level, const char *prefix, const unsigned char *data, size_t count);
 
 static inline void __attribute__((always_inline, format(printf, 2, 3)))

@@ -142,6 +142,15 @@ void mxt_log(struct libmaxtouch_ctx *ctx, enum mxt_log_level level, const char *
 }
 
 //******************************************************************************
+/// \brief Output log message to stdout
+void mxt_log_stdout(struct libmaxtouch_ctx *ctx, enum mxt_log_level level,
+                    const char *format, va_list va_args)
+{
+  vprintf(format, va_args);
+  printf("\n");
+}
+
+//******************************************************************************
 /// \brief Output log message to stderr, with optional timestamp
 void mxt_log_stderr(struct libmaxtouch_ctx *ctx, enum mxt_log_level level,
                     const char *format, va_list va_args)

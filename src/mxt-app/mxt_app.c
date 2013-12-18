@@ -747,6 +747,11 @@ int main (int argc, char *argv[])
     case CMD_NONE:
     default:
       mxt_verb(ctx, "cmd: %d", cmd);
+      mxt_set_log_fn(ctx, mxt_log_stdout);
+
+      if (verbose <= 2)
+        mxt_set_log_level(ctx, 2);
+
       ret = mxt_menu(mxt);
       break;
   }
