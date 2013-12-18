@@ -125,6 +125,22 @@ static int wait_for_chg(struct mxt_device *mxt)
 }
 
 //******************************************************************************
+/// \brief Send a frame with length field set to 0x0000. This should force a
+//         bootloader reset
+/// \return #mxt_rc
+static int send_zero_frame(struct flash_context *fw)
+{
+  unsigned char buf[2];
+
+  buf[0] = 0;
+  buf[1] = 0;
+
+  mxt_info(fw->ctx, "Attempting bootloader reset");
+
+  return mxt_bootloader_write(fw->mxt, buf, sizeof(buf));
+}
+
+//******************************************************************************
 /// \brief Send command to unlock bootloader
 /// \return #mxt_rc
 static int unlock_bootloader(struct flash_context *fw)
@@ -195,10 +211,6 @@ recheck:
 
       break;
     case MXT_WAITING_FRAME_DATA:
-      if (val == MXT_FRAME_CRC_PASS) {
-        mxt_info(fw->ctx, "Bootloader still giving CRC PASS");
-        goto recheck;
-      }
       val &= ~MXT_BOOT_STATUS_MASK;
       break;
     case MXT_FRAME_CRC_PASS:
@@ -214,7 +226,11 @@ recheck:
   }
 
   if (val != state) {
-    mxt_info(fw->ctx, "Invalid bootloader mode state %X", val);
+    mxt_info(fw->ctx, "Invalid bootloader mode state %02X", val);
+
+    if (state == MXT_WAITING_BOOTLOAD_CMD)
+      send_zero_frame(fw);
+
     return MXT_ERROR_UNEXPECTED_DEVICE_STATE;
   }
 
@@ -349,22 +365,33 @@ static int send_frames(struct flash_context *fw)
     // Check CRC
     mxt_verb(fw->ctx, "Checking CRC");
     ret = mxt_check_bootloader(fw, MXT_FRAME_CRC_PASS);
-    if (ret) {
-      if (frame_retry > 0) {
+    if (ret == MXT_ERROR_BOOTLOADER_FRAME_CRC_FAIL)
+    {
+      if (frame_retry > 0)
+      {
         mxt_err(fw->ctx, "Failure sending frame %d - aborting", frame);
         return MXT_ERROR_BOOTLOADER_FRAME_CRC_FAIL;
-      } else {
+      }
+      else
+      {
         frame_retry++;
         mxt_err(fw->ctx, "Frame %d: CRC fail, retry %d", frame, frame_retry);
       }
-    } else {
-      mxt_dbg(fw->ctx, "CRC pass");
+    }
+    else if (ret)
+    {
+      mxt_err(fw->ctx, "Unexpected bootloader state");
+      return ret;
+    }
+    else
+    {
+      mxt_verb(fw->ctx, "CRC pass");
       frame++;
       bytes_sent += frame_size;
       if (frame % 20 == 0) {
-        mxt_info(fw->ctx, "Frame %d: Sent %d bytes", frame, bytes_sent);
+        mxt_info(fw->ctx, "Sent %d frames, %d bytes", frame, bytes_sent);
       } else {
-        mxt_verb(fw->ctx, "Frame %d: Sent %d bytes", frame, bytes_sent);
+        mxt_verb(fw->ctx, "Sent %d frames, %d bytes", frame, bytes_sent);
       }
     }
   }
