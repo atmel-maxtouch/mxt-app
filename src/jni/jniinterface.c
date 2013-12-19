@@ -61,7 +61,7 @@ JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_Scan
   int ret;
 
   ret = mxt_new(&ctx);
-  if (ret < 0)
+  if (ret)
     return JNI_FALSE;
 
   // Enable logging
@@ -71,13 +71,13 @@ JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_Scan
   mxt_info(ctx, "libmaxtouch %s", __GIT_VERSION);
 
   ret = mxt_scan(ctx, &conn, false);
-  if (ret != 1)
+  if (ret)
   {
     return JNI_FALSE;
   }
 
   ret = mxt_new_device(ctx, conn, &mxt);
-  if (ret < 0)
+  if (ret)
     return JNI_FALSE;
 
   return JNI_TRUE;
