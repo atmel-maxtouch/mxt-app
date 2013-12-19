@@ -184,5 +184,4 @@ int mxt_get_msg_poll_fd(struct mxt_device *mxt);
 int mxt_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count);
 int mxt_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int count);
 int mxt_msg_wait(struct mxt_device *mxt, int timeout_ms);
-int mxt_new_i2c_dev(struct mxt_device **mxt, int adapter, int address);
 int mxt_errno_to_rc(int errno_in);
