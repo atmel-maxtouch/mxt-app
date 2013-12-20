@@ -174,7 +174,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
       goto close;
     }
 
-    if (fscanf(fp, "%s]", object) != 1)
+    if (fscanf(fp, "%[^] ]", object) != 1)
     {
       printf("Object parse error\n");
       ret = MXT_ERROR_FILE_FORMAT;
@@ -182,9 +182,9 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
     }
 
     /* Ignore the comments and file header sections */
-    if (!strncmp(object, "COMMENTS", 8)
-        || !strncmp(object, "VERSION_INFO_HEADER", 19)
-        || !strncmp(object, "APPLICATION_INFO_HEADER", 23))
+    if (!strcmp(object, "COMMENTS")
+        || !strcmp(object, "VERSION_INFO_HEADER")
+        || !strcmp(object, "APPLICATION_INFO_HEADER"))
     {
       ignore_line = true;
       mxt_dbg(mxt->ctx, "Skipping %s", object);
