@@ -467,8 +467,6 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename)
     /* Read type, instance, length */
     ret = fscanf(fp, "%x %" SCNx8 " %x", &cfg.type, &cfg.instance, &cfg.size);
     if (ret == EOF) {
-      /* EOF */
-      ret = 0;
       break;
     } else if (ret != 3) {
       mxt_err(mxt->ctx, "Bad format: failed to parse object");
@@ -492,16 +490,6 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename)
           cfg.size - mxt_get_object_size(mxt, cfg.type), cfg.type);
 
       cfg.size = mxt_get_object_size(mxt, cfg.type);
-    } else if (mxt_get_object_size(mxt, cfg.type) > cfg.size) {
-      /* If firmware is upgraded, new bytes may be added to
-       * end of objects. It is generally forward compatible
-       * to zero these bytes - previous behaviour will be
-       * retained. However this does invalidate the CRC and
-       * will force fallback mode until the configuration is
-       * updated. We warn here but do nothing else - the
-       * malloc has zeroed the entire configuration. */
-      mxt_warn(mxt->ctx, "Zeroing %d byte(s) in T%d",
-          mxt_get_object_size(mxt, cfg.type) - cfg.size, cfg.type);
     }
 
     /* Malloc memory to store configuration */
@@ -512,6 +500,13 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename)
       goto close;
     }
 
+    /* Read object config */
+    ret = mxt_read_register(mxt, cfg.data, reg,
+                            mxt_get_object_size(mxt, cfg.type));
+    if (ret)
+      goto close;
+
+    /* Update bytes from file */
     for (i = 0; i < cfg.size; i++) {
       uint8_t val;
       ret = fscanf(fp, "%hhx", &val);
@@ -530,11 +525,14 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename)
     /* Write object */
     ret = mxt_write_register(mxt, cfg.data, reg,
                              mxt_get_object_size(mxt, cfg.type));
-    if (ret != 0) {
+    if (ret) {
       mxt_err(mxt->ctx, "Config write error, ret=%d", ret);
       goto close;
     }
   }
+
+  ret = MXT_SUCCESS;
+  mxt_info(mxt->ctx, "Wrote config from %s", filename);
 
 close:
   fclose(fp);
