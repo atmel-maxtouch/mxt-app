@@ -86,7 +86,7 @@ void mxt_set_log_level(struct libmaxtouch_ctx *ctx, uint8_t verbose)
       ctx->log_level = LOG_SILENT;
       break;
     case 1:
-      ctx->log_level = LOG_ERROR;
+      ctx->log_level = LOG_WARN;
       break;
     case 2:
       ctx->log_level = LOG_INFO;

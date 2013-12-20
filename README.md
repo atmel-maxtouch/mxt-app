@@ -258,8 +258,9 @@ mode, by specifying the bootloader address.
 # DEBUG OPTIONS
 
 `-v [--verbose] *LEVEL*`
-:   print additional debug. *LEVEL* is one of 0 (Silent), 1 (Error), 2 (Info),
-    3 (Debug), 4 (Verbose). Debug and Verbose are only available if built in.
+:   print additional debug. *LEVEL* is one of 0 (Silent), 1 (Warnings and
+    Errors), 2 (Info), 3 (Debug), 4 (Verbose). Debug and Verbose are only
+    available if built in.
 
 # EXIT VALUES
 
