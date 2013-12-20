@@ -239,6 +239,8 @@ static int scan_driver_directory(struct libmaxtouch_ctx *ctx,
     }
   }
 
+  ret = MXT_ERROR_NO_DEVICE;
+
 close:
   (void)closedir(pDirectory);
 free:
@@ -272,6 +274,8 @@ int sysfs_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
     // If found or error finish
     if (ret != MXT_ERROR_NO_DEVICE) goto close;
   }
+
+  ret = MXT_ERROR_NO_DEVICE;
 
 close:
   (void)closedir(pDirectory);
