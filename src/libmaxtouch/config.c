@@ -115,7 +115,6 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
   FILE *fp;
   uint8_t *mem;
   int c;
-
   char object[255];
   char tmp[255];
   char *substr;
@@ -128,9 +127,8 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
   int data;
   int file_read = 0;
   bool ignore_line = false;
-
-  int i, j;
-  int bytes_read;
+  int offset;
+  int width;
   int ret;
 
   mem = calloc(255, sizeof(uint8_t));
@@ -138,8 +136,6 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
     mxt_err(mxt->ctx, "Error allocating memory");
     return MXT_ERROR_NO_MEM;
   }
-
-  mxt_info(mxt->ctx, "Opening config file %s...", filename);
 
   fp = fopen(filename, "r");
   if (fp == NULL)
@@ -311,27 +307,25 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
     mxt_dbg(mxt->ctx, "Writing object of size %d at address %d...",
             object_size, object_address);
 
-    for (j = 0; j < object_size; j++) {
-      *(mem + j) = 0;
-    }
+    ret = mxt_read_register(mxt, mem, object_address, object_size);
+    if (ret)
+      return ret;
 
-    bytes_read = 0;
-    while (bytes_read < object_size)
+    while (true)
     {
       /* Find next line, check first character valid and rewind */
       c = getc(fp);
-      while((c == '\n') || (c == '\r') || (c == 0x20)) {
+      while((c == '\n') || (c == '\r') || (c == 0x20))
         c = getc(fp);
-      }
-      fseek(fp, -1, SEEK_CUR);
-      if (c == '[') {
-        mxt_warn(mxt->ctx, "Skipping %d bytes at end of T%u",
-                 object_size - bytes_read, object_id);
-        break;
-      }
 
-      /* Read address (discarded as we don't really need it) */
-      if (fscanf(fp, "%d", &i) != 1)
+      fseek(fp, -1, SEEK_CUR);
+
+      /* End of object */
+      if (c == '[')
+        break;
+
+      /* Read address */
+      if (fscanf(fp, "%d", &offset) != 1)
       {
         mxt_err(mxt->ctx, "Address parse error");
         ret = MXT_ERROR_FILE_FORMAT;
@@ -339,7 +333,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
       }
 
       /* Read byte count of this register (max 2) */
-      if (fscanf(fp, "%d", &i) != 1)
+      if (fscanf(fp, "%d", &width) != 1)
       {
         mxt_err(mxt->ctx, "Byte count parse error\n");
         ret = MXT_ERROR_FILE_FORMAT;
@@ -360,18 +354,19 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
 
       c = getc(fp);
 
-      if (i == 1) {
-        *(mem + bytes_read) = (char) data;
-        bytes_read++;
-      } else if (i == 2) {
-        *(mem + bytes_read) = (char) data & 0xFF;
-        bytes_read++;
-        *(mem + bytes_read) = (char) ((data >> 8) & 0xFF);
-        bytes_read++;
-      } else {
-        mxt_err(mxt->ctx, "Only 16-bit / 8-bit config values supported!");
-        ret = MXT_ERROR_FILE_FORMAT;
-        goto close;
+      switch (width)
+      {
+        case 1:
+          *(mem + offset) = (char) data;
+          break;
+        case 2:
+          *(mem + offset) = (char) data & 0xFF;
+          *(mem + offset + 1) = (char) ((data >> 8) & 0xFF);
+          break;
+        default:
+          mxt_err(mxt->ctx, "Only 16-bit / 8-bit config values supported!");
+          ret = MXT_ERROR_FILE_FORMAT;
+          goto close;
       }
     }
 
@@ -379,6 +374,9 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
     if (ret)
       return ret;
   }
+
+  ret = MXT_SUCCESS;
+  mxt_info(mxt->ctx, "Wrote config from %s", filename);
 
 close:
   fclose(fp);
