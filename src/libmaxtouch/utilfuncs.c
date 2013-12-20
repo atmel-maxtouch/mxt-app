@@ -405,8 +405,6 @@ int mxt_convert_hex(char *hex, unsigned char *databuf,
     highnibble = *(hex + pos);
     lownibble = *(hex + pos + 1);
 
-    printf("%c %c\n", highnibble, lownibble);
-
     /* end of string */
     if (highnibble == '\0' || highnibble == '\n')
       break;
