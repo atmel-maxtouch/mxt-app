@@ -329,6 +329,10 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
       if (c == '[')
         break;
 
+      /* End of file */
+      if (c == EOF)
+        break;
+
       /* Read address */
       if (fscanf(fp, "%d", &offset) != 1)
       {
