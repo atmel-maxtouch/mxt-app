@@ -563,7 +563,7 @@ int main (int argc, char *argv[])
   mxt_verb(ctx, "verbose:%u", verbose);
 
   /* Debug does not work until mxt_set_verbose() is called */
-  mxt_dbg(ctx, "Version:%s", __GIT_VERSION);
+  mxt_info(ctx, "Version:%s", __GIT_VERSION);
 
   if (cmd == CMD_WRITE || cmd == CMD_READ)
   {
