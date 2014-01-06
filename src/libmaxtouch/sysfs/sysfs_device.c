@@ -170,7 +170,8 @@ static int scan_sysfs_directory(struct libmaxtouch_ctx *ctx,
     {
       printf("sysfs:%s Atmel %s interface\n", pszDirname,
              debug_v2_found ? "Debug V2" : "Debug");
-      ret = MXT_SUCCESS;
+
+      ctx->query_found_device = true;
     }
     else
     {
@@ -182,8 +183,9 @@ static int scan_sysfs_directory(struct libmaxtouch_ctx *ctx,
   else
   {
     mxt_verb(ctx, "Ignoring %s", pszDirname);
-    ret = MXT_ERROR_NO_DEVICE;
   }
+
+  ret = MXT_ERROR_NO_DEVICE;
 
 close:
   (void)closedir(pDirectory);

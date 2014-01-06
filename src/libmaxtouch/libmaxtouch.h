@@ -108,6 +108,7 @@ enum mxt_device_type {
 struct libmaxtouch_ctx
 {
   bool query;
+  bool query_found_device;
   enum mxt_log_level log_level;
 
   void (*log_fn)(struct libmaxtouch_ctx *ctx, enum mxt_log_level level,

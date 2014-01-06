@@ -848,6 +848,8 @@ int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
         printf("usb:%03u-%03u Atmel %04X:%04X\n",
             usb_bus, usb_device,
             desc.idVendor, desc.idProduct);
+
+        ctx->query_found_device = true;
       }
       else
       {

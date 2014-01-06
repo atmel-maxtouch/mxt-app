@@ -89,19 +89,28 @@ int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn,
   int ret;
 
   ctx->query = query;
+  ctx->query_found_device = false;
 
   /* Scan the I2C bus first because it will return quicker */
   ret = sysfs_scan(ctx, conn);
 #ifdef HAVE_LIBUSB
-  if (ret)
+  if (query || ret)
   {
     /* If no I2C devices are found then scan the USB */
     ret = usb_scan(ctx, conn);
   }
 #endif /* HAVE_LIBUSB */
 
-  /* Clear query flag in case of context re-use */
-  ctx->query = false;
+  if (query)
+  {
+    /* Clear query flag in case of context re-use */
+    ctx->query = false;
+
+    if (ctx->query_found_device)
+    {
+      return MXT_SUCCESS;
+    }
+  }
 
   return ret;
 }
