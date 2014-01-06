@@ -54,6 +54,11 @@ int mxt_save_raw_file(struct mxt_device *mxt, const char *filename)
   mxt_info(mxt->ctx, "Opening config file %s...", filename);
 
   fp = fopen(filename, "w");
+  if (fp == NULL)
+  {
+    mxt_err(mxt->ctx, "Error opening %s: %s", filename, strerror(errno));
+    return mxt_errno_to_rc(errno);
+  }
 
   fprintf(fp, "OBP_RAW V1\n");
 
@@ -140,7 +145,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
   fp = fopen(filename, "r");
   if (fp == NULL)
   {
-    mxt_err(mxt->ctx, "Error opening %s!", filename);
+    mxt_err(mxt->ctx, "Error opening %s: %s", filename, strerror(errno));
     ret = mxt_errno_to_rc(errno);
     goto free;
   }
@@ -376,7 +381,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
   }
 
   ret = MXT_SUCCESS;
-  mxt_info(mxt->ctx, "Wrote config from %s", filename);
+  mxt_info(mxt->ctx, "Wrote config from %s in XCFG format", filename);
 
 close:
   fclose(fp);
@@ -410,6 +415,11 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename)
   char line[2048];
 
   fp = fopen(filename, "r");
+  if (fp == NULL)
+  {
+    mxt_err(mxt->ctx, "Error opening %s: %s", filename, strerror(errno));
+    return mxt_errno_to_rc(errno);
+  }
 
   if (fgets(line, sizeof(line), fp) == NULL)
   {
@@ -532,7 +542,7 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename)
   }
 
   ret = MXT_SUCCESS;
-  mxt_info(mxt->ctx, "Wrote config from %s", filename);
+  mxt_info(mxt->ctx, "Wrote config from %s in OBP_RAW format", filename);
 
 close:
   fclose(fp);
@@ -547,13 +557,16 @@ int mxt_load_config_file(struct mxt_device *mxt, const char *filename)
 {
   int ret;
 
-  if (!strcmp(strrchr(filename, '.'), ".xcfg"))
+  char *extension = strrchr(filename, '.');
+
+  if (extension && !strcmp(extension, ".xcfg"))
   {
-    mxt_info(mxt->ctx, "Loading .xcfg file");
+    mxt_dbg(mxt->ctx, "Loading %s as .xcfg", filename);
     ret = mxt_load_xcfg_file(mxt, filename);
   }
   else
   {
+    mxt_dbg(mxt->ctx, "Loading %s as OBP_RAW", filename);
     ret = mxt_load_raw_file(mxt, filename);
   }
 

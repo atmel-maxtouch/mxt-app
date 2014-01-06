@@ -90,6 +90,7 @@ enum mxt_rc {
   MXT_ERROR_PROTOCOL_FAULT = 27,             /*!< Bridge TCP protocol parse error */
   MXT_ERROR_CONNECTION_FAILURE = 28,         /*!< Bridge connection error */
   MXT_ERROR_SERIAL_DATA_FAILURE = 29,        /*!< Serial data download failed */
+  MXT_ERROR_NOENT = 30,                      /*!< No such file or directory */
 };
 
 //******************************************************************************

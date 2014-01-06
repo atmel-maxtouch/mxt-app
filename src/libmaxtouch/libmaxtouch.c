@@ -807,6 +807,9 @@ int mxt_errno_to_rc(int errno_in)
     case ETIMEDOUT:
       return MXT_ERROR_TIMEOUT;
 
+    case ENOENT:
+      return MXT_ERROR_NOENT;
+
     default:
       return MXT_ERROR_IO;
   }
