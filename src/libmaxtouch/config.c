@@ -556,7 +556,7 @@ close:
 //******************************************************************************
 /// \brief  Load configuration from .xcfg or RAW file, automatically detect
 //          format
-/// \return 0 = success, negative = fail
+/// \return #mxt_rc
 int mxt_load_config_file(struct mxt_device *mxt, const char *filename)
 {
   int ret;

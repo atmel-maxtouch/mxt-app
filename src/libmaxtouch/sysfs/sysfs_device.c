@@ -361,8 +361,6 @@ static int open_device_file(struct mxt_device *mxt, int *fd_out)
     return MXT_ERROR_NO_DEVICE;
   }
 
-  mxt_dbg(mxt->ctx, "%s", mxt->sysfs.mem_access_path);
-
   fd = open(mxt->sysfs.mem_access_path, O_RDWR);
 
   if (fd < 0)
@@ -463,6 +461,9 @@ close:
 
 //******************************************************************************
 /// \brief  Write boolean to file as ASCII 0/1
+/// \param  mxt Device context
+/// \param  filename Name of file to write
+/// \param  value Value to write
 /// \return #mxt_rc
 static int write_boolean_file(struct mxt_device *mxt, const char *filename,
                               bool value)
@@ -492,6 +493,9 @@ static int write_boolean_file(struct mxt_device *mxt, const char *filename,
 
 //******************************************************************************
 /// \brief  Read boolean from file as ASCII 0/1
+/// \param  mxt Device context
+/// \param  filename Name of file to read
+/// \param  value Value read from file
 /// \return #mxt_rc
 static int read_boolean_file(struct mxt_device *mxt, char *filename,
                              bool *value)
@@ -530,6 +534,8 @@ static int read_boolean_file(struct mxt_device *mxt, char *filename,
 
 //******************************************************************************
 /// \brief  Set debug state
+/// \param  mxt Device context
+/// \param  debug_state true = debug enabled, false = debug disabled
 /// \return #mxt_rc
 int sysfs_set_debug(struct mxt_device *mxt, bool debug_state)
 {
@@ -569,6 +575,7 @@ int sysfs_set_debug(struct mxt_device *mxt, bool debug_state)
 
 //******************************************************************************
 /// \brief  Get debug message string
+/// \param  mxt Device context
 /// \return C string or NULL
 char *sysfs_get_msg_string_v2(struct mxt_device *mxt)
 {
@@ -594,6 +601,10 @@ char *sysfs_get_msg_string_v2(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief Get debug message bytes
+/// \param  mxt Device context
+/// \param  buf  Pointer to buffer
+/// \param  buflen  Length of buffer
+/// \param  count length of message in bytes
 /// \return #mxt_rc
 int sysfs_get_msg_bytes_v2(struct mxt_device *mxt, unsigned char *buf,
                            size_t buflen, int *count)
@@ -617,11 +628,14 @@ int sysfs_get_msg_bytes_v2(struct mxt_device *mxt, unsigned char *buf,
 
   mxt->sysfs.debug_v2_msg_ptr++;
 
+  *count = t5_size;
+
   return MXT_SUCCESS;
 }
 
 //******************************************************************************
 /// \brief Reset debug messages
+/// \param  mxt Device context
 int sysfs_msg_reset_v2(struct mxt_device *mxt)
 {
   free(mxt->sysfs.debug_v2_msg_buf);
@@ -630,6 +644,7 @@ int sysfs_msg_reset_v2(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief Return whether device has debug V2 support
+/// \param  mxt Device context
 bool sysfs_has_debug_v2(struct mxt_device *mxt)
 {
   return mxt->sysfs.debug_v2;
@@ -637,6 +652,8 @@ bool sysfs_has_debug_v2(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief  Get messages (V2 interface)
+/// \param  mxt Device context
+/// \param  count Number of messages retrieved
 /// \return #mxt_rc
 int sysfs_get_msg_count_v2(struct mxt_device *mxt, int *count)
 {
@@ -695,6 +712,7 @@ close:
 
 //******************************************************************************
 /// \brief  Get debug state
+/// \param  mxt Device context
 /// \param  value true (debug enabled) or false (debug disabled)
 /// \return #mxt_rc
 int sysfs_get_debug(struct mxt_device *mxt, bool *value)
@@ -711,6 +729,7 @@ int sysfs_get_debug(struct mxt_device *mxt, bool *value)
 
 //******************************************************************************
 /// \brief  Get sysfs directory
+/// \param  mxt Device context
 /// \return location of the sysfs interface files
 char *sysfs_get_directory(struct mxt_device *mxt)
 {

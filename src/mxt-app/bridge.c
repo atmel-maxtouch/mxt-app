@@ -93,7 +93,7 @@ static int readline(struct mxt_device *mxt, int fd, struct mxt_buffer *linebuf)
   if (ret)
     return ret;
 
-  return n;
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
@@ -132,7 +132,6 @@ static int handle_messages(struct mxt_device *mxt, int sockfd)
         mxt_err(mxt->ctx, "write returned %d (%s)", errno, strerror(errno));
         return mxt_errno_to_rc(ret);
       }
-
     }
   }
 
@@ -170,7 +169,6 @@ static int bridge_rea_cmd(struct mxt_device *mxt, int sockfd,
   }
 
   strcpy(response, PREFIX);
-  mxt_info(mxt->ctx, "reading %d %d", address, count);
   ret = mxt_read_register(mxt, databuf, address, count);
   if (ret) {
     mxt_warn(mxt->ctx, "RRP ERR");
@@ -185,11 +183,13 @@ static int bridge_rea_cmd(struct mxt_device *mxt, int sockfd,
   }
 
   ret = write(sockfd, response, response_len);
-  if (ret) {
+  if (ret < 0) {
     mxt_err(mxt->ctx, "Socket write error %d (%s)", errno, strerror(errno));
     ret = mxt_errno_to_rc(errno);
     goto free;
   }
+
+  ret = MXT_SUCCESS;
 
 free:
   free(response);
@@ -237,6 +237,7 @@ static int bridge_wri_cmd(struct mxt_device *mxt, int sockfd, uint16_t address,
     ret = mxt_errno_to_rc(errno);
   }
 
+  ret = MXT_SUCCESS;
   free(databuf);
   return ret;
 }
@@ -265,7 +266,7 @@ static int handle_cmd(struct mxt_device *mxt, int sockfd)
 
   line = (char *)linebuf.data;
   if (strlen(line) == 0) {
-    ret = MXT_ERROR_PROTOCOL_FAULT;
+    ret = MXT_SUCCESS;
     goto free;
   }
 
@@ -287,7 +288,7 @@ static int handle_cmd(struct mxt_device *mxt, int sockfd)
                          line + offset,
                          strlen(line) - offset);
   } else {
-    mxt_info(mxt->ctx, "Unrecognised cmd");
+    mxt_info(mxt->ctx, "Unrecognised cmd \"%s\"", line);
     ret = MXT_SUCCESS;
   }
 
@@ -301,7 +302,7 @@ free:
 /// \return #mxt_rc
 static int bridge(struct mxt_device *mxt, int sockfd)
 {
-  int ret;
+  int ret, pollret;
   struct pollfd fds[2];
   int fopts = 0;
   int debug_ng_fd = 0;
@@ -330,11 +331,11 @@ static int bridge(struct mxt_device *mxt, int sockfd)
       timeout = 100; // milliseconds
     }
 
-    ret = poll(fds, numfds, timeout);
-    if (ret == -1 && errno == EINTR) {
+    pollret = poll(fds, numfds, timeout);
+    if (pollret == -1 && errno == EINTR) {
       mxt_dbg(mxt->ctx, "Interrupted");
       continue;
-    } else if (ret == -1) {
+    } else if (pollret == -1) {
       mxt_err(mxt->ctx, "poll returned %d (%s)", errno, strerror(errno));
       ret = mxt_errno_to_rc(errno);
       goto disconnect;
@@ -343,17 +344,20 @@ static int bridge(struct mxt_device *mxt, int sockfd)
     /* Detect socket disconnect */
     if (fcntl(sockfd, F_GETFL, &fopts) < 0) {
       ret = MXT_SUCCESS;
+      mxt_dbg(mxt->ctx, "socket disconnected");
       goto disconnect;
     }
 
     if (fds[0].revents) {
       ret = handle_cmd(mxt, sockfd);
-      if (ret)
+      if (ret) {
+        mxt_dbg(mxt->ctx, "handle_cmd returned %d", ret);
         goto disconnect;
+      }
     }
 
     /* If timeout or msg poll fd event */
-    if (ret == 0 || fds[1].revents) {
+    if (pollret == 0 || fds[1].revents) {
       ret = handle_messages(mxt, sockfd);
       if (ret)
         goto disconnect;

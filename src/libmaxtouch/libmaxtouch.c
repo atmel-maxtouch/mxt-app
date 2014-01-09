@@ -412,6 +412,7 @@ int mxt_set_debug(struct mxt_device *mxt, bool debug_state)
 
 //******************************************************************************
 /// \brief  Get debug state
+/// \param  mxt device context
 /// \param  value true (debug enabled) or false (debug disabled)
 /// \return #mxt_rc
 int mxt_get_debug(struct mxt_device *mxt, bool *value)
@@ -635,6 +636,7 @@ char *mxt_get_msg_string(struct mxt_device *mxt)
 /// \param  mxt  Maxtouch Device
 /// \param  buf  Pointer to buffer
 /// \param  buflen  Length of buffer
+/// \param  count length of message in bytes
 /// \return #mxt_rc
 int mxt_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf,
                       size_t buflen, int *count)

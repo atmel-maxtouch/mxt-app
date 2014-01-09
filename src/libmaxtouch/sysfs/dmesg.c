@@ -110,6 +110,7 @@ static void dmesg_list_empty(struct mxt_device *mxt)
 //******************************************************************************
 /// \brief  Get debug messages
 /// \param  mxt  Maxtouch Device
+/// \param  count Number of messages available
 /// \return #mxt_rc
 int sysfs_get_msg_count(struct mxt_device *mxt, int *count)
 {

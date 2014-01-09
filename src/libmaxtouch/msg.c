@@ -35,7 +35,6 @@
 #include "msg.h"
 
 char msg_string[255];
-unsigned char databuf[20];
 
 //******************************************************************************
 /// \brief  Get number of messages
@@ -67,6 +66,7 @@ char *t44_get_msg_string(struct mxt_device *mxt)
   int ret, i;
   int size;
   size_t length;
+  unsigned char databuf[20];
 
   ret = t44_get_msg_bytes(mxt, &databuf[0], sizeof(databuf), &size);
   if (ret)
@@ -110,7 +110,10 @@ int t44_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf,
 
   /* Check for invalid message */
   if (buf[0] == 255u)
+  {
+    mxt_verb(mxt->ctx, "Invalid message");
     return MXT_ERROR_NO_MESSAGE;
+  }
 
   *count = size;
   return MXT_SUCCESS;
@@ -122,16 +125,23 @@ int t44_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf,
 int t44_msg_reset(struct mxt_device *mxt)
 {
   int count, i, ret, size;
+  unsigned char databuf[20];
 
   ret = t44_get_msg_count(mxt, &count);
   if (ret)
+  {
+    mxt_verb(mxt->ctx, "rc = %d", ret);
     return ret;
+  }
 
   for (i = 0; i < count; i++)
   {
     ret = t44_get_msg_bytes(mxt, &databuf[0], sizeof(databuf), &size);
     if (ret)
+    {
+      mxt_verb(mxt->ctx, "rc = %d", ret);
       return ret;
+    }
   }
 
   return MXT_SUCCESS;
