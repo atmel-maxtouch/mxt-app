@@ -168,8 +168,6 @@ int mxt_read_info_block(struct mxt_device *mxt)
   if (ret)
     return ret;
 
-  mxt_verb(mxt->ctx, "Information Block read successfully");
-
   return MXT_SUCCESS;
 }
 
