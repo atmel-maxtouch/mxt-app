@@ -41,6 +41,9 @@ by Atmel under NDA.
 `-i [--info]`
 :   Print the ID information and object table.
 
+`-M [--messages]`
+:   Print the messages.
+
 `--reset`
 :   Reset device.
 

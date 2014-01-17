@@ -66,6 +66,7 @@ typedef enum mxt_app_cmd_t {
   CMD_DEBUG_DUMP,
   CMD_LOAD_CFG,
   CMD_SAVE_CFG,
+  CMD_MESSAGES,
 } mxt_app_cmd;
 
 //******************************************************************************
@@ -124,6 +125,7 @@ static void print_usage(char *prog_name)
           "General commands:\n"
           "  -h [--help]                : display this help and exit\n"
           "  -i [--info]                : print device information\n"
+          "  -M [--messages]            : print the messages\n"
           "  --reset                    : reset device\n"
           "  --reset-bootloader         : reset device in bootloader mode\n"
           "  --calibrate                : send calibrate command\n"
@@ -223,6 +225,7 @@ int main (int argc, char *argv[])
       {"instance",         required_argument, 0, 'I'},
       {"load",             required_argument, 0, 0},
       {"save",             required_argument, 0, 0},
+      {"messages",         no_argument,       0, 'M'},
       {"count",            required_argument, 0, 'n'},
       {"port",             required_argument, 0, 'p'},
       {"query",            no_argument,       0, 'q'},
@@ -240,7 +243,9 @@ int main (int argc, char *argv[])
       {0,                  0,                 0,  0 }
     };
 
-    c = getopt_long(argc, argv, "C:d:D:fghiI:n:p:qRr:StT:v:W", long_options, &option_index);
+    c = getopt_long(argc, argv,
+                    "C:d:D:fghiI:Mm:n:p:qRr:StT:v:W",
+                    long_options, &option_index);
     if (c == -1)
       break;
 
@@ -453,6 +458,15 @@ int main (int argc, char *argv[])
       case 'I':
         if (optarg) {
           instance = strtol(optarg, NULL, 0);
+        }
+        break;
+
+      case 'M':
+        if (cmd == CMD_NONE) {
+          cmd = CMD_MESSAGES;
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
         }
         break;
 
@@ -685,6 +699,11 @@ int main (int argc, char *argv[])
     case CMD_RESET_BOOTLOADER:
       mxt_verb(ctx, "CMD_RESET_BOOTLOADER");
       ret = mxt_reset_chip(mxt, true);
+      break;
+
+    case CMD_MESSAGES:
+      mxt_verb(ctx, "CMD_MESSAGES");
+      ret = print_raw_messages(mxt);
       break;
 
     case CMD_BACKUP:
