@@ -12,12 +12,10 @@ AM_CFLAGS = \
 	-fvisibility=hidden \
 	-ffunction-sections \
 	-fdata-sections \
-  -g -Wall \
+  -g -Wall -Werror \
   -Wmissing-declarations -Wmissing-prototypes -Wnested-externs \
   -Wpointer-arith -Wsign-compare -Wchar-subscripts -Wstrict-prototypes \
-  -Wwrite-strings \
-  -Wshadow -Wformat-security -Wtype-limits \
-  -Werror \
+  -Wwrite-strings -Wshadow -Wformat-security -Wtype-limits \
   -D__GIT_VERSION=\"$(OBP_VERSION)\" \
   -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
