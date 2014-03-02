@@ -33,6 +33,7 @@
 #include <errno.h>
 #include <string.h>
 #include <malloc.h>
+#include <stdlib.h>
 
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/utilfuncs.h"
@@ -315,7 +316,7 @@ static bool mxt_app_command(struct mxt_device *mxt, char selection)
 /// \brief Menu function for mxt-app
 int mxt_menu(struct mxt_device *mxt)
 {
-  char menu_input;
+  unsigned char menu_input;
   bool exit_loop = false;
   int ret;
 
