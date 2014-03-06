@@ -201,7 +201,8 @@ int print_raw_messages(struct mxt_device *mxt)
 /// \brief Handle status messages from the T6 command processor object
 void print_t6_state(uint8_t state)
 {
-  printf("T6 status: %s%s%s%s%s%s\n",
+  printf("T6 status: %s%s%s%s%s%s%s\n",
+         (state == 0) ? "OK":"",
          (state & 0x04) ? "COMSERR ":"",
          (state & 0x08) ? "CFGERR ":"",
          (state & 0x10) ? "CAL ":"",

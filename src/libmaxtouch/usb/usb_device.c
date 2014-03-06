@@ -1065,7 +1065,7 @@ int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
     return ret;
 
   /* Send write command to reset the chip */
-  ret = write_data(mxt, &write_value, t6_addr + RESET_OFFSET, 1,
+  ret = write_data(mxt, &write_value, t6_addr + MXT_T6_RESET_OFFSET, 1,
                    &bytes_written, true);
   if (ret)
   {

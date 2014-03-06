@@ -469,7 +469,7 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode)
   /* Write to command processor register to perform command */
   ret = mxt_write_register
   (
-    mxt, &write_value, t6_addr + RESET_OFFSET, 1
+    mxt, &write_value, t6_addr + MXT_T6_RESET_OFFSET, 1
   );
 
   return ret;
@@ -520,7 +520,7 @@ int mxt_calibrate_chip(struct mxt_device *mxt)
   /* Write to command processor register to perform command */
   ret = mxt_write_register
   (
-    mxt, &write_value, t6_addr + CALIBRATE_OFFSET, 1
+    mxt, &write_value, t6_addr + MXT_T6_CALIBRATE_OFFSET, 1
   );
 
   if (ret == 0)
@@ -552,7 +552,7 @@ int mxt_backup_config(struct mxt_device *mxt)
   /* Write to command processor register to perform command */
   ret = mxt_write_register
   (
-    mxt, &write_value, t6_addr + BACKUPNV_OFFSET, 1
+    mxt, &write_value, t6_addr + MXT_T6_BACKUPNV_OFFSET, 1
   );
 
   if (ret == MXT_SUCCESS)
