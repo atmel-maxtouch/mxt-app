@@ -56,6 +56,9 @@ by Atmel under NDA.
 `-g`
 :   Write Golden Reference calibration to NVRAM.
 
+`--self-cap-tune`
+:   Tune and calibrate the self capacitance settings and store them to NVRAM.
+
 `-t [--test]`
 :   Run all self tests using the T25 Self Test object.
 

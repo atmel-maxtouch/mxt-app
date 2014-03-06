@@ -46,14 +46,6 @@
 
 #include "mxt_app.h"
 
-/* GEN_COMMANDPROCESSOR_T6 Register offsets from T6 base address */
-#define MXT_CP_T6_RESET_OFFSET      0x00
-#define MXT_CP_T6_BACKUPNV_OFFSET   0x01
-#define MXT_CP_T6_CALIBRATE_OFFSET  0x02
-#define MXT_CP_T6_REPORTALL_OFFSET  0x03
-#define MXT_CP_T6_RESERVED_OFFSET   0x04
-#define MXT_CP_T6_DIAGNOSTIC_OFFSET 0x05
-
 #define MAX_FILENAME_LENGTH     255
 
 //******************************************************************************
@@ -100,7 +92,7 @@ static int get_objects_addr(struct t37_ctx *ctx)
   if (t6_addr == OBJECT_NOT_FOUND) return MXT_ERROR_OBJECT_NOT_FOUND;
 
   /* T37 commands address */
-  ctx->diag_cmd_addr = t6_addr + MXT_CP_T6_DIAGNOSTIC_OFFSET;
+  ctx->diag_cmd_addr = t6_addr + MXT_T6_DIAGNOSTIC_OFFSET;
 
   /* Obtain Debug Diagnostic object's address */
   ctx->t37_addr = mxt_get_object_address(ctx->mxt, DEBUG_DIAGNOSTIC_T37, 0);

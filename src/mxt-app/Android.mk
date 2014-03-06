@@ -13,7 +13,8 @@ LOCAL_SRC_FILES := \
   bridge.c \
   buffer.c \
   gr.c \
-  serial_data.c
+  serial_data.c \
+  self_cap.c
 LOCAL_LDLIBS := -llog
 LOCAL_STATIC_LIBRARIES := maxtouch
 LOCAL_MODULE := mxt-app

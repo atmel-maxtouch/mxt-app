@@ -67,6 +67,7 @@ typedef enum mxt_app_cmd_t {
   CMD_LOAD_CFG,
   CMD_SAVE_CFG,
   CMD_MESSAGES,
+  CMD_SELF_CAP_TUNE,
 } mxt_app_cmd;
 
 //******************************************************************************
@@ -131,6 +132,7 @@ static void print_usage(char *prog_name)
           "  --calibrate                : send calibrate command\n"
           "  --backup                   : backup configuration to NVRAM\n"
           "  -g                         : store golden references\n"
+          "  --self-cap-tune            : tune self capacitance settings\n"
           "  -t [--test]                : run all self tests\n"
           "  --version                  : print version\n"
           "\n"
@@ -234,6 +236,7 @@ int main (int argc, char *argv[])
       {"reset-bootloader", no_argument,       0, 0},
       {"register",         required_argument, 0, 'r'},
       {"references",       no_argument,       0, 0},
+      {"self-cap-tune",    no_argument,       0, 0},
       {"bridge-server",    no_argument,       0, 'S'},
       {"test",             no_argument,       0, 't'},
       {"type",             required_argument, 0, 'T'},
@@ -311,6 +314,15 @@ int main (int argc, char *argv[])
         {
           if (cmd == CMD_NONE) {
             cmd = CMD_RESET;
+          } else {
+            print_usage(argv[0]);
+            return MXT_ERROR_BAD_INPUT;
+          }
+        }
+        else if (!strcmp(long_options[option_index].name, "self-cap-tune"))
+        {
+          if (cmd == CMD_NONE) {
+            cmd = CMD_SELF_CAP_TUNE;
           } else {
             print_usage(argv[0]);
             return MXT_ERROR_BAD_INPUT;
@@ -761,6 +773,11 @@ int main (int argc, char *argv[])
       mxt_verb(ctx, "CMD_SAVE_CFG");
       mxt_verb(ctx, "filename:%s", strbuf);
       ret = mxt_save_raw_file(mxt, strbuf);
+      break;
+
+    case CMD_SELF_CAP_TUNE:
+      mxt_verb(ctx, "CMD_SELF_CAP_TUNE");
+      ret = mxt_self_cap_tune(mxt);
       break;
 
     case CMD_NONE:

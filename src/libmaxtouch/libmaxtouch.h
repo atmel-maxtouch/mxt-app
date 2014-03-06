@@ -43,10 +43,13 @@ struct mxt_conn_info;
 #endif
 #include "info_block.h"
 
-/* Address offsets for the command processor fields */
-#define RESET_OFFSET        0
-#define BACKUPNV_OFFSET     1
-#define CALIBRATE_OFFSET    2
+/* GEN_COMMANDPROCESSOR_T6 Register offsets from T6 base address */
+#define MXT_T6_RESET_OFFSET      0x00
+#define MXT_T6_BACKUPNV_OFFSET   0x01
+#define MXT_T6_CALIBRATE_OFFSET  0x02
+#define MXT_T6_REPORTALL_OFFSET  0x03
+#define MXT_T6_RESERVED_OFFSET   0x04
+#define MXT_T6_DIAGNOSTIC_OFFSET 0x05
 
 /* Values to write to the command processor fields */
 #define RESET_COMMAND       0x01
@@ -91,6 +94,7 @@ enum mxt_rc {
   MXT_ERROR_CONNECTION_FAILURE = 28,         /*!< Bridge connection error */
   MXT_ERROR_SERIAL_DATA_FAILURE = 29,        /*!< Serial data download failed */
   MXT_ERROR_NOENT = 30,                      /*!< No such file or directory */
+  MXT_ERROR_SELFCAP_TUNE = 31,               /*!< Error processing self cap command */
 };
 
 //******************************************************************************
