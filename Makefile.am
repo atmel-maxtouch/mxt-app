@@ -1,11 +1,11 @@
 EXTRA_DIST = autogen.sh
 AM_MAKEFLAGS = --no-print-directory
 
-OBP_VERSION := $(shell build-aux/version.sh)
+GIT_VERSION := $(shell build-aux/version.sh)
 
 .PHONY: force
-obp-version: force
-	echo '$(OBP_VERSION)' | cmp -s - $@ || echo '$(OBP_VERSION)' > $@
+git-version: force
+	echo '$(GIT_VERSION)' | cmp -s - $@ || echo '$(GIT_VERSION)' > $@
 
 AM_CFLAGS = \
 	-I$(top_srcdir)/src \
@@ -16,7 +16,7 @@ AM_CFLAGS = \
   -Wmissing-declarations -Wmissing-prototypes -Wnested-externs \
   -Wpointer-arith -Wsign-compare -Wchar-subscripts -Wstrict-prototypes \
   -Wwrite-strings -Wshadow -Wformat-security -Wtype-limits \
-  -D__GIT_VERSION=\"$(OBP_VERSION)\" \
+  -DMXT_VERSION=\"$(GIT_VERSION)\" \
   -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
 AM_LDFLAGS = \
@@ -46,7 +46,7 @@ libmaxtouch_la_LDFLAGS = -lusb-1.0
 endif
 
 mxt_app_LDADD = libmaxtouch.la
-EXTRA_mxt_app_DEPENDENCIES = obp-version
+EXTRA_mxt_app_DEPENDENCIES = git-version
 mxt_app_SOURCES =\
 	src/mxt-app/mxt_app.c \
 	src/mxt-app/menu.c \
