@@ -178,7 +178,7 @@ static void print_usage(char *prog_name)
           "\n"
           "Debug options:\n"
           "  -v [--verbose] LEVEL       : print additional debug\n",
-          __GIT_VERSION, prog_name);
+          MXT_VERSION, prog_name);
 }
 
 //******************************************************************************
@@ -373,7 +373,7 @@ int main (int argc, char *argv[])
         }
         else if (!strcmp(long_options[option_index].name, "version"))
         {
-          printf("mxt-app %s\n", __GIT_VERSION);
+          printf("mxt-app %s\n", MXT_VERSION);
           return MXT_SUCCESS;
         }
         else
@@ -589,7 +589,7 @@ int main (int argc, char *argv[])
   mxt_verb(ctx, "verbose:%u", verbose);
 
   /* Debug does not work until mxt_set_verbose() is called */
-  mxt_info(ctx, "Version:%s", __GIT_VERSION);
+  mxt_info(ctx, "Version:%s", MXT_VERSION);
 
   if (cmd == CMD_WRITE || cmd == CMD_READ)
   {

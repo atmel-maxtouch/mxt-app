@@ -68,7 +68,7 @@ JNIEXPORT jboolean JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_Scan
   mxt_set_log_fn(ctx, mxt_log_android);
   mxt_set_log_level(ctx, 4);
 
-  mxt_info(ctx, "libmaxtouch %s", __GIT_VERSION);
+  mxt_info(ctx, "libmaxtouch %s", MXT_VERSION);
 
   ret = mxt_scan(ctx, &conn, false);
   if (ret)

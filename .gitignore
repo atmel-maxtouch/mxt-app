@@ -11,7 +11,7 @@
 /libtool
 /ltmain.sh
 /stamp-h1
-/obp-version
+/git-version
 Makefile
 Makefile.in
 /missing

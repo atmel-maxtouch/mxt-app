@@ -2,7 +2,7 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_CFLAGS += -D__GIT_VERSION=\"$(GIT_VERSION)\"
+LOCAL_CFLAGS += -DMXT_VERSION=\"$(GIT_VERSION)\"
 LOCAL_C_INCLUDES += $(SRC_PATH)
 LOCAL_SRC_FILES := jniinterface.c
 LOCAL_LDLIBS := -llog
