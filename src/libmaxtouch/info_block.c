@@ -336,6 +336,29 @@ uint8_t mxt_get_object_size(struct mxt_device *mxt, uint16_t object_type)
  * @param mxt Maxtouch Device
  * @param object_type Object ID number.
  *
+ * @brief  Returns the number of instances of the specific object type
+ * @return number of instances, zero if not found
+ */
+uint8_t mxt_get_object_instances(struct mxt_device *mxt, uint16_t object_type)
+{
+  struct mxt_id_info *id = mxt->info.id;
+  int i;
+
+  for (i = 0; i < id->num_objects; i++)
+  {
+    if (mxt->info.objects[i].type == object_type)
+    {
+      return MXT_INSTANCES(mxt->info.objects[i]);
+    }
+  }
+
+  return 0;
+}
+
+/*!
+ * @param mxt Maxtouch Device
+ * @param object_type Object ID number.
+ *
  * @brief  Returns the index of the specified type in the object table.
  * @return Element index, or 255 if object type not found.
  */
