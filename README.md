@@ -162,16 +162,28 @@ Server* can access the device.
 
 # T37 DIAGNOSTIC DATA OPTIONS
 
+Capture frames of diagnostic data. The default mode is to capture touch
+deltas. Self capacitance measurements are only available on some devices.
+
 `--debug-dump *FILE*`
 :   The T37 Diagnostic Data object provides raw access to touch reference/delta
     measurements from the touch screen. Diagnostic data is written to *FILE* in
     CSV format. The format is compatible with the Atmel Hawkeye utility.
 
 `--frames *N*`
-:   Capture *N* frames of data
+:   Capture *N* frames of data.
 
 `--references`
-:   Dump references data (normal mode is to capture touch deltas)
+:   Capture references data.
+
+`--self-cap-signals`
+:   Capture self cap signals.
+
+`--self-cap-deltas`
+:   Capture self cap deltas.
+
+`--self-cap-refs`
+:   Capture self cap references.
 
 # T68 SERIAL DATA COMMANDS
 
@@ -272,8 +284,68 @@ mode, by specifying the bootloader address.
 
 0
 :   Success
-Negative
-:   Failure
+1
+:   Internal error/assert
+2
+:   Input/output error
+3
+:   Memory allocation failure
+4
+:   Timeout
+5
+:   Could not find a device or device went away
+6
+:   Permission denied
+7
+:   Operation not allowed for this device type
+8
+:   Interrupt function call
+9
+:   Object not available on device
+10
+:   Received unexpected invalid message from message processor
+11
+:   Self test invalid test command
+12
+:   Self test AVdd Analog power is not present
+13
+:   Self test Pin fault
+14
+:   Self test AND Gate Fault
+15
+:   Self test Signal limit fault
+16
+:   Self test Gain error
+17
+:   Information block checksum error
+18
+:   Bootloader already unlocked
+19
+:   Bootloader CRC failure (transmission failure)
+20
+:   File format error
+21
+:   Device firmware already required version
+22
+:   Could not identify bootloader address
+23
+:   Version on device did not match version given after bootloading operation
+24
+:   Device did not reset
+25
+:   Device in unexpected state
+26
+:   Incorrect command line parameters or menu input given
+27
+:   Bridge TCP protocol parse error
+28
+:   Bridge connection error
+29
+:   Serial data download failed
+30
+:   No such file or directory
+31
+:   Error processing self cap command
 
 # COMPILING FROM SOURCE
 

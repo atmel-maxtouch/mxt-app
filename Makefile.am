@@ -63,7 +63,7 @@ mxt_app_SOURCES =\
 man1_MANS = mxt-app.1
 
 mxt-app.1: README.md
-	-pandoc -s -t man README.md -o mxt-app.1
+	-pandoc -s -t man README.md -o man1/mxt-app.1
 
 clean-local:
 	-rm mxt-app.1
