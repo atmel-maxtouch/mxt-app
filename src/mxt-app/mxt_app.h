@@ -38,6 +38,9 @@
 #define PAGE_DOWN         0x02
 #define DELTAS_MODE       0x10
 #define REFS_MODE         0x11
+#define SELF_CAP_SIGNALS  0xF5
+#define SELF_CAP_DELTAS   0xF7
+#define SELF_CAP_REFS     0xF8
 
 /* T25 Self Test Commands */
 #define SELF_TEST_ANALOG       0x01

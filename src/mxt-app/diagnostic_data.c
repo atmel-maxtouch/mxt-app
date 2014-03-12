@@ -54,10 +54,14 @@ struct t37_ctx {
   struct mxt_device *mxt;
   struct libmaxtouch_ctx *lc;
 
+  bool self_cap;
+
   int x_size;
   int y_size;
 
-  int num_stripes;
+  int num_data_values;
+  int num_passes;
+  int pages;
   int stripe_width;
   int stripe_starty;
   int stripe_endy;
@@ -67,9 +71,10 @@ struct t37_ctx {
   int diag_cmd_addr;
   int t37_addr;
   int t37_size;
+  uint8_t t111_instances;
 
   uint16_t frame;
-  int stripe;
+  int pass;
   int page;
   int x_ptr;
   int y_ptr;
@@ -81,7 +86,7 @@ struct t37_ctx {
 };
 
 //******************************************************************************
-/// \brief Retrieve and store object addresses for debug data operation
+/// \brief Retrieve and store object information for debug data operation
 /// \return #mxt_rc
 static int get_objects_addr(struct t37_ctx *ctx)
 {
@@ -101,6 +106,9 @@ static int get_objects_addr(struct t37_ctx *ctx)
   /* Obtain Debug Diagnostic object's size */
   ctx->t37_size = mxt_get_object_size(ctx->mxt, DEBUG_DIAGNOSTIC_T37);
   if (ctx->t37_size == OBJECT_NOT_FOUND) return MXT_ERROR_OBJECT_NOT_FOUND;
+
+  ctx->t111_instances = mxt_get_object_instances(ctx->mxt,
+                                                 SPT_SELFCAPCONFIG_T111);
 
   return MXT_SUCCESS;
 }
@@ -131,7 +139,7 @@ static int mxt_debug_dump_page(struct t37_ctx *ctx)
       return ret;
   }
 
-  /* Read back diagnostic register in T6 command processor until is has been
+  /* Read back diagnostic register in T6 command processor until it has been
    * cleared. This means that the chip has actioned the command */
   failures = 0;
 
@@ -189,23 +197,104 @@ static int mxt_debug_dump_page(struct t37_ctx *ctx)
 
 //******************************************************************************
 /// \brief Output header to CSV file
-static void mxt_generate_hawkeye_header(struct t37_ctx *ctx)
+/// \return #mxt_rc
+static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
 {
+  int ret;
   int x;
   int y;
+  int pass;
 
-  fprintf(ctx->hawkeye, "Frame,");
+  ret = fprintf(ctx->hawkeye, "time,TIN,");
+  if (ret < 0)
+    return MXT_ERROR_IO;
 
-  for (x = 0; x < ctx->x_size; x++)
+  if (ctx->self_cap)
   {
-    for (y = 0; y < ctx->y_size; y++)
+    for (pass = 0; pass < ctx->num_passes; pass++)
     {
-      fprintf(ctx->hawkeye, "X%dY%d_%s16,", x, y,
-        (ctx->mode == DELTAS_MODE) ? "Delta" : "Reference");
+      const char *set;
+      switch (pass)
+      {
+        default:
+        case 0: set = "touch"; break;
+        case 1: set = (ctx->num_passes == 3) ? "hover" : "prox"; break;
+        case 2: set = "prox"; break;
+      }
+
+      const char * mode;
+      switch (ctx->mode)
+      {
+        default:
+        case SELF_CAP_DELTAS:    mode = "delta"; break;
+        case SELF_CAP_REFS:      mode = "ref"; break;
+        case SELF_CAP_SIGNALS:   mode = "sig"; break;
+      }
+
+      for (y = 0; y < ctx->y_size; y++)
+      {
+        ret = fprintf(ctx->hawkeye, "Y%d_SC_%s_%s,", y, set, mode);
+        if (ret < 0)
+          return MXT_ERROR_IO;
+      }
+
+      for (x = 0; x < ctx->x_size; x++)
+      {
+        int x_real;
+
+        if (ctx->x_size < ctx->y_size)
+          x_real = x;
+        else
+          x_real = (x * 2) % ctx->x_size;
+
+        ret = fprintf(ctx->hawkeye, "X%d_SC_%s_%s,", x_real, set, mode);
+        if (ret < 0)
+          return MXT_ERROR_IO;
+      }
+    }
+  }
+  else
+  {
+    for (x = 0; x < ctx->x_size; x++)
+    {
+      for (y = 0; y < ctx->y_size; y++)
+      {
+        ret = fprintf(ctx->hawkeye, "X%dY%d_%s16,", x, y,
+            (ctx->mode == DELTAS_MODE) ? "Delta" : "Reference");
+        if (ret < 0)
+          return MXT_ERROR_IO;
+      }
     }
   }
 
-  fprintf(ctx->hawkeye, "\n");
+  ret = fprintf(ctx->hawkeye, "\n");
+  if (ret < 0)
+    return MXT_ERROR_IO;
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief Insert page of data into buffer at appropriate co-ordinates
+/// \return #mxt_rc
+static int mxt_debug_insert_data_self_cap(struct t37_ctx *ctx)
+{
+  int i;
+  int ofs;
+
+  for (i = 0; i < ctx->page_size; i += 2)
+  {
+    int data_pos = ctx->page * ctx->page_size/2 + i/2;
+
+    if (data_pos > ctx->num_data_values)
+      return MXT_SUCCESS;
+
+    ofs = data_pos;
+
+    ctx->data_buf[ofs] = (ctx->page_buf[i+1] << 8) | ctx->page_buf[i];
+  }
+
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
@@ -230,7 +319,7 @@ static int mxt_debug_insert_data(struct t37_ctx *ctx)
     ofs = ctx->y_ptr + ctx->x_ptr * ctx->y_size;
 
     /* The last page may overlap the end of the matrix */
-    if (ofs >= (ctx->x_size * ctx->y_size))
+    if (ofs >= ctx->num_data_values)
       return MXT_SUCCESS;
 
     ctx->data_buf[ofs] = value;
@@ -277,7 +366,6 @@ static int mxt_debug_print(struct t37_ctx *ctx)
 
   return MXT_SUCCESS;
 }
-#endif
 
 //******************************************************************************
 /// \brief Generate hawkeye control file
@@ -306,6 +394,7 @@ static void mxt_hawkeye_generate_control_file(struct t37_ctx *ctx)
 
   fclose(fp);
 }
+#endif
 
 //******************************************************************************
 /// \brief Write data to file
@@ -327,20 +416,42 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
   if (ret < 0)
     return MXT_ERROR_IO;
 
-  /* iterate through columns */
-  for (x = 0; x < ctx->x_size; x++)
+  if (ctx->self_cap)
   {
     for (y = 0; y < ctx->y_size; y++)
     {
-      ofs = y + x * ctx->y_size;
+      value = (int16_t)ctx->data_buf[y];
+      ret = fprintf(ctx->hawkeye, "%d,", value);
+      if (ret < 0)
+        return MXT_ERROR_IO;
+    }
 
-      value = (int16_t)ctx->data_buf[ofs];
-
+    for (x = 0; x < ctx->x_size; x++)
+    {
+      value = (int16_t)ctx->data_buf[ctx->y_size + x];
       ret = fprintf(ctx->hawkeye, "%d,", value);
       if (ret < 0)
         return MXT_ERROR_IO;
     }
   }
+  else
+  {
+    /* iterate through columns */
+    for (x = 0; x < ctx->x_size; x++)
+    {
+      for (y = 0; y < ctx->y_size; y++)
+      {
+        ofs = y + x * ctx->y_size;
+
+        value = (int16_t)ctx->data_buf[ofs];
+
+        ret = fprintf(ctx->hawkeye, "%d,", value);
+        if (ret < 0)
+          return MXT_ERROR_IO;
+      }
+    }
+  }
+
   ret = fprintf(ctx->hawkeye, "\n");
   if (ret < 0)
     return MXT_ERROR_IO;
@@ -365,34 +476,165 @@ static int get_num_frames(uint16_t *frames)
 }
 
 //******************************************************************************
+/// \brief Initialise parameters and allocate buffers
+/// \return #mxt_rc
+static int debug_dump_initialise(struct t37_ctx *ctx)
+{
+  struct mxt_id_info *id = ctx->mxt->info.id;
+
+  mxt_dbg(ctx->lc, "t37_size: %d", ctx->t37_size);
+  ctx->page_size = ctx->t37_size - 2;
+  mxt_dbg(ctx->lc, "page_size: %d", ctx->page_size);
+
+  switch (ctx->mode)
+  {
+    case DELTAS_MODE:
+    case REFS_MODE:
+      ctx->self_cap = false;
+
+      if (id->family == 0xA0 && id->variant == 0x00)
+      {
+        /* mXT1386 data is formatted into stripes */
+        ctx->x_size = 27;
+        ctx->y_size = id->matrix_y_size;
+        ctx->num_data_values = 27 * ctx->y_size;
+        ctx->num_passes = 3;
+        ctx->pages = 8;
+      }
+      else
+      {
+        ctx->x_size = id->matrix_x_size;
+        ctx->y_size = id->matrix_y_size;
+        ctx->num_data_values = ctx->x_size * ctx->y_size;
+        ctx->num_passes = 1;
+        ctx->pages = (ctx->num_data_values*2 + (ctx->page_size - 1)) /
+                     ctx->page_size;
+      }
+
+      ctx->stripe_width = ctx->y_size / ctx->num_passes;
+      mxt_dbg(ctx->lc, "stripe_width: %d", ctx->stripe_width);
+      break;
+
+    case SELF_CAP_SIGNALS:
+    case SELF_CAP_DELTAS:
+    case SELF_CAP_REFS:
+      ctx->self_cap = true;
+
+      if (id->family == 164)
+      {
+        switch (id->variant)
+        {
+          case 5:
+          case 9:
+            // mXT336T
+            ctx->y_size = 14;
+            ctx->x_size = 24;
+            break;
+
+          case 2:
+          case 7:
+            // mXT640T
+            ctx->y_size = 20;
+            ctx->x_size = 32;
+            break;
+
+          case 11:
+          case 12:
+            // mXT1066T
+            ctx->y_size = 26;
+            ctx->x_size = 41;
+            break;
+
+          case 3:
+          case 4:
+          case 13:
+          case 14:
+          case 15:
+          case 16:
+            // mXT2952T
+            ctx->y_size = 72;
+            ctx->x_size = 41;
+            break;
+
+          default:
+            goto self_cap_unsupported;
+        }
+      }
+      else
+      {
+        goto self_cap_unsupported;
+      }
+
+      if (ctx->t111_instances == 0)
+      {
+        goto self_cap_unsupported;
+      }
+      else
+      {
+        ctx->num_passes = ctx->t111_instances;
+      }
+
+      ctx->num_data_values = ctx->y_size * ((ctx->x_size > ctx->y_size) ? 3 : 2);
+      ctx->pages = (ctx->num_data_values*2 +(ctx->page_size - 1)) /
+                         ctx->page_size;
+      break;
+
+    default:
+      mxt_err(ctx->lc, "Unsupported mode %02X", ctx->mode);
+      return MXT_INTERNAL_ERROR;
+  }
+
+  mxt_dbg(ctx->lc, "Number of passes: %d", ctx->num_passes);
+  mxt_dbg(ctx->lc, "Pages per pass: %d", ctx->pages);
+  mxt_dbg(ctx->lc, "X size: %d", ctx->x_size);
+  mxt_dbg(ctx->lc, "Y size: %d", ctx->y_size);
+  mxt_dbg(ctx->lc, "Number of values: %zd", ctx->num_data_values);
+
+  /* allocate page/data buffers */
+  ctx->page_buf = (uint8_t *)calloc(ctx->page_size, sizeof(uint8_t));
+  if (!ctx->page_buf) {
+    mxt_err(ctx->lc, "calloc failure");
+    return MXT_ERROR_NO_MEM;
+  }
+
+  ctx->data_buf = (uint16_t *)calloc(ctx->num_data_values, sizeof(uint16_t));
+  if (!ctx->data_buf) {
+    mxt_err(ctx->lc, "calloc failure");
+    free(ctx->page_buf);
+    ctx->page_buf = NULL;
+    return MXT_ERROR_NO_MEM;
+  }
+
+  memset(ctx->data_buf, 0, ctx->num_data_values * sizeof(uint16_t));
+
+  return MXT_SUCCESS;
+
+self_cap_unsupported:
+  mxt_err(ctx->lc, "Self cap data not available");
+  return MXT_ERROR_NOT_SUPPORTED;
+}
+
+//******************************************************************************
 /// \brief Retrieve data from the T37 Diagnostic Data object
 /// \return #mxt_rc
 int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
                    uint16_t frames)
 {
   struct t37_ctx ctx;
-  int x_size, y_size;
-  int pages_per_stripe;
-  int num_stripes;
-  int num_debug_bytes;
-  int ret;
   int page;
   time_t t1;
   time_t t2;
+  int ret;
 
   ctx.lc = mxt->ctx;
   ctx.mxt = mxt;
+  ctx.mode = mode;
 
   if (frames == 0)
   {
-     mxt_warn(ctx.lc, "Defaulting to 1");
+     mxt_warn(ctx.lc, "Defaulting to 1 frame");
      frames = 1;
   }
-
-  x_size = mxt->info.id->matrix_x_size;
-  y_size = mxt->info.id->matrix_y_size;
-
-  ctx.mode = mode;
 
   ret = get_objects_addr(&ctx);
   if (ret)
@@ -401,50 +643,9 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
     return ret;
   }
 
-  mxt_dbg(ctx.lc, "t37_size: %d", ctx.t37_size);
-  ctx.page_size = ctx.t37_size - 2;
-  mxt_dbg(ctx.lc, "page_size: %d", ctx.page_size);
-
-  if (mxt->info.id->family == 0xA0 && mxt->info.id->variant == 0x00)
-  {
-    /* mXT1386 */
-    num_stripes = 3;
-    pages_per_stripe = 8;
-    ctx.x_size = 27;
-  }
-  else
-  {
-    num_debug_bytes = x_size * y_size * 2;
-    mxt_dbg(ctx.lc, "num_debug_bytes: %d", num_debug_bytes);
-
-    num_stripes = 1;
-    pages_per_stripe = (num_debug_bytes + (ctx.page_size - 1)) / ctx.page_size;
-    ctx.x_size = x_size;
-  }
-
-  ctx.num_stripes = num_stripes;
-  ctx.stripe_width = y_size / num_stripes;
-  ctx.y_size = y_size;
-
-  mxt_dbg(ctx.lc, "Number of stripes: %d", num_stripes);
-  mxt_dbg(ctx.lc, "Pages per stripe: %d", pages_per_stripe);
-  mxt_dbg(ctx.lc, "Stripe width: %d", ctx.stripe_width);
-  mxt_dbg(ctx.lc, "X size: %d", ctx.x_size);
-  mxt_dbg(ctx.lc, "Y size: %d", ctx.y_size);
-
-  /* allocate page/data buffers */
-  ctx.page_buf = (uint8_t *)calloc(ctx.page_size, sizeof(uint8_t));
-  if (!ctx.page_buf) {
-    mxt_err(ctx.lc, "calloc failure");
-    return MXT_ERROR_NO_MEM;
-  }
-
-  ctx.data_buf = (uint16_t *)calloc(ctx.x_size * ctx.y_size, sizeof(uint16_t));
-  if (!ctx.data_buf) {
-    mxt_err(ctx.lc, "calloc failure");
-    ret = -1;
-    goto free_page_buf;
-  }
+  ret = debug_dump_initialise(&ctx);
+  if (ret)
+    return ret;
 
   /* Open Hawkeye output file */
   ctx.hawkeye = fopen(csv_file,"w");
@@ -454,7 +655,9 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
     goto free;
   }
 
-  mxt_generate_hawkeye_header(&ctx);
+  ret = mxt_generate_hawkeye_header(&ctx);
+  if (ret)
+    return ret;
 
   mxt_info(ctx.lc, "Reading %u frames", frames);
 
@@ -463,26 +666,37 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   for (ctx.frame = 1; ctx.frame <= frames; ctx.frame++)
   {
     /* iterate through stripes */
-    for (ctx.stripe = 0; ctx.stripe < num_stripes; ctx.stripe++)
+    for (ctx.pass = 0; ctx.pass < ctx.num_passes; ctx.pass++)
     {
-      /* Select stripe */
-      ctx.stripe_starty = ctx.stripe_width * ctx.stripe;
-      ctx.stripe_endy = ctx.stripe_starty + ctx.stripe_width - 1;
-      ctx.x_ptr = 0;
-      ctx.y_ptr = ctx.stripe_starty;
-
-      for (page = 0; page < pages_per_stripe; page++)
+      if (!ctx.self_cap)
       {
-        ctx.page = pages_per_stripe * ctx.stripe + page;
+        /* Calculate stripe parameters */
+        ctx.stripe_starty = ctx.stripe_width * ctx.pass;
+        ctx.stripe_endy = ctx.stripe_starty + ctx.stripe_width - 1;
+        ctx.x_ptr = 0;
+        ctx.y_ptr = ctx.stripe_starty;
+      }
+      else
+      {
+        ctx.x_ptr = 0;
+        ctx.y_ptr = 0;
+      }
 
-        mxt_dbg(ctx.lc, "Frame %d Stripe %d Page %d",
-            ctx.frame, ctx.stripe, ctx.page);
+      for (page = 0; page < ctx.pages; page++)
+      {
+        ctx.page = ctx.pages * ctx.pass + page;
+
+        mxt_dbg(ctx.lc, "Frame %d Pass %d Page %d",
+            ctx.frame, ctx.pass, ctx.page);
 
         ret = mxt_debug_dump_page(&ctx);
         if (ret < 0)
           goto free;
 
-        mxt_debug_insert_data(&ctx);
+        if (ctx.self_cap)
+          mxt_debug_insert_data_self_cap(&ctx);
+        else
+          mxt_debug_insert_data(&ctx);
       }
     }
 
@@ -490,8 +704,6 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   }
 
   fclose(ctx.hawkeye);
-
-  mxt_hawkeye_generate_control_file(&ctx);
 
   t2 = time(NULL);
   mxt_info(ctx.lc, "%u frames in %d seconds", frames, (int)(t2-t1));
@@ -501,7 +713,6 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
 free:
   free(ctx.data_buf);
   ctx.data_buf = NULL;
-free_page_buf:
   free(ctx.page_buf);
   ctx.page_buf = NULL;
 

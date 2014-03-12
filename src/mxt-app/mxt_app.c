@@ -156,17 +156,20 @@ static void print_usage(char *prog_name)
           "\n"
           "For firmware flash:\n"
           "  --flash FIRMWARE           : send FIRMWARE to bootloader\n"
-          "  --firmware-version VERSION : Check firmware VERSION "
+          "  --firmware-version VERSION : check firmware VERSION "
                                          "before and after flash\n"
           "\n"
           "T68 Serial Data commands:\n"
-          "  --t68-file FILE            : Upload FILE\n"
-          "  --t68-datatype DATATYPE    : Select DATATYPE\n"
+          "  --t68-file FILE            : upload FILE\n"
+          "  --t68-datatype DATATYPE    : select DATATYPE\n"
           "\n"
           "T37 Diagnostic Data commands:\n"
           "  --debug-dump FILE          : capture diagnostic data to FILE\n"
-          "  --frames N                 : Capture N frames of data\n"
-          "  --references               : Dump references data\n"
+          "  --frames N                 : capture N frames of data\n"
+          "  --references               : capture references data\n"
+          "  --self-cap-signals         : capture self cap signals\n"
+          "  --self-cap-deltas          : capture self cap deltas\n"
+          "  --self-cap-refs            : capture self cap references\n"
           "\n"
           "Device connection options:\n"
           "  -q [--query]               : scan for devices\n"
@@ -237,6 +240,9 @@ int main (int argc, char *argv[])
       {"register",         required_argument, 0, 'r'},
       {"references",       no_argument,       0, 0},
       {"self-cap-tune",    no_argument,       0, 0},
+      {"self-cap-signals", no_argument,       0, 0},
+      {"self-cap-deltas",  no_argument,       0, 0},
+      {"self-cap-refs",    no_argument,       0, 0},
       {"bridge-server",    no_argument,       0, 'S'},
       {"test",             no_argument,       0, 't'},
       {"type",             required_argument, 0, 'T'},
@@ -370,6 +376,18 @@ int main (int argc, char *argv[])
         else if (!strcmp(long_options[option_index].name, "references"))
         {
           t37_mode = REFS_MODE;
+        }
+        else if (!strcmp(long_options[option_index].name, "self-cap-signals"))
+        {
+          t37_mode = SELF_CAP_SIGNALS;
+        }
+        else if (!strcmp(long_options[option_index].name, "self-cap-refs"))
+        {
+          t37_mode = SELF_CAP_REFS;
+        }
+        else if (!strcmp(long_options[option_index].name, "self-cap-deltas"))
+        {
+          t37_mode = SELF_CAP_DELTAS;
         }
         else if (!strcmp(long_options[option_index].name, "version"))
         {

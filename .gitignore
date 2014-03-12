@@ -16,7 +16,7 @@ Makefile
 Makefile.in
 /missing
 /mxt-app
-/mxt-app.1
+/man1/mxt-app.1
 /autom4te.cache/
 /m4/
 /obj/
