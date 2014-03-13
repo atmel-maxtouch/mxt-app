@@ -284,66 +284,97 @@ mode, by specifying the bootloader address.
 
 0
 :   Success
+
 1
 :   Internal error/assert
+
 2
 :   Input/output error
+
 3
 :   Memory allocation failure
+
 4
 :   Timeout
+
 5
 :   Could not find a device or device went away
+
 6
 :   Permission denied
+
 7
 :   Operation not allowed for this device type
+
 8
 :   Interrupt function call
+
 9
 :   Object not available on device
+
 10
 :   Received unexpected invalid message from message processor
+
 11
 :   Self test invalid test command
+
 12
 :   Self test AVdd Analog power is not present
+
 13
 :   Self test Pin fault
+
 14
 :   Self test AND Gate Fault
+
 15
 :   Self test Signal limit fault
+
 16
 :   Self test Gain error
+
 17
 :   Information block checksum error
+
 18
 :   Bootloader already unlocked
+
 19
 :   Bootloader CRC failure (transmission failure)
+
 20
 :   File format error
+
 21
 :   Device firmware already required version
+
 22
 :   Could not identify bootloader address
+
 23
 :   Version on device did not match version given after bootloading operation
+
 24
 :   Device did not reset
+
 25
 :   Device in unexpected state
+
 26
 :   Incorrect command line parameters or menu input given
+
 27
 :   Bridge TCP protocol parse error
+
 28
 :   Bridge connection error
+
 29
 :   Serial data download failed
+
 30
 :   No such file or directory
+
 31
 :   Error processing self cap command
 
