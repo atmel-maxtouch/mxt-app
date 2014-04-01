@@ -54,6 +54,32 @@
 #define SELF_TEST_INVALID      0xFD
 #define SELF_TEST_TIMEOUT      0xFC
 
+//******************************************************************************
+/// \brief Commands for mxt-app
+typedef enum mxt_app_cmd_t {
+  CMD_NONE,
+  CMD_QUERY,
+  CMD_INFO,
+  CMD_TEST,
+  CMD_WRITE,
+  CMD_READ,
+  CMD_GOLDEN_REFERENCES,
+  CMD_BRIDGE_CLIENT,
+  CMD_BRIDGE_SERVER,
+  CMD_SERIAL_DATA,
+  CMD_FLASH,
+  CMD_RESET,
+  CMD_RESET_BOOTLOADER,
+  CMD_BACKUP,
+  CMD_CALIBRATE,
+  CMD_DEBUG_DUMP,
+  CMD_LOAD_CFG,
+  CMD_SAVE_CFG,
+  CMD_MESSAGES,
+  CMD_SELF_CAP_TUNE_CONFIG,
+  CMD_SELF_CAP_TUNE_NVRAM,
+} mxt_app_cmd;
+
 int mxt_flash_firmware(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, const char *filename, const char *new_version, struct mxt_conn_info *conn);
 int mxt_socket_server(struct mxt_device *mxt, uint16_t port);
 int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port);
@@ -68,4 +94,4 @@ int print_raw_messages(struct mxt_device *mxt);
 int print_raw_messages_t44(struct mxt_device *mxt);
 int event_printer(struct mxt_device *mxt);
 void print_t6_state(uint8_t state);
-int mxt_self_cap_tune(struct mxt_device *mxt);
+int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd);
