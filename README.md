@@ -1,7 +1,3 @@
-% MXT-APP(1) User manual
-% Nick Dyer
-% 29 Nov 2013
-
 # NAME
 
 mxt-app - command line utility for maXTouch devices
