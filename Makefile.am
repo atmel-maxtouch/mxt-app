@@ -70,4 +70,4 @@ mxt-app.1: README.md
   README.md -o man1/mxt-app.1
 
 clean-local:
-	-rm mxt-app.1
+	-rm man1/mxt-app.1
