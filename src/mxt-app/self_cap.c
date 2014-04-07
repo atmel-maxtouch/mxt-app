@@ -153,13 +153,13 @@ int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd)
 
   switch (cmd)
   {
-    case CMD_SELF_CAP_TUNE_NVRAM:
+    case CMD_SELF_CAP_TUNE_CONFIG:
       mxt_info(mxt->ctx, "Store to Config");
       t109_command = T109_CMD_STORE_TO_CONFIG_RAM;
       break;
 
-    case CMD_SELF_CAP_TUNE_CONFIG:
     default:
+    case CMD_SELF_CAP_TUNE_NVRAM:
       mxt_info(mxt->ctx, "Store to NVRAM");
       t109_command = T109_CMD_STORE_TO_NVM;
       break;
