@@ -340,7 +340,7 @@ int mxt_read_register(struct mxt_device *mxt, uint8_t *buf,
   }
 
   if (ret == MXT_SUCCESS)
-    mxt_log_buffer(mxt->ctx, LOG_VERBOSE, "RX", buf, count);
+    mxt_log_buffer(mxt->ctx, LOG_VERBOSE, "RX:", buf, count);
 
   return ret;
 }
@@ -375,7 +375,7 @@ int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf,
   }
 
   if (ret == MXT_SUCCESS)
-    mxt_log_buffer(mxt->ctx, LOG_VERBOSE, "TX", buf, count);
+    mxt_log_buffer(mxt->ctx, LOG_VERBOSE, "TX:", buf, count);
 
   return ret;
 }

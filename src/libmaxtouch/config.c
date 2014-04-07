@@ -534,7 +534,7 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename)
       *(cfg.data + i) = val;
     }
 
-    mxt_log_buffer(mxt->ctx, LOG_DEBUG, "CFG", cfg.data, cfg.size);
+    mxt_log_buffer(mxt->ctx, LOG_DEBUG, "CFG:", cfg.data, cfg.size);
 
     /* Write object */
     ret = mxt_write_register(mxt, cfg.data, reg,
