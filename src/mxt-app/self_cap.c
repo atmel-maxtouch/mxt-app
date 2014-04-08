@@ -146,6 +146,9 @@ int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd)
   if (ret)
     return ret;
 
+  // Wait for backup operation to complete (otherwise T109 report may be missed)
+  mxt_msg_wait(mxt, 100);
+
   mxt_info(mxt->ctx, "Tuning");
   ret = mxt_self_cap_command(mxt, t109_addr, T109_CMD_TUNE);
   if (ret)
