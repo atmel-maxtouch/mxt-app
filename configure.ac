@@ -10,12 +10,25 @@ AC_CONFIG_MACRO_DIR([m4])
 
 # Checks for programs.
 AC_PROG_CC
-AC_PROG_LIBTOOL
+LT_INIT
 
 # Check for usb support
 AC_CHECK_LIB([usb-1.0], [libusb_init], [libusb=true])
 AC_CHECK_LIB([usb-1.0], [libusb_error_name], AC_DEFINE([HAVE_LIBUSB_ERROR_NAME], [1], [ ]))
 AM_CONDITIONAL([HAVE_LIBUSB], [test x$libusb = xtrue])
+
+# Handle debug/release build
+AC_ARG_ENABLE(debug,
+AS_HELP_STRING([--enable-debug],
+               [enable debugging, default: no]),
+[case "${enableval}" in
+             yes) debug=true ;;
+             no)  debug=false ;;
+             *)   AC_MSG_ERROR([bad value ${enableval} for --enable-debug]) ;;
+esac],
+[debug=false])
+
+AM_CONDITIONAL(DEBUG, test x"$debug" = x"true")
 
 # Checks for header files.
 AC_HEADER_STDBOOL

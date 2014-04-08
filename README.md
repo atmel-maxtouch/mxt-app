@@ -387,9 +387,17 @@ There are two build harnesses, for Android and autotools:
 
 ## Android
 
+To compile using Android NDK:
+
     ndk-build
 
-Binaries will be placed in libs/armeabi
+To enable debug:
+
+    ndk-build NDK_DEBUG=1
+
+Binaries will be placed in libs/
+
+The Android NDK is available from https://developer.android.com/tools/sdk/ndk/
 
 ### Running on Android
 
@@ -408,6 +416,10 @@ To compile using autotools:
 To cross-compile:
 
     ./autogen.sh --host=arm-linux-gnueabi && make
+
+To enable debug:
+
+    ./autogen.sh --enable-debug && make
 
 ## Version numbering
 

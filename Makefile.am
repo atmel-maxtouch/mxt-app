@@ -1,5 +1,4 @@
 EXTRA_DIST = autogen.sh
-AM_MAKEFLAGS = --no-print-directory
 
 GIT_VERSION := $(shell build-aux/version.sh)
 
@@ -7,13 +6,14 @@ GIT_VERSION := $(shell build-aux/version.sh)
 git-version: force
 	echo '$(GIT_VERSION)' | cmp -s - $@ || echo '$(GIT_VERSION)' > $@
 
+AM_MAKEFLAGS = --no-print-directory
+
 AM_CFLAGS = \
 	-I$(top_srcdir)/src \
 	-fvisibility=hidden \
 	-ffunction-sections \
 	-fdata-sections \
-  -g -Wall -Werror \
-  -Wmissing-declarations -Wmissing-prototypes -Wnested-externs \
+  -Wall -Werror -Wmissing-declarations -Wmissing-prototypes -Wnested-externs \
   -Wpointer-arith -Wsign-compare -Wchar-subscripts -Wstrict-prototypes \
   -Wwrite-strings -Wshadow -Wformat-security -Wtype-limits \
   -DMXT_VERSION=\"$(GIT_VERSION)\" \
@@ -22,6 +22,10 @@ AM_CFLAGS = \
 AM_LDFLAGS = \
 	-Wl,--gc-sections \
 	-Wl,--as-needed
+
+if !DEBUG
+AM_CFLAGS += -DNDEBUG
+endif
 
 bin_PROGRAMS = mxt-app
 noinst_LTLIBRARIES = libmaxtouch.la

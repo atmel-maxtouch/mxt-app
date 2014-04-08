@@ -32,7 +32,10 @@
 #include <stdarg.h>
 
 #define ENABLE_LOGGING   1
+
+#ifndef NDEBUG
 #define ENABLE_DEBUG     1
+#endif
 
 /* Log levels - designed to match Android's log levels */
 enum mxt_log_level {
