@@ -124,7 +124,7 @@ void mxt_log_buffer(struct libmaxtouch_ctx *ctx, enum mxt_log_level level,
   for (i = 0; i < count; i++)
     sprintf(&hexbuf[3 * i], "%02X ", data[i]);
 
-  mxt_log(ctx, LOG_VERBOSE, "%s: %s", prefix, hexbuf);
+  mxt_log(ctx, LOG_VERBOSE, "%s %s", prefix, hexbuf);
 
   free(hexbuf);
 #endif

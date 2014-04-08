@@ -46,31 +46,6 @@
 #define BUF_SIZE 1024
 
 //******************************************************************************
-/// \brief Commands for mxt-app
-typedef enum mxt_app_cmd_t {
-  CMD_NONE,
-  CMD_QUERY,
-  CMD_INFO,
-  CMD_TEST,
-  CMD_WRITE,
-  CMD_READ,
-  CMD_GOLDEN_REFERENCES,
-  CMD_BRIDGE_CLIENT,
-  CMD_BRIDGE_SERVER,
-  CMD_SERIAL_DATA,
-  CMD_FLASH,
-  CMD_RESET,
-  CMD_RESET_BOOTLOADER,
-  CMD_BACKUP,
-  CMD_CALIBRATE,
-  CMD_DEBUG_DUMP,
-  CMD_LOAD_CFG,
-  CMD_SAVE_CFG,
-  CMD_MESSAGES,
-  CMD_SELF_CAP_TUNE,
-} mxt_app_cmd;
-
-//******************************************************************************
 /// \brief Initialize mXT device and read the info block
 /// \return #mxt_rc
 static int mxt_init_chip(struct libmaxtouch_ctx *ctx, struct mxt_device **mxt,
@@ -132,7 +107,8 @@ static void print_usage(char *prog_name)
           "  --calibrate                : send calibrate command\n"
           "  --backup                   : backup configuration to NVRAM\n"
           "  -g                         : store golden references\n"
-          "  --self-cap-tune            : tune self capacitance settings\n"
+          "  --self-cap-tune-config     : tune self capacitance settings to config\n"
+          "  --self-cap-tune-nvram      : tune self capacitance settings to NVRAM\n"
           "  -t [--test]                : run all self tests\n"
           "  --version                  : print version\n"
           "\n"
@@ -239,7 +215,8 @@ int main (int argc, char *argv[])
       {"reset-bootloader", no_argument,       0, 0},
       {"register",         required_argument, 0, 'r'},
       {"references",       no_argument,       0, 0},
-      {"self-cap-tune",    no_argument,       0, 0},
+      {"self-cap-tune-config", no_argument,       0, 0},
+      {"self-cap-tune-nvram",  no_argument,       0, 0},
       {"self-cap-signals", no_argument,       0, 0},
       {"self-cap-deltas",  no_argument,       0, 0},
       {"self-cap-refs",    no_argument,       0, 0},
@@ -325,10 +302,19 @@ int main (int argc, char *argv[])
             return MXT_ERROR_BAD_INPUT;
           }
         }
-        else if (!strcmp(long_options[option_index].name, "self-cap-tune"))
+        else if (!strcmp(long_options[option_index].name, "self-cap-tune-config"))
         {
           if (cmd == CMD_NONE) {
-            cmd = CMD_SELF_CAP_TUNE;
+            cmd = CMD_SELF_CAP_TUNE_CONFIG;
+          } else {
+            print_usage(argv[0]);
+            return MXT_ERROR_BAD_INPUT;
+          }
+        }
+        else if (!strcmp(long_options[option_index].name, "self-cap-tune-nvram"))
+        {
+          if (cmd == CMD_NONE) {
+            cmd = CMD_SELF_CAP_TUNE_NVRAM;
           } else {
             print_usage(argv[0]);
             return MXT_ERROR_BAD_INPUT;
@@ -793,9 +779,10 @@ int main (int argc, char *argv[])
       ret = mxt_save_raw_file(mxt, strbuf);
       break;
 
-    case CMD_SELF_CAP_TUNE:
+    case CMD_SELF_CAP_TUNE_CONFIG:
+    case CMD_SELF_CAP_TUNE_NVRAM:
       mxt_verb(ctx, "CMD_SELF_CAP_TUNE");
-      ret = mxt_self_cap_tune(mxt);
+      ret = mxt_self_cap_tune(mxt, cmd);
       break;
 
     case CMD_NONE:

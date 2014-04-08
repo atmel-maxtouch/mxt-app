@@ -47,6 +47,7 @@
 
 #define T109_CMD_OFFSET                 3
 #define T109_CMD_TUNE                   1
+#define T109_CMD_STORE_TO_NVM		2
 #define T109_CMD_STORE_TO_CONFIG_RAM    4
 
 //******************************************************************************
@@ -117,50 +118,65 @@ static int mxt_self_cap_command(struct mxt_device *mxt, uint16_t addr, uint8_t c
 }
 
 //******************************************************************************
-/// \brief Run self cap tuning procedure
+/// \brief Run self cap tuning procedure without updating the config
+///	checksum
 /// \return #mxt_rc
-int mxt_self_cap_tune(struct mxt_device *mxt)
+int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd)
 {
-   int ret;
-   uint16_t t6_addr;
-   uint16_t t109_addr;
-   uint8_t backupnv_value;
+  int ret;
+  uint16_t t6_addr;
+  uint16_t t109_addr;
+  uint8_t backupnv_value;
+  uint8_t t109_command;
 
-   mxt_msg_reset(mxt);
+  mxt_msg_reset(mxt);
 
-   // Enable self test object & reporting
-   t6_addr = mxt_get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
-   if (t6_addr == OBJECT_NOT_FOUND)
-     return MXT_ERROR_OBJECT_NOT_FOUND;
+  // Enable self test object & reporting
+  t6_addr = mxt_get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
+  if (t6_addr == OBJECT_NOT_FOUND)
+    return MXT_ERROR_OBJECT_NOT_FOUND;
 
-   t109_addr = mxt_get_object_address(mxt, SPT_SELFCAPGLOBALCONFIG_T109, 0);
-   if (t109_addr == OBJECT_NOT_FOUND)
-     return MXT_ERROR_OBJECT_NOT_FOUND;
+  t109_addr = mxt_get_object_address(mxt, SPT_SELFCAPGLOBALCONFIG_T109, 0);
+  if (t109_addr == OBJECT_NOT_FOUND)
+    return MXT_ERROR_OBJECT_NOT_FOUND;
 
-   mxt_info(mxt->ctx, "Stopping T70");
-   backupnv_value = 0x33;
-   ret = mxt_write_register(mxt, &backupnv_value, t6_addr + MXT_T6_BACKUPNV_OFFSET, 1);
-   if (ret)
-     return ret;
+  mxt_info(mxt->ctx, "Stopping T70");
+  backupnv_value = 0x33;
+  ret = mxt_write_register(mxt, &backupnv_value, t6_addr + MXT_T6_BACKUPNV_OFFSET, 1);
+  if (ret)
+    return ret;
 
-   mxt_info(mxt->ctx, "Tuning");
-   ret = mxt_self_cap_command(mxt, t109_addr, T109_CMD_TUNE);
-   if (ret)
-     return ret;
+  mxt_info(mxt->ctx, "Tuning");
+  ret = mxt_self_cap_command(mxt, t109_addr, T109_CMD_TUNE);
+  if (ret)
+    return ret;
 
-   mxt_info(mxt->ctx, "Store to config RAM");
-   ret = mxt_self_cap_command(mxt, t109_addr, T109_CMD_STORE_TO_CONFIG_RAM);
-   if (ret)
-     return ret;
+  switch (cmd)
+  {
+    case CMD_SELF_CAP_TUNE_CONFIG:
+      mxt_info(mxt->ctx, "Store to Config");
+      t109_command = T109_CMD_STORE_TO_CONFIG_RAM;
+      break;
 
-   mxt_info(mxt->ctx, "Saving configuration");
-   ret = mxt_backup_config(mxt);
-   if (ret)
-     return ret;
+    default:
+    case CMD_SELF_CAP_TUNE_NVRAM:
+      mxt_info(mxt->ctx, "Store to NVRAM");
+      t109_command = T109_CMD_STORE_TO_NVM;
+      break;
+  }
 
-   ret = mxt_reset_chip(mxt, false);
-   if (ret)
-     return ret;
+  ret = mxt_self_cap_command(mxt, t109_addr, t109_command);
+  if (ret)
+    return ret;
 
-   return 0;
+  mxt_info(mxt->ctx, "Saving configuration");
+  ret = mxt_backup_config(mxt);
+  if (ret)
+    return ret;
+
+  ret = mxt_reset_chip(mxt, false);
+  if (ret)
+    return ret;
+
+  return 0;
 }

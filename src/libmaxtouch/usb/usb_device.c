@@ -175,7 +175,7 @@ static int usb_transfer(struct mxt_device *mxt, void *cmd, int cmd_size,
   }
   else
   {
-    mxt_log_buffer(mxt->ctx, LOG_VERBOSE, "TX", cmd, cmd_size);
+    mxt_log_buffer(mxt->ctx, LOG_VERBOSE, "TX:", cmd, cmd_size);
   }
 
   if (ignore_response)
@@ -207,7 +207,7 @@ static int usb_transfer(struct mxt_device *mxt, void *cmd, int cmd_size,
   }
   else
   {
-    mxt_log_buffer(mxt->ctx, LOG_VERBOSE, "RX", response, response_size);
+    mxt_log_buffer(mxt->ctx, LOG_VERBOSE, "RX:", response, response_size);
   }
 
   return MXT_SUCCESS;

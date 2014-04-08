@@ -63,7 +63,11 @@ mxt_app_SOURCES =\
 man1_MANS = mxt-app.1
 
 mxt-app.1: README.md
-	-pandoc -s -t man README.md -o man1/mxt-app.1
+	-pandoc -s -t man \
+  -V title="MXT-APP" \
+  -V section="1" \
+  -V description="\"mxt-app $(GIT_VERSION)\"" \
+  README.md -o man1/mxt-app.1
 
 clean-local:
-	-rm mxt-app.1
+	-rm man1/mxt-app.1
