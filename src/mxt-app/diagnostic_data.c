@@ -588,7 +588,7 @@ static int debug_dump_initialise(struct t37_ctx *ctx)
   mxt_dbg(ctx->lc, "Pages per pass: %d", ctx->pages);
   mxt_dbg(ctx->lc, "X size: %d", ctx->x_size);
   mxt_dbg(ctx->lc, "Y size: %d", ctx->y_size);
-  mxt_dbg(ctx->lc, "Number of values: %zd", ctx->num_data_values);
+  mxt_dbg(ctx->lc, "Number of values: %d", ctx->num_data_values);
 
   /* allocate page/data buffers */
   ctx->page_buf = (uint8_t *)calloc(ctx->page_size, sizeof(uint8_t));
