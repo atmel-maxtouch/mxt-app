@@ -69,7 +69,7 @@ static int mxt_self_cap_command(struct mxt_device *mxt, uint16_t addr, uint8_t c
 
   while (true)
   {
-    mxt_msg_wait(mxt, 100);
+    mxt_msg_wait(mxt, 10);
 
     now = time(NULL);
     if ((now - start_time) > T109_TIMEOUT)
@@ -145,6 +145,8 @@ int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd)
   ret = mxt_write_register(mxt, &backupnv_value, t6_addr + MXT_T6_BACKUPNV_OFFSET, 1);
   if (ret)
     return ret;
+
+  mxt_msg_wait(mxt, 100);	// Add this delay to ensure mxt_self_cap_command() won't miss the T109 report message
 
   mxt_info(mxt->ctx, "Tuning");
   ret = mxt_self_cap_command(mxt, t109_addr, T109_CMD_TUNE);
