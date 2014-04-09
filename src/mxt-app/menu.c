@@ -32,6 +32,7 @@
 #include <inttypes.h>
 #include <errno.h>
 #include <string.h>
+#include <malloc.h>
 
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/utilfuncs.h"
