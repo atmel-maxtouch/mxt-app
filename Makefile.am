@@ -64,9 +64,9 @@ mxt_app_SOURCES =\
 	src/mxt-app/buffer.c \
 	src/mxt-app/self_cap.c
 
-man1_MANS = mxt-app.1
+man1_MANS = man1/mxt-app.1
 
-mxt-app.1: README.md
+man1/mxt-app.1: README.md
 	-pandoc -s -t man \
   -V title="MXT-APP" \
   -V section="1" \
