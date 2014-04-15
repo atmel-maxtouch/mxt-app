@@ -336,66 +336,6 @@ static int mxt_debug_insert_data(struct t37_ctx *ctx)
   return MXT_SUCCESS;
 }
 
-#if 0
-//******************************************************************************
-/// \brief Output hawkeye data to terminal
-/// \return #mxt_rc
-static int mxt_debug_print(struct t37_ctx *ctx)
-{
-  int x;
-  int y;
-  int ofs;
-  int16_t value;
-
-  /* clear screen */
-  printf("\e[1;1H\e[2J");
-
-  for (x = 0; x < ctx->x_size; x++)
-  {
-    for (y = 0; y < ctx->y_size; y++)
-    {
-      ofs = y + x * ctx->y_size;
-
-      value = (int16_t)ctx->data_buf[ofs];
-
-      printf("%6d ", value);
-
-    }
-    printf("\n");
-  }
-
-  return MXT_SUCCESS;
-}
-
-//******************************************************************************
-/// \brief Generate hawkeye control file
-static void mxt_hawkeye_generate_control_file(struct t37_ctx *ctx)
-{
-  int x;
-  int y;
-  FILE *fp;
-
-  fp = fopen("control.txt","w");
-  if (!fp) {
-    mxt_warn(ctx->lc, "Failed to save control.txt!");
-    return;
-  }
-
-  fprintf(fp, "uint16_lsb_msb,1,1,FRAME\n");
-
-  for (x = 0; x < ctx->x_size; x++)
-  {
-    for (y = 0; y < ctx->y_size; y++)
-    {
-      fprintf(fp, "int16_lsb_msb,%d,%d,X%dY%d_%s16\n", y+1, x+3, x, y,
-        (ctx->mode == DELTAS_MODE) ? "Delta" : "Reference");
-    }
-  }
-
-  fclose(fp);
-}
-#endif
-
 //******************************************************************************
 /// \brief Write data to file
 /// \return #mxt_rc
