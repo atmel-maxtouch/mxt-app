@@ -181,5 +181,5 @@ int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd)
   if (ret)
     return ret;
 
-  return 0;
+  return MXT_SUCCESS;
 }
