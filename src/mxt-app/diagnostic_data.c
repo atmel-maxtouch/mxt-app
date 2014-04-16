@@ -49,43 +49,6 @@
 #define MAX_FILENAME_LENGTH     255
 
 //******************************************************************************
-/// \brief T37 Diagnostic Data context object
-struct t37_ctx {
-  struct mxt_device *mxt;
-  struct libmaxtouch_ctx *lc;
-
-  bool self_cap;
-
-  int x_size;
-  int y_size;
-
-  int num_data_values;
-  int num_passes;
-  int pages;
-  int stripe_width;
-  int stripe_starty;
-  int stripe_endy;
-  uint8_t page_size;
-  uint8_t mode;
-
-  int diag_cmd_addr;
-  int t37_addr;
-  int t37_size;
-  uint8_t t111_instances;
-
-  uint16_t frame;
-  int pass;
-  int page;
-  int x_ptr;
-  int y_ptr;
-
-  uint8_t *page_buf;
-  uint16_t *data_buf;
-
-  FILE *hawkeye;
-};
-
-//******************************************************************************
 /// \brief Retrieve and store object information for debug data operation
 /// \return #mxt_rc
 static int get_objects_addr(struct t37_ctx *ctx)
@@ -418,9 +381,17 @@ static int get_num_frames(uint16_t *frames)
 //******************************************************************************
 /// \brief Initialise parameters and allocate buffers
 /// \return #mxt_rc
-static int debug_dump_initialise(struct t37_ctx *ctx)
+int mxt_debug_dump_initialise(struct t37_ctx *ctx)
 {
   struct mxt_id_info *id = ctx->mxt->info.id;
+  int ret;
+
+  ret = get_objects_addr(ctx);
+  if (ret)
+  {
+    mxt_err(ctx->lc, "Failed to get object information");
+    return ret;
+  }
 
   mxt_dbg(ctx->lc, "t37_size: %d", ctx->t37_size);
   ctx->page_size = ctx->t37_size - 2;
@@ -555,13 +526,58 @@ self_cap_unsupported:
 }
 
 //******************************************************************************
+/// \brief Read one frame of diagnostic data
+/// \return #mxt_rc
+int mxt_debug_dump_frame(struct t37_ctx* ctx)
+{
+  int page;
+  int ret;
+
+  /* iterate through stripes */
+  for (ctx->pass = 0; ctx->pass < ctx->num_passes; ctx->pass++)
+  {
+    if (!ctx->self_cap)
+    {
+      /* Calculate stripe parameters */
+      ctx->stripe_starty = ctx->stripe_width * ctx->pass;
+      ctx->stripe_endy = ctx->stripe_starty + ctx->stripe_width - 1;
+      ctx->x_ptr = 0;
+      ctx->y_ptr = ctx->stripe_starty;
+    }
+    else
+    {
+      ctx->x_ptr = 0;
+      ctx->y_ptr = 0;
+    }
+
+    for (page = 0; page < ctx->pages; page++)
+    {
+      ctx->page = ctx->pages * ctx->pass + page;
+
+      mxt_dbg(ctx->lc, "Frame %d Pass %d Page %d", ctx->frame, ctx->pass,
+          ctx->page);
+
+      ret = mxt_debug_dump_page(ctx);
+      if (ret)
+        return ret;
+
+      if (ctx->self_cap)
+        mxt_debug_insert_data_self_cap(ctx);
+      else
+        mxt_debug_insert_data(ctx);
+    }
+  }
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
 /// \brief Retrieve data from the T37 Diagnostic Data object
 /// \return #mxt_rc
 int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
                    uint16_t frames)
 {
   struct t37_ctx ctx;
-  int page;
   time_t t1;
   time_t t2;
   int ret;
@@ -576,14 +592,7 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
      frames = 1;
   }
 
-  ret = get_objects_addr(&ctx);
-  if (ret)
-  {
-    mxt_err(ctx.lc, "Failed to get object information");
-    return ret;
-  }
-
-  ret = debug_dump_initialise(&ctx);
+  ret = mxt_debug_dump_initialise(&ctx);
   if (ret)
     return ret;
 
@@ -605,40 +614,7 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
 
   for (ctx.frame = 1; ctx.frame <= frames; ctx.frame++)
   {
-    /* iterate through stripes */
-    for (ctx.pass = 0; ctx.pass < ctx.num_passes; ctx.pass++)
-    {
-      if (!ctx.self_cap)
-      {
-        /* Calculate stripe parameters */
-        ctx.stripe_starty = ctx.stripe_width * ctx.pass;
-        ctx.stripe_endy = ctx.stripe_starty + ctx.stripe_width - 1;
-        ctx.x_ptr = 0;
-        ctx.y_ptr = ctx.stripe_starty;
-      }
-      else
-      {
-        ctx.x_ptr = 0;
-        ctx.y_ptr = 0;
-      }
-
-      for (page = 0; page < ctx.pages; page++)
-      {
-        ctx.page = ctx.pages * ctx.pass + page;
-
-        mxt_dbg(ctx.lc, "Frame %d Pass %d Page %d",
-            ctx.frame, ctx.pass, ctx.page);
-
-        ret = mxt_debug_dump_page(&ctx);
-        if (ret < 0)
-          goto free;
-
-        if (ctx.self_cap)
-          mxt_debug_insert_data_self_cap(&ctx);
-        else
-          mxt_debug_insert_data(&ctx);
-      }
-    }
+    ret = mxt_debug_dump_frame(&ctx);
 
     mxt_hawkeye_output(&ctx);
   }
@@ -660,7 +636,7 @@ free:
 }
 
 //******************************************************************************
-/// \brief Handle menu input for diagonistic data functions
+/// \brief Handle menu input for diagnostic data functions
 static void mxt_dd_cmd(struct mxt_device *mxt, char selection, const char *csv_file)
 {
   uint16_t frames;

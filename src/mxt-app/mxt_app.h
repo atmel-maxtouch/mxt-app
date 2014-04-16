@@ -80,6 +80,43 @@ typedef enum mxt_app_cmd_t {
   CMD_SELF_CAP_TUNE_NVRAM,
 } mxt_app_cmd;
 
+//******************************************************************************
+/// \brief T37 Diagnostic Data context object
+struct t37_ctx {
+  struct mxt_device *mxt;
+  struct libmaxtouch_ctx *lc;
+
+  bool self_cap;
+
+  int x_size;
+  int y_size;
+
+  int num_data_values;
+  int num_passes;
+  int pages;
+  int stripe_width;
+  int stripe_starty;
+  int stripe_endy;
+  uint8_t page_size;
+  uint8_t mode;
+
+  int diag_cmd_addr;
+  int t37_addr;
+  int t37_size;
+  uint8_t t111_instances;
+
+  uint16_t frame;
+  int pass;
+  int page;
+  int x_ptr;
+  int y_ptr;
+
+  uint8_t *page_buf;
+  uint16_t *data_buf;
+
+  FILE *hawkeye;
+};
+
 int mxt_flash_firmware(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, const char *filename, const char *new_version, struct mxt_conn_info *conn);
 int mxt_socket_server(struct mxt_device *mxt, uint16_t port);
 int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port);
@@ -95,3 +132,5 @@ int print_raw_messages_t44(struct mxt_device *mxt);
 void print_t6_status(uint8_t status);
 int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd);
 int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context, int (*msg_func)(struct mxt_device *mxt, uint8_t *msg, void *context));
+int mxt_debug_dump_frame(struct t37_ctx *ctx);
+int mxt_debug_dump_initialise(struct t37_ctx *ctx);
