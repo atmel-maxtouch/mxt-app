@@ -56,7 +56,7 @@ static void load_config(struct mxt_device *mxt)
 
   printf("Trying to open %s...\n", cfg_file);
 
-  if (mxt_load_config_file(mxt, cfg_file) == 0)
+  if (mxt_load_config_file(mxt, cfg_file) == MXT_SUCCESS)
   {
     printf("Successfully uploaded the configuration file\n");
   }
@@ -79,7 +79,7 @@ static void save_config(struct mxt_device *mxt)
     return;
   }
 
-  if (mxt_save_raw_file(mxt, cfg_file) == 0)
+  if (mxt_save_raw_file(mxt, cfg_file) == MXT_SUCCESS)
   {
     printf("Successfully saved configuration to file\n");
   }
@@ -257,7 +257,7 @@ static bool mxt_app_command(struct mxt_device *mxt, char selection)
       break;
     case 'b':
       /* Backup the config data */
-      if (mxt_backup_config(mxt) == 0)
+      if (mxt_backup_config(mxt) == MXT_SUCCESS)
       {
         printf("Settings successfully backed up to non-volatile memory\n");
       }
@@ -268,7 +268,7 @@ static bool mxt_app_command(struct mxt_device *mxt, char selection)
       break;
     case 'r':
       /* Reset the chip */
-      if (mxt_reset_chip(mxt, false) == 0)
+      if (mxt_reset_chip(mxt, false) == MXT_SUCCESS)
       {
         printf("Successfully forced a reset of the device\n");
       }
@@ -279,7 +279,7 @@ static bool mxt_app_command(struct mxt_device *mxt, char selection)
       break;
     case 'c':
       /* Calibrate the device*/
-      if (mxt_calibrate_chip(mxt) == 0)
+      if (mxt_calibrate_chip(mxt) == MXT_SUCCESS)
       {
         printf("Successfully performed a global recalibration on all channels\n");
       }

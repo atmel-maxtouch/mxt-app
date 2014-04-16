@@ -269,7 +269,7 @@ uint8_t self_test_menu(struct mxt_device *mxt)
         cmd = SELF_TEST_ALL;
         break;
       case 255:
-        return MXT_SUCCESS;
+        break;
       default:
         printf("Invalid option\n");
         break;
@@ -280,4 +280,6 @@ uint8_t self_test_menu(struct mxt_device *mxt)
         run_self_tests(mxt, cmd);
       }
    }
+
+   return MXT_SUCCESS;
 }
