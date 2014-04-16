@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/info_block.h"
