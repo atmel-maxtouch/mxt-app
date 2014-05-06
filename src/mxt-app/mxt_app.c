@@ -377,7 +377,7 @@ int main (int argc, char *argv[])
         }
         else if (!strcmp(long_options[option_index].name, "version"))
         {
-          printf("mxt-app %s\n", MXT_VERSION);
+          printf("mxt-app %s%s\n", MXT_VERSION, ENABLE_DEBUG ? " DEBUG":"");
           return MXT_SUCCESS;
         }
         else

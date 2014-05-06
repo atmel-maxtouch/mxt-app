@@ -35,7 +35,10 @@
 
 #ifndef NDEBUG
 #define ENABLE_DEBUG     1
+#else
+#define ENABLE_DEBUG     0
 #endif
+
 
 /* Log levels - designed to match Android's log levels */
 enum mxt_log_level {
