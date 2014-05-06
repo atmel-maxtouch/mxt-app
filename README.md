@@ -266,8 +266,11 @@ It is enabled on a system if files /dev/i2c-x are present.
 
 To use i2c-dev, provide a device string such as `-d i2c-dev:1-004a`.
 
-There is no scanning support. You must identify the correct adapter and address
-by reference to the protocol guide or to the platform setup.
+There is no scanning support. This is because reading from every possible
+maXTouch address on every I2C bus might adversely affect some unrelated
+hardware that does not understand Object Protocol. You must manually identify
+the correct adapter and address by reference to the protocol guide or to the
+platform setup.
 
 It is possible to use the `--flash` command with a device already in bootloader
 mode, by specifying the bootloader address.
