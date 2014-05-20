@@ -288,10 +288,6 @@ static bool mxt_app_command(struct mxt_device *mxt, char selection)
         printf("Failed to perform a global recalibration\n");
       }
       break;
-    case 'e':
-      /* Read the events generated */
-      event_printer(mxt);
-      break;
     case 'm':
       /* Display raw messages */
       print_raw_messages(mxt);
@@ -336,7 +332,6 @@ int mxt_menu(struct mxt_device *mxt)
         "Enter B:   (B)ackup the config data to NVM\n"
         "Enter R:   (R)eset the maxtouch device\n"
         "Enter C:   (C)alibrate the maxtouch device\n"
-        "Enter E:   Display the input (E)vents from the device\n"
         "Enter M:   Display raw (M)essages\n"
         "Enter U:   D(U)mp Diagnostic data\n"
         "Enter Q:   (Q)uit the application\n");

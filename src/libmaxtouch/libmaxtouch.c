@@ -285,32 +285,6 @@ void mxt_free_device(struct mxt_device *mxt)
 }
 
 //******************************************************************************
-/// \brief  Get the filename of the input event file for the connected device
-/// \return Filename as a string, or NULL if unsuccessful
-/// \todo   Get the filename for sysfs devices from sysfs so the code does not
-///         need to be edited to run on different sysfs devices
-const char* mxt_get_input_event_file(struct mxt_device *mxt)
-{
-  switch (mxt->conn->type)
-  {
-    case E_SYSFS:
-      /* This must be adjusted depending on which sysfs device the code is running on */
-      return "/dev/input/event2";
-
-#ifdef HAVE_LIBUSB
-    case E_USB:
-      return "/dev/input/by-id/usb-Atmel_Atmel_maXTouch_Digitizer-event-mouse";
-#endif /* HAVE_LIBUSB */
-
-    case E_I2C_DEV:
-    default:
-      mxt_err(mxt->ctx, "Device type not supported");
-  }
-
-  return NULL;
-}
-
-//******************************************************************************
 /// \brief  Read register from MXT chip
 /// \return #mxt_rc
 int mxt_read_register(struct mxt_device *mxt, uint8_t *buf,

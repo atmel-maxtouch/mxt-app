@@ -92,6 +92,5 @@ int run_self_tests(struct mxt_device *mxt, uint8_t cmd);
 int mxt_serial_data_upload(struct mxt_device *mxt, const char *filename, uint16_t datatype);
 int print_raw_messages(struct mxt_device *mxt);
 int print_raw_messages_t44(struct mxt_device *mxt);
-int event_printer(struct mxt_device *mxt);
 void print_t6_state(uint8_t state);
 int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd);
