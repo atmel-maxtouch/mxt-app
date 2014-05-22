@@ -416,8 +416,7 @@ struct mxt_object_config
 };
 
 //******************************************************************************
-/// \brief  Load configuration from .xcfg or RAW file, automatically detect
-//          format
+/// \brief  Load configuration from RAW file
 //  \return #mxt_rc
 static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename)
 {
