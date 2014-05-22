@@ -235,10 +235,7 @@ int mxt_get_info(struct mxt_device *mxt)
 
   ret = mxt_read_info_block(mxt);
   if (ret)
-  {
-    mxt_err(mxt->ctx, "Failed to read information block from mXT device");
     return ret;
-  }
 
   ret = mxt_calc_report_ids(mxt);
   if (ret)

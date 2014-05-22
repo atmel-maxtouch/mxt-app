@@ -83,10 +83,7 @@ static int mxt_init_chip(struct libmaxtouch_ctx *ctx, struct mxt_device **mxt,
 
   ret = mxt_get_info(*mxt);
   if (ret)
-  {
-    mxt_err(ctx, "Failed to read information block");
     return ret;
-  }
 
   return MXT_SUCCESS;
 }
