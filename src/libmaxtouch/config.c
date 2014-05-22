@@ -155,9 +155,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
     /* First character is expected to be '[' - skip empty lines and spaces  */
     c = getc(fp);
     while ((c == '\n') || (c == '\r') || (c == 0x20))
-    {
       c = getc(fp);
-    }
 
     if (c != '[')
     {
@@ -177,7 +175,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
 
     if (fscanf(fp, "%[^] ]", object) != 1)
     {
-      printf("Object parse error\n");
+      mxt_err(mxt->ctx, "Object parse error");
       ret = MXT_ERROR_FILE_FORMAT;
       goto close;
     }
@@ -196,7 +194,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
 
     if (fscanf(fp, "%s", tmp) != 1)
     {
-      printf("Instance parse error\n");
+      mxt_err(mxt->ctx, "Instance parse error");
       ret = MXT_ERROR_FILE_FORMAT;
       goto close;
     }
@@ -210,7 +208,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
 
     if (fscanf(fp, "%d", &instance) != 1)
     {
-      printf("Instance number parse error\n");
+      mxt_err(mxt->ctx, "Instance number parse error");
       ret = MXT_ERROR_FILE_FORMAT;
       goto close;
     }
@@ -239,7 +237,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
 
     if (fscanf(fp, "%d", &object_address) != 1)
     {
-      printf("Object address parse error\n");
+      mxt_err(mxt->ctx, "Object address parse error");
       ret = MXT_ERROR_FILE_FORMAT;
       goto close;
     }
@@ -290,7 +288,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
       mxt_warn
       (
         mxt->ctx,
-        "Address of %s in config file (0x%04X) does not match chip (0x%04X)",
+        "Address of %s in config file (%d) does not match chip (%d)",
         object, object_address, expected_address
       );
 
@@ -344,7 +342,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
       /* Read byte count of this register (max 2) */
       if (fscanf(fp, "%d", &width) != 1)
       {
-        mxt_err(mxt->ctx, "Byte count parse error\n");
+        mxt_err(mxt->ctx, "Byte count parse error");
         ret = MXT_ERROR_FILE_FORMAT;
         goto close;
       }
@@ -356,7 +354,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
 
       if (fscanf(fp, "%d", &data) != 1)
       {
-        mxt_err(mxt->ctx, "Data parse error\n");
+        mxt_err(mxt->ctx, "Data parse error");
         ret = MXT_ERROR_FILE_FORMAT;
         goto close;
       }
