@@ -303,14 +303,14 @@ uint16_t mxt_get_object_address(struct mxt_device *mxt, uint16_t object_type, ui
       }
       else
       {
-        mxt_warn(mxt->ctx, "T%u instance %u does not exist",
+        mxt_warn(mxt->ctx, "T%u instance %u not present on device",
                       object_type, instance);
         return OBJECT_NOT_FOUND;
       }
     }
   }
 
-  mxt_warn(mxt->ctx, "T%u does not exist", object_type);
+  mxt_warn(mxt->ctx, "T%u not present on device", object_type);
   return OBJECT_NOT_FOUND;
 }
 

@@ -281,7 +281,20 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
                                               (uint8_t)instance);
     if (expected_address == OBJECT_NOT_FOUND)
     {
-      mxt_err(mxt->ctx, "T%u not present on chip", object_id);
+      /* Skip to next section */
+      c = getc(fp);
+      while (true)
+      {
+        while ((c != '\n') && (c != '\r') && (c != EOF))
+          c = getc(fp);
+
+        c = getc(fp);
+        if ((c == '[') || (c == EOF))
+          break;
+      }
+
+      fseek(fp, -1, SEEK_CUR);
+      continue;
     }
     else if (object_address != (int)expected_address)
     {
