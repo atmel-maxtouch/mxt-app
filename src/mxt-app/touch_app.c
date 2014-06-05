@@ -43,6 +43,52 @@
 
 #include "mxt_app.h"
 
+#define MXT_MSG_POLL_DELAY_MS 10
+
+//******************************************************************************
+/// \brief Get messages
+/// \return #mxt_rc
+int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context,
+    int (*msg_func)(struct mxt_device *mxt, uint8_t *msg, void *context))
+{
+  int count,len;
+  time_t now;
+  time_t start_time = time(NULL);
+  uint8_t buf[10];
+  int ret;
+
+  while (true)
+  {
+    mxt_msg_wait(mxt, MXT_MSG_POLL_DELAY_MS);
+
+    now = time(NULL);
+    if ((now - start_time) > timeout_seconds)
+    {
+      mxt_err(mxt->ctx, "Timeout");
+      return MXT_ERROR_TIMEOUT;
+    }
+
+    ret = mxt_get_msg_count(mxt, &count);
+    if (ret)
+      return ret;
+
+    do {
+      ret = mxt_get_msg_bytes(mxt, buf, sizeof(buf), &len);
+      if (ret)
+        return ret;
+
+      if (len > 0)
+      {
+        ret = ((*msg_func)(mxt, buf, context));
+        if (ret != MXT_MSG_CONTINUE)
+          return ret;
+      }
+    } while(count--);
+  }
+
+  return MXT_SUCCESS;
+}
+
 //******************************************************************************
 /// \brief Print messages
 /// \return #mxt_rc
@@ -74,14 +120,14 @@ int print_raw_messages(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief Handle status messages from the T6 command processor object
-void print_t6_state(uint8_t state)
+void print_t6_status(uint8_t status)
 {
   printf("T6 status: %s%s%s%s%s%s%s\n",
-         (state == 0) ? "OK":"",
-         (state & 0x04) ? "COMSERR ":"",
-         (state & 0x08) ? "CFGERR ":"",
-         (state & 0x10) ? "CAL ":"",
-         (state & 0x20) ? "SIGERR ":"",
-         (state & 0x40) ? "OFL ":"",
-         (state & 0x80) ? "RESET ":"");
+         (status == 0) ? "OK":"",
+         (status & 0x04) ? "COMSERR ":"",
+         (status & 0x08) ? "CFGERR ":"",
+         (status & 0x10) ? "CAL ":"",
+         (status & 0x20) ? "SIGERR ":"",
+         (status & 0x40) ? "OFL ":"",
+         (status & 0x80) ? "RESET ":"");
 }

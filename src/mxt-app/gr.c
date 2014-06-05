@@ -69,75 +69,45 @@
 
 //******************************************************************************
 /// \brief Handle status messages from the T66 golden references object
-static void mxt_gr_print_state(struct mxt_device *mxt, uint8_t state)
+static void mxt_gr_print_status(struct mxt_device *mxt, uint8_t status)
 {
   mxt_info(mxt->ctx,
-      "T66 state: %02X %s%s%s%s%s%s%s%s%s", state,
-      (state & GR_STATE_FCALFAIL) ? "FCALFAIL " : "",
-      (state & GR_STATE_FCALPASS) ? "FCALPASS " : "",
-      (state & GR_STATE_FCALSEQDONE) ? "FCALSEQDONE " : "",
-      (state & GR_STATE_FCALSEQTO) ? "FCALSEQTO " : "",
-      (state & GR_STATE_FCALSEQERR) ? "FCALSEQERR " : "",
-      ((state & GR_STATE_FCALSTATE_MASK) == GR_STATE_IDLE)     ? "Idle " : "",
-      ((state & GR_STATE_FCALSTATE_MASK) == GR_STATE_GENERATED)?"Generated ":"",
-      ((state & GR_STATE_FCALSTATE_MASK) == GR_STATE_PRIMED)   ? "Primed " : "",
-      (state & GR_STATE_BADSTOREDATA) ? "BADSTOREDATA " : "");
+      "T66 state: %02X %s%s%s%s%s%s%s%s%s", status,
+      (status & GR_STATE_FCALFAIL) ? "FCALFAIL " : "",
+      (status & GR_STATE_FCALPASS) ? "FCALPASS " : "",
+      (status & GR_STATE_FCALSEQDONE) ? "FCALSEQDONE " : "",
+      (status & GR_STATE_FCALSEQTO) ? "FCALSEQTO " : "",
+      (status & GR_STATE_FCALSEQERR) ? "FCALSEQERR " : "",
+      ((status & GR_STATE_FCALSTATE_MASK) == GR_STATE_IDLE)     ? "Idle " : "",
+      ((status & GR_STATE_FCALSTATE_MASK) == GR_STATE_GENERATED)?"Generated ":"",
+      ((status & GR_STATE_FCALSTATE_MASK) == GR_STATE_PRIMED)   ? "Primed " : "",
+      (status & GR_STATE_BADSTOREDATA) ? "BADSTOREDATA " : "");
 }
 
 //******************************************************************************
 /// \brief Handle status messages from the T66 golden references object
-static int mxt_gr_get_status(struct mxt_device *mxt, uint8_t *state, int timeout_seconds)
+static int mxt_gr_get_status(struct mxt_device *mxt, uint8_t *msg, void *context)
 {
-  int count, i, len;
-  time_t now;
-  time_t start_time = time(NULL);
-  uint8_t buf[10];
   unsigned int object_type;
-  int ret;
+  uint8_t *status = context;
 
-  while (true)
+  object_type = mxt_report_id_to_type(mxt, msg[0]);
+
+  mxt_verb(mxt->ctx, "Received message from T%u", object_type);
+
+  if (object_type == SPT_GOLDENREFERENCES_T66)
   {
-    mxt_msg_wait(mxt, 100);
-
-    now = time(NULL);
-    if ((now - start_time) > timeout_seconds)
-    {
-      mxt_err(mxt->ctx, "Timeout");
-      return MXT_ERROR_TIMEOUT;
-    }
-
-    ret = mxt_get_msg_count(mxt, &count);
-    if (ret)
-      return ret;
-
-    if (count > 0)
-    {
-      for (i = 0; i < count; i++)
-      {
-        ret = mxt_get_msg_bytes(mxt, buf, sizeof(buf), &len);
-        if (ret)
-          return ret;
-
-        if (len > 0)
-        {
-          object_type = mxt_report_id_to_type(mxt, buf[0]);
-
-          mxt_verb(mxt->ctx, "Received message from T%u", object_type);
-
-          if (object_type == SPT_GOLDENREFERENCES_T66)
-          {
-            *state = buf[1];
-            mxt_gr_print_state(mxt, *state);
-            return MXT_SUCCESS;
-          }
-          else if (object_type == GEN_COMMANDPROCESSOR_T6)
-          {
-            print_t6_state(buf[1]);
-          }
-        }
-      }
-    }
+    *status = msg[1];
+    mxt_gr_print_status(mxt, *status);
+    return MXT_SUCCESS;
   }
+  else if (object_type == GEN_COMMANDPROCESSOR_T6)
+  {
+    print_t6_status(msg[1]);
+    return MXT_MSG_CONTINUE;
+  }
+
+  return MXT_MSG_CONTINUE;
 }
 
 //******************************************************************************
@@ -156,7 +126,7 @@ static int mxt_gr_run_command(struct mxt_device *mxt, uint16_t addr, uint8_t cmd
   if (ret)
     return ret;
 
-  ret = mxt_gr_get_status(mxt, &actual_state, GR_TIMEOUT);
+  ret = mxt_read_messages(mxt, GR_TIMEOUT, &actual_state, mxt_gr_get_status);
   if (ret)
     return ret;
 

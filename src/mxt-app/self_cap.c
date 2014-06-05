@@ -51,70 +51,31 @@
 #define T109_CMD_STORE_TO_CONFIG_RAM    4
 
 //******************************************************************************
-/// \brief Send command then check status
+/// \brief Check status of previously sent command
 /// \return #mxt_rc
-static int mxt_self_cap_command(struct mxt_device *mxt, uint16_t addr, uint8_t cmd)
+static int mxt_self_cap_command(struct mxt_device *mxt, uint8_t *msg, void *context)
 {
-  int count, i, len;
-  time_t now;
-  time_t start_time = time(NULL);
-  uint8_t buf[10];
-  unsigned int object_type;
-  int ret;
+  unsigned int object_type = mxt_report_id_to_type(mxt, msg[0]);
+  uint8_t *cmd = context;
 
-  mxt_info(mxt->ctx, "Writing %u to T109 CMD register", cmd);
-  ret = mxt_write_register(mxt, &cmd, addr + T109_CMD_OFFSET, 1);
-  if (ret)
-    return ret;
+  mxt_verb(mxt->ctx, "Received message from T%u", object_type);
 
-  while (true)
+  if (object_type == SPT_SELFCAPGLOBALCONFIG_T109)
   {
-    mxt_msg_wait(mxt, 100);
-
-    now = time(NULL);
-    if ((now - start_time) > T109_TIMEOUT)
+    if (msg[1] == *cmd)
     {
-      mxt_err(mxt->ctx, "Timeout");
-      return MXT_ERROR_TIMEOUT;
-    }
-
-    ret = mxt_get_msg_count(mxt, &count);
-    if (ret)
-      return ret;
-
-    if (count > 0)
-    {
-      for (i = 0; i < count; i++)
+      switch (msg[2])
       {
-        ret = mxt_get_msg_bytes(mxt, buf, sizeof(buf), &len);
-        if (ret)
-          return ret;
-
-        if (len > 0)
-        {
-          object_type = mxt_report_id_to_type(mxt, buf[0]);
-
-          mxt_verb(mxt->ctx, "Received message from T%u", object_type);
-
-          if (object_type == SPT_SELFCAPGLOBALCONFIG_T109)
-          {
-            if (buf[1] == cmd)
-            {
-              switch (buf[2])
-              {
-                case 0: return MXT_SUCCESS;
-                case 1: return MXT_ERROR_SELFCAP_TUNE;
-              }
-            }
-          }
-          else if (object_type == GEN_COMMANDPROCESSOR_T6)
-          {
-            print_t6_state(buf[1]);
-          }
-        }
+        case 0: return MXT_SUCCESS;
+        case 1: return MXT_ERROR_SELFCAP_TUNE;
       }
     }
   }
+  else if (object_type == GEN_COMMANDPROCESSOR_T6)
+  {
+    print_t6_status(msg[1]);
+  }
+  return MXT_MSG_CONTINUE;
 }
 
 //******************************************************************************
@@ -150,7 +111,13 @@ int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd)
   mxt_msg_wait(mxt, 100);
 
   mxt_info(mxt->ctx, "Tuning");
-  ret = mxt_self_cap_command(mxt, t109_addr, T109_CMD_TUNE);
+  t109_command = T109_CMD_TUNE;
+  mxt_info(mxt->ctx, "Writing %u to T109 CMD register", cmd);
+  ret = mxt_write_register(mxt, &t109_command, t109_addr + T109_CMD_OFFSET, 1);
+  if (ret)
+    return ret;
+
+  ret = mxt_read_messages(mxt, 100, &t109_command, mxt_self_cap_command);
   if (ret)
     return ret;
 
@@ -167,8 +134,12 @@ int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd)
       t109_command = T109_CMD_STORE_TO_NVM;
       break;
   }
+  mxt_info(mxt->ctx, "Writing %u to T109 CMD register", cmd);
+  ret = mxt_write_register(mxt, &t109_command, t109_addr + T109_CMD_OFFSET, 1);
+  if (ret)
+    return ret;
 
-  ret = mxt_self_cap_command(mxt, t109_addr, t109_command);
+  ret = mxt_read_messages(mxt, 100, (void *) &t109_command, mxt_self_cap_command);
   if (ret)
     return ret;
 

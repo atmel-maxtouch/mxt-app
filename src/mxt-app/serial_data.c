@@ -93,60 +93,28 @@ static void mxt_t68_print_status(struct t68_ctx *ctx, uint8_t status)
 //******************************************************************************
 /// \brief  Handle status messages from the T68 Serial Data Command object
 /// \return #mxt_rc
-static int mxt_t68_get_status(struct t68_ctx *ctx)
+static int mxt_t68_get_status(struct mxt_device *mxt, uint8_t *msg, void *context)
 {
-  int count, i, ret, size;
-  time_t now;
-  time_t start_time = time(NULL);
-  uint8_t buf[10];
-  unsigned int object_type;
+  struct t68_ctx *ctx = context;
+  unsigned int object_type = mxt_report_id_to_type(mxt, msg[0]);
   uint8_t status;
 
-  while (true)
+  mxt_verb(mxt->ctx, "Received message from T%u", object_type);
+
+  if (object_type == SERIAL_DATA_COMMAND_T68)
   {
-    ret = mxt_msg_wait(ctx->mxt, 100);
-    if (ret)
-      return ret;
+    /* mask off reserved bits */
+    status = msg[1] & 0x0F;
 
-    now = time(NULL);
-    if ((now - start_time) > T68_TIMEOUT)
-    {
-      mxt_err(ctx->lc, "Timeout");
-      return MXT_ERROR_TIMEOUT;
-    }
+    mxt_t68_print_status(ctx, status);
 
-    ret = mxt_get_msg_count(ctx->mxt, &count);
-    if (ret)
-      return ret;
-
-    if (count > 0)
-    {
-      for (i = 0; i < count; i++)
-      {
-        ret = mxt_get_msg_bytes(ctx->mxt, buf, sizeof(buf), &size);
-        if (ret)
-          return ret;
-
-        object_type = mxt_report_id_to_type(ctx->mxt, buf[0]);
-
-        mxt_verb(ctx->lc, "Received message from T%u", object_type);
-
-        if (object_type == SERIAL_DATA_COMMAND_T68)
-        {
-          /* mask off reserved bits */
-          status = buf[1] & 0x0F;
-
-          mxt_t68_print_status(ctx, status);
-
-          return (status == 0) ? MXT_SUCCESS : MXT_ERROR_SERIAL_DATA_FAILURE;
-        }
-        else if (object_type == GEN_COMMANDPROCESSOR_T6)
-        {
-          print_t6_state(buf[1]);
-        }
-      }
-    }
+    return (status == 0) ? MXT_SUCCESS : MXT_ERROR_SERIAL_DATA_FAILURE;
   }
+  else if (object_type == GEN_COMMANDPROCESSOR_T6)
+  {
+    print_t6_status(msg[1]);
+  }
+  return MXT_MSG_CONTINUE;
 }
 
 //******************************************************************************
@@ -161,7 +129,7 @@ static int mxt_t68_command(struct t68_ctx *ctx, uint8_t cmd)
   if (ret)
     return ret;
 
-  return mxt_t68_get_status(ctx);
+  return mxt_read_messages(ctx->mxt, 100, ctx, mxt_t68_get_status);
 }
 
 //******************************************************************************

@@ -46,101 +46,63 @@
 //******************************************************************************
 /// \brief Handle messages from the self test object
 /// \return #mxt_rc
-static int self_test_handle_messages(struct mxt_device *mxt)
+static int self_test_handle_messages(struct mxt_device *mxt, uint8_t *msg, void *context)
 {
-   bool done = false;
-   int count, i;
-   time_t now;
-   time_t start_time = time(NULL);
-   static const uint8_t TIMEOUT = 10; // seconds
-   uint8_t buf[10];
-   int len;
-   unsigned int object_type;
-   int ret;
+  unsigned int object_type = mxt_report_id_to_type(mxt, msg[0]);
+  int ret;
 
-   while (!done)
-   {
-      mxt_msg_wait(mxt, 100);
+  mxt_verb(mxt->ctx, "Received message from T%u", object_type);
 
-      now = time(NULL);
-      if ((now - start_time) > TIMEOUT)
-      {
-         mxt_err(mxt->ctx, "Timeout");
-         return MXT_ERROR_TIMEOUT;
-      }
+  if (object_type == SPT_SELFTEST_T25)
+  {
+    switch (msg[1])
+    {
+      case SELF_TEST_ALL:
+        mxt_info(mxt->ctx, "PASS: All tests passed");
+        ret = MXT_SUCCESS;
+        break;
+      case SELF_TEST_INVALID:
+        mxt_err(mxt->ctx, "FAIL: Invalid test command");
+        ret = MXT_ERROR_NOT_SUPPORTED;
+        break;
+      case SELF_TEST_TIMEOUT:
+        mxt_err(mxt->ctx, "FAIL: Test timeout");
+        ret = MXT_ERROR_TIMEOUT;
+        break;
+      case SELF_TEST_ANALOG:
+        mxt_err(mxt->ctx, "FAIL: AVdd Analog power is not present");
+        ret = MXT_ERROR_SELF_TEST_ANALOG;
+        break;
+      case SELF_TEST_PIN_FAULT:
+        mxt_err(mxt->ctx, "FAIL: Pin fault");
+        ret = MXT_ERROR_SELF_TEST_PIN_FAULT;
+        break;
+      case SELF_TEST_PIN_FAULT_2:
+        mxt_err(mxt->ctx, "FAIL: Pin fault 2");
+        ret = MXT_ERROR_SELF_TEST_PIN_FAULT;
+        break;
+      case SELF_TEST_AND_GATE:
+        mxt_err(mxt->ctx, "FAIL: AND Gate Fault");
+        ret = MXT_ERROR_SELF_TEST_AND_GATE;
+        break;
+      case SELF_TEST_SIGNAL_LIMIT:
+        mxt_err(mxt->ctx, "FAIL: Signal limit fault");
+        ret = MXT_ERROR_SELF_TEST_SIGNAL_LIMIT;
+        break;
+      case SELF_TEST_GAIN:
+        mxt_err(mxt->ctx, "FAIL: Gain error");
+        ret = MXT_ERROR_SELF_TEST_GAIN;
+        break;
+      default:
+        mxt_err(mxt->ctx, "Unrecognised status %02X", msg[1]);
+        ret = MXT_ERROR_UNEXPECTED_DEVICE_STATE;
+        break;
+    }
+  } else {
+    ret = MXT_MSG_CONTINUE;
+  }
 
-      ret = mxt_get_msg_count(mxt, &count);
-      if (ret)
-        return ret;
-
-      if (count > 0)
-      {
-         for (i = 0; i < count; i++)
-         {
-            ret = mxt_get_msg_bytes(mxt, buf, sizeof(buf), &len);
-            if (ret)
-              return ret;
-
-            if (len > 0)
-            {
-               object_type = mxt_report_id_to_type(mxt, buf[0]);
-
-               mxt_verb(mxt->ctx, "Received message from T%u", object_type);
-               
-               if (object_type == SPT_SELFTEST_T25)
-               {
-                  switch (buf[1])
-                  {
-                  case SELF_TEST_ALL:
-                     mxt_info(mxt->ctx, "PASS: All tests passed");
-                     ret = MXT_SUCCESS;
-                     break;
-                  case SELF_TEST_INVALID:
-                     mxt_err(mxt->ctx, "FAIL: Invalid test command");
-                     ret = MXT_ERROR_NOT_SUPPORTED;
-                     break;
-                  case SELF_TEST_TIMEOUT:
-                     mxt_err(mxt->ctx, "FAIL: Test timeout");
-                     ret = MXT_ERROR_TIMEOUT;
-                     break;
-                  case SELF_TEST_ANALOG:
-                     mxt_err(mxt->ctx, "FAIL: AVdd Analog power is not present");
-                     ret = MXT_ERROR_SELF_TEST_ANALOG;
-                     break;
-                  case SELF_TEST_PIN_FAULT:
-                     mxt_err(mxt->ctx, "FAIL: Pin fault");
-                     ret = MXT_ERROR_SELF_TEST_PIN_FAULT;
-                     break;
-                  case SELF_TEST_PIN_FAULT_2:
-                     mxt_err(mxt->ctx, "FAIL: Pin fault 2");
-                     ret = MXT_ERROR_SELF_TEST_PIN_FAULT;
-                     break;
-                  case SELF_TEST_AND_GATE:
-                     mxt_err(mxt->ctx, "FAIL: AND Gate Fault");
-                     ret = MXT_ERROR_SELF_TEST_AND_GATE;
-                     break;
-                  case SELF_TEST_SIGNAL_LIMIT:
-                     mxt_err(mxt->ctx, "FAIL: Signal limit fault");
-                     ret = MXT_ERROR_SELF_TEST_SIGNAL_LIMIT;
-                     break;
-                  case SELF_TEST_GAIN:
-                     mxt_err(mxt->ctx, "FAIL: Gain error");
-                     ret = MXT_ERROR_SELF_TEST_GAIN;
-                     break;
-                  default:
-                     mxt_err(mxt->ctx, "Unrecognised status %02X", buf[1]);
-                     ret = MXT_ERROR_UNEXPECTED_DEVICE_STATE;
-                     break;
-                  }
-
-                  done = true;
-               }
-            }
-         }
-      }
-   }
-
-   return ret;
+  return ret;
 }
 
 //******************************************************************************
@@ -253,7 +215,7 @@ int run_self_tests(struct mxt_device *mxt, uint8_t cmd)
    mxt_info(mxt->ctx, "Running tests");
    mxt_write_register(mxt, &cmd, t25_addr + 1, 1);
 
-   return self_test_handle_messages(mxt);
+   return (mxt_read_messages(mxt, 100, NULL, self_test_handle_messages));
 }
 
 //******************************************************************************

@@ -95,6 +95,7 @@ enum mxt_rc {
   MXT_ERROR_SERIAL_DATA_FAILURE = 29,        /*!< Serial data download failed */
   MXT_ERROR_NOENT = 30,                      /*!< No such file or directory */
   MXT_ERROR_SELFCAP_TUNE = 31,               /*!< Error processing self cap command */
+  MXT_MSG_CONTINUE = 32,                     /*!< Continue processing messages */
 };
 
 //******************************************************************************
