@@ -98,7 +98,7 @@ static void print_usage(char *prog_name)
           "General commands:\n"
           "  -h [--help]                : display this help and exit\n"
           "  -i [--info]                : print device information\n"
-          "  -M [--messages]            : print the messages\n"
+          "  -M [--messages] [TIMEOUT]  : print the messages for TIMEOUT seconds\n"
           "  --reset                    : reset device\n"
           "  --reset-bootloader         : reset device in bootloader mode\n"
           "  --calibrate                : send calibrate command\n"
@@ -163,6 +163,7 @@ int main (int argc, char *argv[])
 {
   int ret;
   int c;
+  int msgs_timeout = 0;
   uint16_t address = 0;
   uint16_t object_address = 0;
   uint16_t count = 0;
@@ -203,7 +204,7 @@ int main (int argc, char *argv[])
       {"instance",         required_argument, 0, 'I'},
       {"load",             required_argument, 0, 0},
       {"save",             required_argument, 0, 0},
-      {"messages",         no_argument,       0, 'M'},
+      {"messages",         optional_argument, 0, 'M'},
       {"count",            required_argument, 0, 'n'},
       {"port",             required_argument, 0, 'p'},
       {"query",            no_argument,       0, 'q'},
@@ -227,7 +228,7 @@ int main (int argc, char *argv[])
     };
 
     c = getopt_long(argc, argv,
-                    "C:d:D:fghiI:Mm:n:p:qRr:StT:v:W",
+                    "C:d:D:fghiI:M::m:n:p:qRr:StT:v:W",
                     long_options, &option_index);
     if (c == -1)
       break;
@@ -477,6 +478,9 @@ int main (int argc, char *argv[])
       case 'M':
         if (cmd == CMD_NONE) {
           cmd = CMD_MESSAGES;
+          if(optarg)
+            msgs_timeout = strtol(optarg, NULL, 0);
+
         } else {
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
@@ -716,7 +720,7 @@ int main (int argc, char *argv[])
 
     case CMD_MESSAGES:
       mxt_verb(ctx, "CMD_MESSAGES");
-      ret = print_raw_messages(mxt);
+      ret = print_raw_messages(mxt, msgs_timeout);
       break;
 
     case CMD_BACKUP:

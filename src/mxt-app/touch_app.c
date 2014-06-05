@@ -61,13 +61,6 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
   {
     mxt_msg_wait(mxt, MXT_MSG_POLL_DELAY_MS);
 
-    now = time(NULL);
-    if ((now - start_time) > timeout_seconds)
-    {
-      mxt_err(mxt->ctx, "Timeout");
-      return MXT_ERROR_TIMEOUT;
-    }
-
     ret = mxt_get_msg_count(mxt, &count);
     if (ret)
       return ret;
@@ -83,6 +76,14 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
         if (ret != MXT_MSG_CONTINUE)
           return ret;
       }
+
+      now = time(NULL);
+      if ((now - start_time) > timeout_seconds)
+      {
+        mxt_err(mxt->ctx, "Timeout");
+        return MXT_ERROR_TIMEOUT;
+      }
+
     } while(count--);
   }
 
@@ -92,28 +93,30 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
 //******************************************************************************
 /// \brief Print messages
 /// \return #mxt_rc
-int print_raw_messages(struct mxt_device *mxt)
+int print_raw_messages(struct mxt_device *mxt, int timeout)
 {
   int count, i, ret;
+  time_t now;
+  time_t start_time = time(NULL);
 
-  /* Get the number of new messages */
-  ret = mxt_get_msg_count(mxt, &count);
-  if (ret)
-    return ret;
+  do {
+    /* Get the number of new messages */
+    ret = mxt_get_msg_count(mxt, &count);
+    if (ret)
+      return ret;
 
-  /* Print any new messages */
-  if (count == 0)
-  {
-    printf("(no messages)\n");
-  }
-  else if (count > 0)
-  {
-    for (i = 0; i < count; i++)
+    /* Print any new messages */
+    else if (count > 0)
     {
-      printf("%s\n", mxt_get_msg_string(mxt));
-      fflush(stdout);
+      for (i = 0; i < count; i++)
+      {
+        printf("%s\n", mxt_get_msg_string(mxt));
+        fflush(stdout);
+      }
     }
-  }
+
+    now = time(NULL);
+  } while((now - start_time) < timeout || timeout == 0);
 
   return MXT_SUCCESS;
 }

@@ -290,7 +290,7 @@ static bool mxt_app_command(struct mxt_device *mxt, char selection)
       break;
     case 'm':
       /* Display raw messages */
-      print_raw_messages(mxt);
+      print_raw_messages(mxt, 0);
       break;
     case 'u':
       mxt_dd_menu(mxt);
