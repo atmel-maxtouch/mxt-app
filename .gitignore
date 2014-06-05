@@ -26,3 +26,4 @@ Makefile.in
 *.la
 /.deps/
 /.libs/
+.reviewboardrc
