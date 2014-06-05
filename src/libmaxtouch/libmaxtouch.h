@@ -152,6 +152,7 @@ struct mxt_device
   struct libmaxtouch_ctx *ctx;
   struct mxt_info info;
   struct mxt_report_id_map *report_id_map;
+  char msg_string[255];
 
   union
   {

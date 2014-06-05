@@ -50,7 +50,8 @@
 /// \brief Get messages
 /// \return #mxt_rc
 int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context,
-    int (*msg_func)(struct mxt_device *mxt, uint8_t *msg, void *context))
+                      int (*msg_func)(struct mxt_device *mxt, uint8_t *msg,
+                      void *context))
 {
   int count,len;
   time_t now;
@@ -94,25 +95,38 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
 //******************************************************************************
 /// \brief Print messages
 /// \return #mxt_rc
-int print_raw_messages(struct mxt_device *mxt, int timeout)
+int print_raw_messages(struct mxt_device *mxt, int timeout, uint16_t object_type)
 {
-  int count, i, ret;
+  int count, i, j, ret;
   time_t now;
   time_t start_time = time(NULL);
 
   do {
     /* Get the number of new messages */
     ret = mxt_get_msg_count(mxt, &count);
-    if (ret)
+    if (ret) {
       return ret;
-
-    /* Print any new messages */
-    else if (count > 0)
-    {
+    } else if (count > 0) {
+      /* Print any new messages */
       for (i = 0; i < count; i++)
       {
-        printf("%s\n", mxt_get_msg_string(mxt));
-        fflush(stdout);
+        int len, size;
+        unsigned char msg[20];
+
+        ret = mxt_get_msg_bytes(mxt, &msg[0], sizeof(msg), &size);
+        if (ret)
+          return ret;
+
+        if (object_type == 0 || object_type == mxt_report_id_to_type(mxt, msg[0])) {
+          len = snprintf(mxt->msg_string, sizeof(mxt->msg_string), MSG_PREFIX);
+          for (j = 0; j < size; j++)
+          {
+            len += snprintf(mxt->msg_string + len, sizeof(mxt->msg_string) - len,
+                            "%02X ", msg[j]);
+          }
+          printf("%s\n", mxt->msg_string);
+          fflush(stdout);
+        }
       }
     }
 

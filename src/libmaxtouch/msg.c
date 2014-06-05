@@ -34,8 +34,6 @@
 #include "libmaxtouch.h"
 #include "msg.h"
 
-char msg_string[255];
-
 //******************************************************************************
 /// \brief  Get number of messages
 /// \return #mxt_rc
@@ -72,14 +70,14 @@ char *t44_get_msg_string(struct mxt_device *mxt)
   if (ret)
     return NULL;
 
-  length = snprintf(msg_string, sizeof(msg_string), MSG_PREFIX);
+  length = snprintf(mxt->msg_string, sizeof(mxt->msg_string), MSG_PREFIX);
   for (i = 0; i < size; i++)
   {
-    length += snprintf(msg_string + length, sizeof(msg_string) - length,
+    length += snprintf(mxt->msg_string + length, sizeof(mxt->msg_string) - length,
                        "%02X ", databuf[i]);
   }
 
-  return &msg_string[0];
+  return &mxt->msg_string[0];
 }
 
 //******************************************************************************

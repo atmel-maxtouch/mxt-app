@@ -720,7 +720,7 @@ int main (int argc, char *argv[])
 
     case CMD_MESSAGES:
       mxt_verb(ctx, "CMD_MESSAGES");
-      ret = print_raw_messages(mxt, msgs_timeout);
+      ret = print_raw_messages(mxt, msgs_timeout, object_type);
       break;
 
     case CMD_BACKUP:

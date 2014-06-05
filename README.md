@@ -37,8 +37,9 @@ by Atmel under NDA.
 `-i [--info]`
 :   Print the ID information and object table.
 
-`-M [--messages]`
-:   Print the messages.
+`-M [--messages] [*timeout*]`
+:   Prints the messages until *timeout* seconds have passed, if no value is provided,
+    prints, until user presses Ctrl-C
 
 `--reset`
 :   Reset device.
