@@ -36,6 +36,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <time.h>
 
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/info_block.h"
