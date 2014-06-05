@@ -32,12 +32,15 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include <string.h>
-#include <config.h>
 
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/info_block.h"
 #include "usb_device.h"
+
+#ifndef ANDROID
+#include "config.h"
+#endif
 
 /* USB device configuration */
 #define VENDOR_ID    0x03EB

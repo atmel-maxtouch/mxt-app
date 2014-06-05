@@ -1,0 +1,3 @@
+[submodule "src/libusbdroid/code"]
+	path = src/libusbdroid/code
+	url = git://git.code.sf.net/p/libusbdroid/code
