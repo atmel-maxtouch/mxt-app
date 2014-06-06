@@ -36,13 +36,14 @@
 
 #include "libmaxtouch.h"
 #include "info_block.h"
+#include "utilfuncs.h"
 
 #define OBP_RAW_MAGIC      "OBP_RAW V1"
 
 //******************************************************************************
-/// \brief  Save configuration to file
+/// \brief  Save OBP_RAW configuration to file
 /// \return #mxt_rc
-int mxt_save_raw_file(struct mxt_device *mxt, const char *filename)
+static int mxt_save_raw_file(struct mxt_device *mxt, const char *filename)
 {
   int obj_idx, i, instance, num_bytes;
   uint8_t *temp;
@@ -109,6 +110,108 @@ int mxt_save_raw_file(struct mxt_device *mxt, const char *filename)
 
 close:
   fclose(fp);
+  return ret;
+}
+
+//******************************************************************************
+/// \brief  Save configuration to .xcfg file
+/// \return #mxt_rc
+static int mxt_save_xcfg_file(struct mxt_device *mxt, const char *filename)
+{
+  int obj_idx, i, instance, num_bytes;
+  uint8_t *temp;
+  struct mxt_object object;
+  struct mxt_id_info *id = mxt->info.id;
+  FILE *fp;
+  int ret;
+
+  mxt_info(mxt->ctx, "Opening config file %s...", filename);
+
+  fp = fopen(filename, "w");
+  if (fp == NULL)
+  {
+    mxt_err(mxt->ctx, "Error opening %s: %s", filename, strerror(errno));
+    return mxt_errno_to_rc(errno);
+  }
+
+  fprintf(fp, "[COMMENTS]\n");
+  fprintf(fp, "Date and time: ");
+  mxt_print_timestamp(fp);
+
+  fprintf(fp, "\n[VERSION_INFO_HEADER]\n");
+  fprintf(fp, "FAMILY_ID=%d\n", id->family);
+  fprintf(fp, "VARIANT=%d\n", id->variant);
+  fprintf(fp, "VERSION=%d\n", id->version);
+  fprintf(fp, "BUILD=%d\n", id->build);
+  fprintf(fp, "INFO_BLOCK_CHECKSUM=0x%02X\n", mxt->info.crc);
+
+  fprintf(fp, "[APPLICATION_INFO_HEADER]\n");
+  fprintf(fp, "NAME=mxt-app\n");
+  fprintf(fp, "VERSION=%s\n", MXT_VERSION);
+
+  for (obj_idx = 0; obj_idx < id->num_objects; obj_idx++)
+  {
+    object = mxt->info.objects[obj_idx];
+    num_bytes = MXT_SIZE(object);
+
+    temp = (uint8_t *)calloc(num_bytes, sizeof(char));
+    if (temp == NULL)
+    {
+      mxt_err(mxt->ctx, "Failed to allocate memory");
+      ret = MXT_ERROR_NO_MEM;
+      goto close;
+    }
+
+    for (instance = 0; instance < MXT_INSTANCES(object); instance++)
+    {
+      int address = mxt_get_start_position(object, instance);
+
+      const char *obj_name = mxt_get_object_name(object.type);
+      if(obj_name == NULL)
+        fprintf(fp, "[UNKNOWN_T%d INSTANCE %d]\n", object.type, instance);
+      else
+        fprintf(fp, "[%s INSTANCE %d]\n", obj_name, instance);
+
+      fprintf(fp, "OBJECT_ADDRESS=%d\n", address);
+      fprintf(fp, "OBJECT_SIZE=%d\n", num_bytes);
+
+      mxt_read_register(mxt, temp, address, num_bytes);
+
+      for (i = 0; i < num_bytes; i++)
+      {
+        fprintf(fp, "%d 1 UNKNOWN[%d]=%d\n", i, i, *(temp + i));
+      }
+    }
+    free(temp);
+  }
+
+  ret = MXT_SUCCESS;
+
+close:
+  fclose(fp);
+  return ret;
+}
+
+//******************************************************************************
+/// \brief  Save configuration to file
+/// \return #mxt_rc
+int mxt_save_config_file(struct mxt_device *mxt, const char *filename)
+{
+  int ret;
+
+  char *extension = strrchr(filename, '.');
+
+  if (extension && !strcmp(extension, ".xcfg"))
+  {
+    mxt_dbg(mxt->ctx, "Saving %s as .xcfg", filename);
+    ret = mxt_save_xcfg_file(mxt, filename);
+  }
+  else
+  {
+    mxt_dbg(mxt->ctx, "Saving %s as OBP_RAW", filename);
+    ret = mxt_save_raw_file(mxt, filename);
+  }
+
   return ret;
 }
 

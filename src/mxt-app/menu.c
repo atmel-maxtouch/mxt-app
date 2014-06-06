@@ -79,7 +79,7 @@ static void save_config(struct mxt_device *mxt)
     return;
   }
 
-  if (mxt_save_raw_file(mxt, cfg_file) == MXT_SUCCESS)
+  if (mxt_save_config_file(mxt, cfg_file) == MXT_SUCCESS)
   {
     printf("Successfully saved configuration to file\n");
   }
@@ -161,7 +161,11 @@ static void write_to_object(struct mxt_device *mxt, int obj_num, uint8_t instanc
     return;
   }
 
-  printf("%s:\n", mxt_get_object_name(mxt->info.objects[obj_tbl_num].type));
+  const char *obj_name = mxt_get_object_name(mxt->info.objects[obj_tbl_num].type);
+  if (obj_name)
+    printf("%s:\n", obj_name);
+  else
+    printf("UNKNOWN_T%d:\n", mxt->info.objects[obj_tbl_num].type);
 
   start_position = mxt_get_start_position(mxt->info.objects[obj_tbl_num], instance);
   size = mxt_get_object_size(mxt, obj_num);

@@ -2,7 +2,7 @@ LOCAL_PATH := $(my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_C_INCLUDES := $(SRC_PATH)
-LOCAL_CFLAGS += -DHAVE_LIBUSB
+LOCAL_CFLAGS += -DHAVE_LIBUSB -DMXT_VERSION=\"$(GIT_VERSION)\"
 LOCAL_SRC_FILES := \
   libmaxtouch.c \
   log.c \

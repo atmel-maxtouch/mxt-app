@@ -111,7 +111,7 @@ static void print_usage(char *prog_name)
           "\n"
           "Configuration file commands:\n"
           "  --load FILE                : upload cfg from FILE in .xcfg or OBP_RAW format\n"
-          "  --save FILE                : save cfg to FILE in OBP_RAW format\n"
+          "  --save FILE                : save cfg to FILE in .xcfg or OBP_RAW format\n"
           "\n"
           "Register read/write commands:\n"
           "  -R [--read]                : read from object\n"
@@ -777,7 +777,7 @@ int main (int argc, char *argv[])
     case CMD_SAVE_CFG:
       mxt_verb(ctx, "CMD_SAVE_CFG");
       mxt_verb(ctx, "filename:%s", strbuf);
-      ret = mxt_save_raw_file(mxt, strbuf);
+      ret = mxt_save_config_file(mxt, strbuf);
       break;
 
     case CMD_SELF_CAP_TUNE_CONFIG:

@@ -90,13 +90,18 @@ void mxt_print_info_block(struct mxt_device *mxt)
       report_id_end = 0;
     }
 
-    printf("T%-3u %4u  %4u    %2u       %2u-%-2u   %s\n",
+    printf("T%-3u %4u  %4u    %2u       %2u-%-2u   ",
            obj.type,
            mxt_get_start_position(obj, 0),
            MXT_SIZE(obj),
            MXT_INSTANCES(obj),
-           report_id_start, report_id_end,
-           mxt_get_object_name(obj.type));
+           report_id_start, report_id_end);
+
+    const char *obj_name = mxt_get_object_name(obj.type);
+    if (obj_name)
+      printf("%s\n", obj_name);
+    else
+      printf("UNKNOWN_T%d\n", obj.type);
   }
 
   printf("\n");
@@ -104,6 +109,7 @@ void mxt_print_info_block(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief Convert object type to object name
+/// \return null terminated string, or NULL for object not found
 const char *mxt_get_object_name(uint8_t objtype)
 {
   switch(objtype)
@@ -111,7 +117,7 @@ const char *mxt_get_object_name(uint8_t objtype)
     OBJECT_LIST(F_SWITCH)
 
     default:
-      return("UNKNOWN");
+      return NULL;
   }
 }
 //******************************************************************************
@@ -163,8 +169,13 @@ int mxt_read_object(struct mxt_device *mxt, uint16_t object_type,
 
   if (format)
   {
-    if (object_type > 0)
-      printf("%s\n\n", mxt_get_object_name(object_type));
+    if (object_type > 0) {
+      const char *obj_name = mxt_get_object_name(object_type);
+      if (obj_name)
+        printf("%s\n\n", obj_name);
+      else
+        printf("UNKNOWN_T%d\n\n", object_type);
+    }
 
     for (i = 0; i < count; i++) {
       printf("%02d:\t0x%02X\t%3d\t" BYTETOBINARYPATTERN "\n",

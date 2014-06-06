@@ -73,7 +73,7 @@ by Atmel under NDA.
     configuration may be in `.xcfg` or `OBP_RAW` format.
 
 `--save *FILE*`
-:   Save config to *FILE* in `OBP_RAW` format.
+:   Save config to *FILE* in either `OBP_RAW` or `.xcfg` format.
 
 # REGISTER READ/WRITE COMMANDS
 
