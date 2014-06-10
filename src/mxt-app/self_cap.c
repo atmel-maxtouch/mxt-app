@@ -144,7 +144,7 @@ int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd)
     return ret;
 
   mxt_info(mxt->ctx, "Saving configuration");
-  ret = mxt_backup_config(mxt);
+  ret = mxt_backup_config(mxt, BACKUPNV_COMMAND);
   if (ret)
     return ret;
 

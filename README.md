@@ -48,8 +48,8 @@ by Atmel under NDA.
 `--calibrate`
 :   Send calibrate command.
 
-`--backup`
-:   Backup configuration to NVRAM.
+`--backup[=COMMAND]`
+:   Backup configuration to NVRAM where the optional argument, *command*, is the BACKUPNV command.
 
 `-g`
 :   Write Golden Reference calibration to NVRAM.

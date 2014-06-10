@@ -509,11 +509,10 @@ int mxt_calibrate_chip(struct mxt_device *mxt)
 //******************************************************************************
 /// \brief  Backup configuration settings to non-volatile memory
 /// \return #mxt_rc
-int mxt_backup_config(struct mxt_device *mxt)
+int mxt_backup_config(struct mxt_device *mxt, uint8_t backup_command)
 {
   int ret;
   uint16_t t6_addr;
-  unsigned char write_value = BACKUPNV_COMMAND;
 
   /* Obtain command processor's address */
   t6_addr = mxt_get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
@@ -523,7 +522,7 @@ int mxt_backup_config(struct mxt_device *mxt)
   /* Write to command processor register to perform command */
   ret = mxt_write_register
   (
-    mxt, &write_value, t6_addr + MXT_T6_BACKUPNV_OFFSET, 1
+    mxt, &backup_command, t6_addr + MXT_T6_BACKUPNV_OFFSET, 1
   );
 
   if (ret == MXT_SUCCESS)

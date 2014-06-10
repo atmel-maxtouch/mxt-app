@@ -261,7 +261,7 @@ static bool mxt_app_command(struct mxt_device *mxt, char selection)
       break;
     case 'b':
       /* Backup the config data */
-      if (mxt_backup_config(mxt) == MXT_SUCCESS)
+      if (mxt_backup_config(mxt, BACKUPNV_COMMAND) == MXT_SUCCESS)
       {
         printf("Settings successfully backed up to non-volatile memory\n");
       }

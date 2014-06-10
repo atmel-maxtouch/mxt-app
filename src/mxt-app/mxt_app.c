@@ -102,7 +102,7 @@ static void print_usage(char *prog_name)
           "  --reset                    : reset device\n"
           "  --reset-bootloader         : reset device in bootloader mode\n"
           "  --calibrate                : send calibrate command\n"
-          "  --backup                   : backup configuration to NVRAM\n"
+          "  --backup[=COMMAND]         : backup configuration to NVRAM\n"
           "  -g                         : store golden references\n"
           "  --self-cap-tune-config     : tune self capacitance settings to config\n"
           "  --self-cap-tune-nvram      : tune self capacitance settings to NVRAM\n"
@@ -166,6 +166,7 @@ int main (int argc, char *argv[])
   int ret;
   int c;
   int msgs_timeout = 0;
+  uint8_t backup_command = BACKUPNV_COMMAND;
   uint16_t address = 0;
   uint16_t object_address = 0;
   uint16_t count = 0;
@@ -190,7 +191,7 @@ int main (int argc, char *argv[])
     int option_index = 0;
 
     static struct option long_options[] = {
-      {"backup",           no_argument,       0, 0},
+      {"backup",           optional_argument, 0, 0},
       {"bridge-client",    required_argument, 0, 'C'},
       {"calibrate",        no_argument,       0, 0},
       {"debug-dump",       required_argument, 0, 0},
@@ -268,6 +269,10 @@ int main (int argc, char *argv[])
         {
           if (cmd == CMD_NONE) {
             cmd = CMD_BACKUP;
+            if(optarg) {
+              uint16_t nibble_count;
+              ret = mxt_convert_hex(optarg, &backup_command, &nibble_count, sizeof(backup_command));
+            }
           } else {
             print_usage(argv[0]);
             return MXT_ERROR_BAD_INPUT;
@@ -727,7 +732,7 @@ int main (int argc, char *argv[])
 
     case CMD_BACKUP:
       mxt_verb(ctx, "CMD_BACKUP");
-      ret = mxt_backup_config(mxt);
+      ret = mxt_backup_config(mxt, backup_command);
       break;
 
     case CMD_CALIBRATE:
@@ -754,7 +759,7 @@ int main (int argc, char *argv[])
       {
         mxt_info(ctx, "Configuration loaded");
 
-        ret = mxt_backup_config(mxt);
+        ret = mxt_backup_config(mxt, backup_command);
         if (ret)
         {
           mxt_err(ctx, "Error backing up");

@@ -261,7 +261,7 @@ JNIEXPORT jstring JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_GetSysfsDirectory
 JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_BackupConfig
   (JNIEnv *env, jobject this)
 {
-  return mxt_backup_config(mxt);
+  return mxt_backup_config(mxt, BACKUPNV_COMMAND);
 }
 
 //******************************************************************************
