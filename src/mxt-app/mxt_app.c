@@ -149,7 +149,9 @@ static void print_usage(char *prog_name)
           "  -d [--device] DEVICESTRING : DEVICESTRING as output by --query\n\n"
           "  Examples:\n"
           "    -d i2c-dev:ADAPTER:ADDRESS : raw i2c device, eg \"i2c-dev:2-004a\"\n"
+#ifdef HAVE_LIBUSB
           "    -d usb:BUS-DEVICE          : USB device, eg \"usb:001-003\"\n"
+#endif
           "    -d sysfs:PATH              : sysfs interface\n"
           "\n"
           "Debug options:\n"
