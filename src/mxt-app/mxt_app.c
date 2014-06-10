@@ -98,7 +98,7 @@ static void print_usage(char *prog_name)
           "General commands:\n"
           "  -h [--help]                : display this help and exit\n"
           "  -i [--info]                : print device information\n"
-          "  -M [--messages] [TIMEOUT]  : print the messages for TIMEOUT seconds\n"
+          "  -M [--messages] [TIMEOUT]  : print the messages (for TIMEOUT seconds)\n"
           "  --reset                    : reset device\n"
           "  --reset-bootloader         : reset device in bootloader mode\n"
           "  --calibrate                : send calibrate command\n"
@@ -165,7 +165,7 @@ int main (int argc, char *argv[])
 {
   int ret;
   int c;
-  int msgs_timeout = 0;
+  int msgs_timeout = -1;
   uint8_t backup_command = BACKUPNV_COMMAND;
   uint16_t address = 0;
   uint16_t object_address = 0;
@@ -727,6 +727,7 @@ int main (int argc, char *argv[])
 
     case CMD_MESSAGES:
       mxt_verb(ctx, "CMD_MESSAGES");
+      mxt_verb(ctx, "msgs_timeout:%d", msgs_timeout);
       ret = print_raw_messages(mxt, msgs_timeout, object_type);
       break;
 

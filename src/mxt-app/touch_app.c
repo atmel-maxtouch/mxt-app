@@ -51,9 +51,9 @@
 /// \return #mxt_rc
 int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context,
                       int (*msg_func)(struct mxt_device *mxt, uint8_t *msg,
-                      void *context))
+                      void *context, uint8_t size))
 {
-  int count,len;
+  int count, len;
   time_t now;
   time_t start_time = time(NULL);
   uint8_t buf[10];
@@ -67,29 +67,59 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
     if (ret)
       return ret;
 
-    do {
+    while (count--) {
       ret = mxt_get_msg_bytes(mxt, buf, sizeof(buf), &len);
-      if (ret)
+      if (ret && ret != MXT_ERROR_NO_MESSAGE)
         return ret;
 
       if (len > 0)
       {
-        ret = ((*msg_func)(mxt, buf, context));
+        ret = ((*msg_func)(mxt, buf, context, len));
         if (ret != MXT_MSG_CONTINUE)
           return ret;
       }
+    }
 
+    if (timeout_seconds == 0)
+    {
+      return MXT_SUCCESS;
+    } else if (timeout_seconds > 0) {
       now = time(NULL);
       if ((now - start_time) > timeout_seconds)
       {
         mxt_err(mxt->ctx, "Timeout");
         return MXT_ERROR_TIMEOUT;
       }
-
-    } while(count--);
+    }
   }
 
   return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief Print message as hex
+/// \return #mxt_rc
+static int print_message_hex(struct mxt_device *mxt, uint8_t *msg,
+                             void *context, uint8_t size)
+{
+  const uint16_t object_type = *((uint16_t*)context);
+  int j;
+  int len;
+
+  if (object_type == 0 || object_type == mxt_report_id_to_type(mxt, msg[0]))
+  {
+    len = snprintf(mxt->msg_string, sizeof(mxt->msg_string), MSG_PREFIX);
+    for (j = 0; j < size; j++)
+    {
+      len += snprintf(mxt->msg_string + len, sizeof(mxt->msg_string) - len,
+          "%02X ", msg[j]);
+    }
+
+    printf("%s\n", mxt->msg_string);
+    fflush(stdout);
+  }
+
+  return MXT_MSG_CONTINUE;
 }
 
 //******************************************************************************
@@ -97,41 +127,7 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
 /// \return #mxt_rc
 int print_raw_messages(struct mxt_device *mxt, int timeout, uint16_t object_type)
 {
-  int count, i, j, ret;
-  time_t now;
-  time_t start_time = time(NULL);
-
-  do {
-    /* Get the number of new messages */
-    ret = mxt_get_msg_count(mxt, &count);
-    if (ret) {
-      return ret;
-    } else if (count > 0) {
-      /* Print any new messages */
-      for (i = 0; i < count; i++)
-      {
-        int len, size;
-        unsigned char msg[20];
-
-        ret = mxt_get_msg_bytes(mxt, &msg[0], sizeof(msg), &size);
-        if (ret)
-          return ret;
-
-        if (object_type == 0 || object_type == mxt_report_id_to_type(mxt, msg[0])) {
-          len = snprintf(mxt->msg_string, sizeof(mxt->msg_string), MSG_PREFIX);
-          for (j = 0; j < size; j++)
-          {
-            len += snprintf(mxt->msg_string + len, sizeof(mxt->msg_string) - len,
-                            "%02X ", msg[j]);
-          }
-          printf("%s\n", mxt->msg_string);
-          fflush(stdout);
-        }
-      }
-    }
-
-    now = time(NULL);
-  } while((now - start_time) < timeout || timeout == 0);
+  mxt_read_messages(mxt, timeout, &object_type, print_message_hex);
 
   return MXT_SUCCESS;
 }

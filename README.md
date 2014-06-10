@@ -38,9 +38,9 @@ by Atmel under NDA.
 :   Print the ID information and object table.
 
 `-M [--messages] [*timeout*]`
-:   Prints the messages until *timeout* seconds have passed, if no value is provided,
-    prints, until user presses Ctrl-C. Provide `-T [--type]` option to filter by a
-    specific object.
+:   Prints the messages until *timeout* seconds have passed. If no *timeout*
+    is provided, continue until user presses Ctrl-C. Zero timeout reads once.
+    Provide `-T [--type]` option to filter by a specific object.
 
 `--reset`
 :   Reset device.

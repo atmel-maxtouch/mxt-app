@@ -85,7 +85,8 @@ static void mxt_gr_print_status(struct mxt_device *mxt, uint8_t status)
 
 //******************************************************************************
 /// \brief Handle status messages from the T66 golden references object
-static int mxt_gr_get_status(struct mxt_device *mxt, uint8_t *msg, void *context)
+static int mxt_gr_get_status(struct mxt_device *mxt, uint8_t *msg,
+                             void *context, uint8_t size)
 {
   unsigned int object_type;
   uint8_t *status = context;

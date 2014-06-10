@@ -46,7 +46,8 @@
 //******************************************************************************
 /// \brief Handle messages from the self test object
 /// \return #mxt_rc
-static int self_test_handle_messages(struct mxt_device *mxt, uint8_t *msg, void *context)
+static int self_test_handle_messages(struct mxt_device *mxt, uint8_t *msg,
+                                     void *context, uint8_t size)
 {
   unsigned int object_type = mxt_report_id_to_type(mxt, msg[0]);
   int ret;
