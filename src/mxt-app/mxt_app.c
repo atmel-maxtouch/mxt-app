@@ -269,7 +269,7 @@ int main (int argc, char *argv[])
         {
           if (cmd == CMD_NONE) {
             cmd = CMD_BACKUP;
-            if(optarg) {
+            if (optarg) {
               uint16_t nibble_count;
               ret = mxt_convert_hex(optarg, &backup_command, &nibble_count, sizeof(backup_command));
             }
@@ -485,7 +485,7 @@ int main (int argc, char *argv[])
       case 'M':
         if (cmd == CMD_NONE) {
           cmd = CMD_MESSAGES;
-          if(optarg)
+          if (optarg)
             msgs_timeout = strtol(optarg, NULL, 0);
 
         } else {

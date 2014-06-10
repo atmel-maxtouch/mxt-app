@@ -167,7 +167,7 @@ static int mxt_save_xcfg_file(struct mxt_device *mxt, const char *filename)
       int address = mxt_get_start_position(object, instance);
 
       const char *obj_name = mxt_get_object_name(object.type);
-      if(obj_name == NULL)
+      if (obj_name == NULL)
         fprintf(fp, "[UNKNOWN_T%d INSTANCE %d]\n", object.type, instance);
       else
         fprintf(fp, "[%s INSTANCE %d]\n", obj_name, instance);
