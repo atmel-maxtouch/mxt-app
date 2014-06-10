@@ -165,7 +165,7 @@ int main (int argc, char *argv[])
 {
   int ret;
   int c;
-  int msgs_timeout = -1;
+  int msgs_timeout = MSG_CONTINUOUS;
   uint8_t backup_command = BACKUPNV_COMMAND;
   uint16_t address = 0;
   uint16_t object_address = 0;

@@ -14,7 +14,8 @@ LOCAL_SRC_FILES := \
   buffer.c \
   gr.c \
   serial_data.c \
-  self_cap.c
+  self_cap.c \
+  signal.c
 LOCAL_LDLIBS := -llog
 LOCAL_STATIC_LIBRARIES := maxtouch
 LOCAL_MODULE := mxt-app

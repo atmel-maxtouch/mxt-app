@@ -47,7 +47,15 @@
 #define MXT_MSG_POLL_DELAY_MS 10
 
 //******************************************************************************
-/// \brief Get messages
+/// \brief Get messages from device and display to user
+/// \param timeout_seconds Represent the time in seconds to continuously
+///   display messages to the user. By setting timeout_seconds to 0, or
+///   MSG_NO_WAIT the T5 object is read only once. By setting timeout_seconds to
+///   -1, or  MSG_CONTINUOUS the T5 object is continually read until the user
+///   presses Ctrl-C.
+/// \param  mxt  Maxtouch Device
+/// \param  context Additional context required by msg_func
+/// \param  msg_func Pointer to function to read object status
 /// \return #mxt_rc
 int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context,
                       int (*msg_func)(struct mxt_device *mxt, uint8_t *msg,
@@ -59,7 +67,10 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
   uint8_t buf[10];
   int ret;
 
-  while (true)
+  struct sigaction sa;
+  mxt_init_sigint_handler(mxt, sa);
+
+  while (!mxt_get_sigint_flag())
   {
     mxt_msg_wait(mxt, MXT_MSG_POLL_DELAY_MS);
 
@@ -80,8 +91,7 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
       }
     }
 
-    if (timeout_seconds == 0)
-    {
+    if (timeout_seconds == 0) {
       return MXT_SUCCESS;
     } else if (timeout_seconds > 0) {
       now = time(NULL);
@@ -93,6 +103,7 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
     }
   }
 
+  mxt_release_sigint_handler(mxt, sa);
   return MXT_SUCCESS;
 }
 

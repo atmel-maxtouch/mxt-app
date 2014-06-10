@@ -28,6 +28,9 @@
 //------------------------------------------------------------------------------
 
 #include <stdio.h>
+#ifndef ANDROID
+#include <stdio_ext.h>
+#endif
 #include <ctype.h>
 #include <inttypes.h>
 #include <errno.h>
@@ -229,6 +232,30 @@ static void write_object_command(struct mxt_device *mxt)
 }
 
 //******************************************************************************
+/// \brief Print Messages
+static void print_messages_command(struct mxt_device *mxt)
+{
+  int msgs_timeout = MSG_CONTINUOUS;
+  char tmp_buf[8];
+
+  /* Flush stdin */
+#ifndef ANDROID
+  __fpurge(stdin);
+#else
+  fpurge(stdin);
+#endif
+
+  printf("Enter the messages timeout period in seconds. [Default: Run continually]\n");
+
+  fgets(tmp_buf, sizeof(tmp_buf), stdin);
+  if (sscanf(tmp_buf, "%d", &msgs_timeout) == EOF)
+    printf("Please Press Ctrl-C to Return to Main Menu.\n");
+
+  print_raw_messages(mxt, msgs_timeout, 0);
+
+}
+
+//******************************************************************************
 /// \brief Handle command
 static bool mxt_app_command(struct mxt_device *mxt, char selection)
 {
@@ -294,7 +321,7 @@ static bool mxt_app_command(struct mxt_device *mxt, char selection)
       break;
     case 'm':
       /* Display raw messages */
-      print_raw_messages(mxt, 0, 0);
+      print_messages_command(mxt);
       break;
     case 'u':
       mxt_dd_menu(mxt);

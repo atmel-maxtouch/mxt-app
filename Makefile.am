@@ -62,7 +62,8 @@ mxt_app_SOURCES =\
 	src/mxt-app/gr.c \
 	src/mxt-app/serial_data.c \
 	src/mxt-app/buffer.c \
-	src/mxt-app/self_cap.c
+	src/mxt-app/self_cap.c \
+	src/mxt-app/signal.c
 
 man1_MANS = man1/mxt-app.1
 
