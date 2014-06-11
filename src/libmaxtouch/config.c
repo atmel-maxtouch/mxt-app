@@ -41,6 +41,26 @@
 #define OBP_RAW_MAGIC      "OBP_RAW V1"
 
 //******************************************************************************
+/// \brief Some objects are volatile or read-only and should not be saved to config file
+static bool mxt_object_is_volatile(uint16_t object_type)
+{
+  switch (object_type)
+  {
+    case DEBUG_DELTAS_T2:
+    case DEBUG_REFERENCES_T3:
+    case DEBUG_SIGNALS_T4:
+    case GEN_MESSAGEPROCESSOR_T5:
+    case GEN_COMMANDPROCESSOR_T6:
+    case SPT_MESSAGECOUNT_T44:
+    case GEN_DATASOURCE_T53:
+      return true;
+
+    default:
+      return false;
+  }
+}
+
+//******************************************************************************
 /// \brief  Save OBP_RAW configuration to file
 /// \return #mxt_rc
 static int mxt_save_raw_file(struct mxt_device *mxt, const char *filename)
@@ -78,6 +98,9 @@ static int mxt_save_raw_file(struct mxt_device *mxt, const char *filename)
   {
     object = mxt->info.objects[obj_idx];
     num_bytes = MXT_SIZE(object);
+
+    if (mxt_object_is_volatile(object.type))
+      continue;
 
     temp = (uint8_t *)calloc(num_bytes, sizeof(char));
     if (temp == NULL)
@@ -152,6 +175,10 @@ static int mxt_save_xcfg_file(struct mxt_device *mxt, const char *filename)
   for (obj_idx = 0; obj_idx < id->num_objects; obj_idx++)
   {
     object = mxt->info.objects[obj_idx];
+
+    if (mxt_object_is_volatile(object.type))
+      continue;
+
     num_bytes = MXT_SIZE(object);
 
     temp = (uint8_t *)calloc(num_bytes, sizeof(char));
