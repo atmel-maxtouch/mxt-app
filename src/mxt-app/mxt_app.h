@@ -84,6 +84,7 @@ typedef enum mxt_app_cmd_t {
   CMD_MESSAGES,
   CMD_SELF_CAP_TUNE_CONFIG,
   CMD_SELF_CAP_TUNE_NVRAM,
+  CMD_ZERO_CFG,
 } mxt_app_cmd;
 
 //******************************************************************************

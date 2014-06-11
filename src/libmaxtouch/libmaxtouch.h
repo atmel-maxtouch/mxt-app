@@ -183,6 +183,7 @@ int mxt_calibrate_chip(struct mxt_device *mxt);
 int mxt_backup_config(struct mxt_device *mxt, uint8_t backup_command);
 int mxt_load_config_file(struct mxt_device *mxt, const char *cfg_file);
 int mxt_save_config_file(struct mxt_device *mxt, const char *filename);
+int mxt_zero_config(struct mxt_device *mxt);
 int mxt_get_msg_count(struct mxt_device *mxt, int *count);
 char *mxt_get_msg_string(struct mxt_device *mxt);
 int mxt_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen, int *count);

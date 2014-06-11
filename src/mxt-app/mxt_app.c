@@ -121,6 +121,7 @@ static void print_usage(char *prog_name)
           "  -I [--instance] INSTANCE   : select object INSTANCE\n"
           "  -r [--register] REGISTER   : start at REGISTER\n"
           "  -T [--type] TYPE           : select object TYPE\n"
+          "  --zero                     : zero all configuration settings\n"
           "\n"
           "TCP socket commands:\n"
           "  -C [--bridge-client] HOST  : connect over TCP to HOST\n"
@@ -227,6 +228,7 @@ int main (int argc, char *argv[])
       {"verbose",          required_argument, 0, 'v'},
       {"version",          no_argument,       0, 0},
       {"write",            no_argument,       0, 'W'},
+      {"zero",             no_argument,       0, 0},
       {0,                  0,                 0,  0 }
     };
 
@@ -351,6 +353,15 @@ int main (int argc, char *argv[])
         {
           if (cmd == CMD_NONE) {
             cmd = CMD_RESET_BOOTLOADER;
+          } else {
+            print_usage(argv[0]);
+            return MXT_ERROR_BAD_INPUT;
+          }
+        }
+        else if (!strcmp(long_options[option_index].name, "zero"))
+        {
+          if (cmd == CMD_NONE) {
+            cmd = CMD_ZERO_CFG;
           } else {
             print_usage(argv[0]);
             return MXT_ERROR_BAD_INPUT;
@@ -747,7 +758,13 @@ int main (int argc, char *argv[])
       mxt_verb(ctx, "frames:%u", t37_frames);
       ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames);
       break;
-
+    case CMD_ZERO_CFG:
+      mxt_verb(ctx, "CMD_ZERO_CFG");
+      ret = mxt_zero_config(mxt);
+      if (ret)
+      {
+        mxt_err(ctx, "Error zeroing all configuration settings");
+      }
     case CMD_LOAD_CFG:
       mxt_verb(ctx, "CMD_LOAD_CFG");
       mxt_verb(ctx, "filename:%s", strbuf);

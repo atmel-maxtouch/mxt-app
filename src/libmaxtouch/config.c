@@ -239,7 +239,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
   int width;
   int ret;
 
-  mem = calloc(255, sizeof(uint8_t));
+  mem = calloc(MXT_OBJECT_SIZE_MAX, sizeof(uint8_t));
   if (!mem) {
     mxt_err(mxt->ctx, "Error allocating memory");
     return MXT_ERROR_NO_MEM;
@@ -687,5 +687,46 @@ int mxt_load_config_file(struct mxt_device *mxt, const char *filename)
     ret = mxt_load_raw_file(mxt, filename);
   }
 
+  return ret;
+}
+
+//******************************************************************************
+/// \brief  Zero all configuration settings
+/// \return #mxt_rc
+int mxt_zero_config(struct mxt_device *mxt)
+{
+  int obj_idx, instance, num_bytes;
+  uint8_t *buf;
+  struct mxt_object object;
+  struct mxt_id_info *id = mxt->info.id;
+  int ret;
+
+  mxt_info(mxt->ctx, "Zeroing all configuration settings...");
+
+  /* Single buffer to match MAX object size*/
+  buf = (uint8_t *)calloc(1, MXT_OBJECT_SIZE_MAX);
+  if (buf == NULL)
+  {
+    mxt_err(mxt->ctx, "Failed to allocate memory");
+    return MXT_ERROR_NO_MEM;
+  }
+
+  for (obj_idx = 0; obj_idx < id->num_objects; obj_idx++)
+  {
+    object = mxt->info.objects[obj_idx];
+    num_bytes = MXT_SIZE(object);
+
+    for (instance = 0; instance < MXT_INSTANCES(object); instance++)
+    {
+      int address = mxt_get_start_position(object, instance);
+      ret = mxt_write_register(mxt, buf, address, num_bytes);
+      if (ret)
+        goto free;
+    }
+  }
+  ret = MXT_SUCCESS;
+
+free:
+  free(buf);
   return ret;
 }

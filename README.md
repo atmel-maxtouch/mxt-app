@@ -98,6 +98,9 @@ by Atmel under NDA.
 `-T [--type] *TYPE*`
 :   select object *TYPE*
 
+`--zero`
+:   zero all configuration settings
+
 ## EXAMPLES
 
 ### Read info block:

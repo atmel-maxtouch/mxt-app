@@ -34,6 +34,7 @@ struct mxt_device;
 
 #define MXT_INSTANCES(o) ((uint16_t)((o).instances_minus_one) + 1)
 #define MXT_SIZE(o) ((uint16_t)((o).size_minus_one) + 1)
+#define MXT_OBJECT_SIZE_MAX 256
 
 /*! \brief Checksum element struct */
 struct mxt_raw_crc
