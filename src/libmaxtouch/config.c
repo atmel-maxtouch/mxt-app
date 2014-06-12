@@ -136,7 +136,7 @@ static int mxt_save_xcfg_file(struct mxt_device *mxt, const char *filename)
 
   fprintf(fp, "[COMMENTS]\n");
   fprintf(fp, "Date and time: ");
-  mxt_print_timestamp(fp);
+  mxt_print_timestamp(fp, true);
 
   fprintf(fp, "\n[VERSION_INFO_HEADER]\n");
   fprintf(fp, "FAMILY_ID=%d\n", id->family);

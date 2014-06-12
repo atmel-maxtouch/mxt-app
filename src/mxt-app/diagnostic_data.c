@@ -310,7 +310,7 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
   int16_t value;
   int ret;
 
-  ret = mxt_print_timestamp(ctx->hawkeye);
+  ret = mxt_print_timestamp(ctx->hawkeye, false);
   if (ret)
     return ret;
 

@@ -157,7 +157,7 @@ void mxt_log_stderr(struct libmaxtouch_ctx *ctx, enum mxt_log_level level,
 {
   if (mxt_get_log_level(ctx) < LOG_INFO)
   {
-    mxt_print_timestamp(stderr);
+    mxt_print_timestamp(stderr, false);
     fprintf(stderr, " %c: ", get_log_level_string(level));
   }
 

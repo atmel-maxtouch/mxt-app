@@ -255,8 +255,10 @@ int mxt_convert_hex(char *hex, unsigned char *databuf,
 
 //******************************************************************************
 /// \brief Output timestamp to stream with millisecond accuracy
+/// \param stream pointer to FILE object
+/// \param date   output date, true or false
 /// \return #mxt_rc
-int mxt_print_timestamp(FILE *stream)
+int mxt_print_timestamp(FILE *stream, bool date)
 {
   struct timeval tv;
   time_t nowtime;
@@ -267,9 +269,15 @@ int mxt_print_timestamp(FILE *stream)
   gettimeofday(&tv, NULL);
   nowtime = tv.tv_sec;
   nowtm = localtime(&nowtime);
-  strftime(tmbuf, sizeof tmbuf, "%H:%M:%S", nowtm);
 
-  ret = fprintf(stream, "%s.%06ld", tmbuf, tv.tv_usec);
+  if (date)
+  {
+    strftime(tmbuf, sizeof(tmbuf), "%c", nowtm);
+    ret = fprintf(stream, "%s", tmbuf);
+  } else {
+    strftime(tmbuf, sizeof(tmbuf), "%H:%M:%S", nowtm);
+    ret = fprintf(stream, "%s.%06ld", tmbuf, tv.tv_usec);
+  }
 
   return (ret < 0) ? MXT_ERROR_IO : MXT_SUCCESS;
 }
