@@ -107,59 +107,78 @@ static int self_test_handle_messages(struct mxt_device *mxt, uint8_t *msg,
 }
 
 //******************************************************************************
-/// \brief Print T25 limits for each enabled touch object
-static void print_t25_limits(struct mxt_device *mxt, uint16_t t25_addr)
+/// \brief Print T25 limits for enabled touch object instances
+static int print_touch_object_limits(struct mxt_device *mxt, uint16_t t25_addr,
+                                     uint16_t object_type, int *touch_object)
 {
-   int i;
-   struct mxt_object obj;
-   int touch_object = 0;
-   uint8_t buf[4];
-   uint16_t upsiglim;
-   uint16_t losiglim;
-   int instance;
+  uint8_t buf[4];
+  uint16_t upsiglim;
+  uint16_t losiglim;
+  int instance;
+  int ret;
 
-   for (i = 0; i < mxt->info.id->num_objects; i++)
-   {
-      obj = mxt->info.objects[i];
+  for (instance = 0; (instance < mxt_get_object_instances(mxt, object_type));
+      instance++)
+  {
+    ret = mxt_read_register(mxt, (uint8_t *)&buf,
+        mxt_get_object_address(mxt, object_type, instance), 1);
+    if (ret)
+      return ret;
 
-      switch (obj.type)
-      {
-      case TOUCH_MULTITOUCHSCREEN_T9:
-      case TOUCH_SINGLETOUCHSCREEN_T10:
-      case TOUCH_XSLIDER_T11:
-      case TOUCH_YSLIDER_T12:
-      case TOUCH_XWHEEL_T13:
-      case TOUCH_YWHEEL_T14:
-      case TOUCH_KEYARRAY_T15:
-      case TOUCH_PROXIMITY_T23:
-      case TOUCH_KEYSET_T31:
-      case TOUCH_XSLIDERSET_T32:
-         for (instance = 0; (instance < MXT_INSTANCES(obj)); instance++)
-         {
-            mxt_read_register(mxt, (uint8_t *)&buf, mxt_get_start_position(obj, instance), 1);
+    mxt_info(mxt->ctx, "%s[%d] %s",
+        mxt_get_object_name(object_type),
+        instance,
+        buf[0] & 0x01 ? "enabled":"disabled");
 
-            mxt_info(mxt->ctx, "%s[%d] %s",
-                   mxt_get_object_name(obj.type),
-                   instance,
-                   buf[0] & 0x01 ? "enabled":"disabled");
+    ret = mxt_read_register(mxt, (uint8_t *)&buf,
+        t25_addr + 2 + *touch_object * 4, 4);
+    if (ret)
+      return ret;
 
-            mxt_read_register(mxt, (uint8_t *)&buf,
-               t25_addr + 2 + touch_object * 4, 4);
+    upsiglim = (uint16_t)((buf[1] << 8u) | buf[0]);
+    losiglim = (uint16_t)((buf[3] << 8u) | buf[2]);
 
-            upsiglim = (uint16_t)((buf[1] << 8u) | buf[0]);
-            losiglim = (uint16_t)((buf[3] << 8u) | buf[2]);
+    mxt_info(mxt->ctx, "  UPSIGLIM:%d", upsiglim);
+    mxt_info(mxt->ctx, "  LOSIGLIM:%d", losiglim);
 
-            mxt_info(mxt->ctx, "  UPSIGLIM:%d", upsiglim);
-            mxt_info(mxt->ctx, "  LOSIGLIM:%d", losiglim);
+    (*touch_object)++;
+  }
+  return MXT_SUCCESS;
+}
 
-            touch_object++;
-         }
-         break;
-      default:
-         break;
-      }
-   }
-   
+//******************************************************************************
+/// \brief Print T25 limits for each enabled touch object
+static int print_t25_limits(struct mxt_device *mxt, uint16_t t25_addr)
+{
+  int touch_object = 0;
+  int ret;
+
+  ret = print_touch_object_limits(mxt, t25_addr, TOUCH_MULTITOUCHSCREEN_T9,
+      &touch_object);
+  if (ret)
+    return ret;
+
+  ret = print_touch_object_limits(mxt, t25_addr, TOUCH_MULTITOUCHSCREEN_T100,
+      &touch_object);
+  if (ret)
+    return ret;
+
+  ret = print_touch_object_limits(mxt, t25_addr, TOUCH_PROXKEY_T52,
+      &touch_object);
+  if (ret)
+    return ret;
+
+  ret = print_touch_object_limits(mxt, t25_addr, TOUCH_KEYARRAY_T15,
+      &touch_object);
+  if (ret)
+    return ret;
+
+  ret = print_touch_object_limits(mxt, t25_addr, TOUCH_PROXIMITY_T23,
+      &touch_object);
+  if (ret)
+    return ret;
+
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
@@ -200,6 +219,7 @@ int run_self_tests(struct mxt_device *mxt, uint8_t cmd)
 {
    uint16_t t25_addr;
    uint8_t enable = 3;
+   int ret;
 
    mxt_msg_reset(mxt);
 
@@ -211,7 +231,9 @@ int run_self_tests(struct mxt_device *mxt, uint8_t cmd)
    mxt_info(mxt->ctx, "Disabling noise suppression");
    disable_noise_suppression(mxt);
 
-   print_t25_limits(mxt, t25_addr);
+   ret = print_t25_limits(mxt, t25_addr);
+   if (ret)
+     return ret;
 
    mxt_info(mxt->ctx, "Running tests");
    mxt_write_register(mxt, &cmd, t25_addr + 1, 1);
