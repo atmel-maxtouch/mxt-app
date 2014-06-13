@@ -632,10 +632,8 @@ int main (int argc, char *argv[])
   else if (cmd != CMD_FLASH)
   {
     ret = mxt_init_chip(ctx, &mxt, &conn);
-    if (ret) {
-      fprintf(stderr, "Failed to init device\n");
+    if (ret)
       goto free;
-    }
 
     /*! Turn on kernel dmesg output of MSG */
     mxt_set_debug(mxt, true);
