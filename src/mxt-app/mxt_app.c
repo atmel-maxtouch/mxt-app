@@ -174,7 +174,7 @@ int main (int argc, char *argv[])
   struct mxt_conn_info *conn = NULL;
   uint16_t object_type = 0;
   uint8_t instance = 0;
-  uint8_t verbose = 0;
+  uint8_t verbose = 1;
   uint16_t t37_frames = 1;
   uint8_t t37_mode = DELTAS_MODE;
   bool format = false;
