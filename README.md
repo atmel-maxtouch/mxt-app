@@ -48,8 +48,8 @@ by Atmel under NDA.
 `--calibrate`
 :   Send calibrate command.
 
-`--backup[=COMMAND]`
-:   Backup configuration to NVRAM where the optional argument, *command*, is the BACKUPNV command.
+`--backup[*=COMMAND*]`
+:   Backup configuration to NVRAM where the optional argument, *COMMAND*, is the BACKUPNV command.
 
 `-g`
 :   Write Golden Reference calibration to NVRAM.
@@ -59,9 +59,6 @@ by Atmel under NDA.
 
 `--self-cap-tune-nvram`
 :   Tune and calibrate the self capacitance settings and store them to NVRAM without updating the Config Checksum.
-
-`-t [--test]`
-:   Run all self tests using the T25 Self Test object.
 
 `--version`
 :   print version of mxt-app.
@@ -163,6 +160,38 @@ Server* can access the device.
     if the firmware version is already correct. It will also check for a
     successful flash on completion. The version must be provided in the format
     `1.0.AA`.
+# T25 SELF TEST OPTIONS
+
+The Self Test T25 object runs self-test routines in the device to find faults
+in the sense lines and electrodes. The Self Test T25 object runs a series of
+test sequences.
+
+`-t [--test]`
+:   Run all self tests.
+
+`-t*XX* [--test=*XX*]`
+:   Run individual self test specified by the *CMD* hex value.
+
+`-t01`
+:    run analog power test.
+
+`-t11`
+:    run pin fault test.
+
+`-t12`
+:    run pin fault 2 test.
+
+`-t13`
+:    run AND gate test.
+
+`-t17`
+:    run signal limit test.
+
+`-t20`
+:    run gain test.
+
+`-t21`
+:    run offset fault test.
 
 # T37 DIAGNOSTIC DATA OPTIONS
 

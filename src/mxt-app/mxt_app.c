@@ -106,7 +106,6 @@ static void print_usage(char *prog_name)
           "  -g                         : store golden references\n"
           "  --self-cap-tune-config     : tune self capacitance settings to config\n"
           "  --self-cap-tune-nvram      : tune self capacitance settings to NVRAM\n"
-          "  -t [--test]                : run all self tests\n"
           "  --version                  : print version\n"
           "\n"
           "Configuration file commands:\n"
@@ -136,6 +135,10 @@ static void print_usage(char *prog_name)
           "T68 Serial Data commands:\n"
           "  --t68-file FILE            : upload FILE\n"
           "  --t68-datatype DATATYPE    : select DATATYPE\n"
+          "\n"
+          "T25 Self Test commands:\n"
+          "  -t [--test]                : run all self tests\n"
+          "  -tXX [--test=XX]           : run individual test, write XX to CMD register\n"
           "\n"
           "T37 Diagnostic Data commands:\n"
           "  --debug-dump FILE          : capture diagnostic data to FILE\n"
@@ -167,7 +170,8 @@ int main (int argc, char *argv[])
   int ret;
   int c;
   int msgs_timeout = MSG_CONTINUOUS;
-  uint8_t backup_command = BACKUPNV_COMMAND;
+  uint8_t backup_cmd = BACKUPNV_COMMAND;
+  unsigned char self_test_cmd = SELF_TEST_ALL;
   uint16_t address = 0;
   uint16_t object_address = 0;
   uint16_t count = 0;
@@ -223,7 +227,7 @@ int main (int argc, char *argv[])
       {"self-cap-deltas",  no_argument,       0, 0},
       {"self-cap-refs",    no_argument,       0, 0},
       {"bridge-server",    no_argument,       0, 'S'},
-      {"test",             no_argument,       0, 't'},
+      {"test",             optional_argument, 0, 't'},
       {"type",             required_argument, 0, 'T'},
       {"verbose",          required_argument, 0, 'v'},
       {"version",          no_argument,       0, 0},
@@ -233,7 +237,7 @@ int main (int argc, char *argv[])
     };
 
     c = getopt_long(argc, argv,
-                    "C:d:D:fghiI:M::m:n:p:qRr:StT:v:W",
+                    "C:d:D:fghiI:M::m:n:p:qRr:St::T:v:W",
                     long_options, &option_index);
     if (c == -1)
       break;
@@ -272,8 +276,12 @@ int main (int argc, char *argv[])
           if (cmd == CMD_NONE) {
             cmd = CMD_BACKUP;
             if (optarg) {
-              uint16_t nibble_count;
-              ret = mxt_convert_hex(optarg, &backup_command, &nibble_count, sizeof(backup_command));
+              ret = mxt_convert_hex(optarg, &databuf[0], &count, sizeof(databuf));
+              if (ret || count == 0) {
+                fprintf(stderr, "Hex convert error\n");
+                ret = MXT_ERROR_BAD_INPUT;
+              }
+              backup_cmd = databuf[0];
             }
           } else {
             print_usage(argv[0]);
@@ -567,6 +575,15 @@ int main (int argc, char *argv[])
 
       case 't':
         if (cmd == CMD_NONE) {
+          if (optarg) {
+            ret = mxt_convert_hex(optarg, &databuf[0], &count, sizeof(databuf));
+            if (ret) {
+              fprintf(stderr, "Hex convert error\n");
+              ret = MXT_ERROR_BAD_INPUT;
+            } else {
+              self_test_cmd = databuf[0];
+            }
+          }
           cmd = CMD_TEST;
         } else {
           print_usage(argv[0]);
@@ -716,7 +733,7 @@ int main (int argc, char *argv[])
 
     case CMD_TEST:
       mxt_verb(ctx, "CMD_TEST");
-      ret = run_self_tests(mxt, SELF_TEST_ALL);
+      ret = run_self_tests(mxt, self_test_cmd);
       break;
 
     case CMD_FLASH:
@@ -742,7 +759,7 @@ int main (int argc, char *argv[])
 
     case CMD_BACKUP:
       mxt_verb(ctx, "CMD_BACKUP");
-      ret = mxt_backup_config(mxt, backup_command);
+      ret = mxt_backup_config(mxt, backup_cmd);
       break;
 
     case CMD_CALIBRATE:
@@ -775,7 +792,7 @@ int main (int argc, char *argv[])
       {
         mxt_info(ctx, "Configuration loaded");
 
-        ret = mxt_backup_config(mxt, backup_command);
+        ret = mxt_backup_config(mxt, backup_cmd);
         if (ret)
         {
           mxt_err(ctx, "Error backing up");

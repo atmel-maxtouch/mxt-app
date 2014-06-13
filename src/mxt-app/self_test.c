@@ -65,7 +65,7 @@ static int self_test_handle_messages(struct mxt_device *mxt, uint8_t *msg,
         ret = MXT_SUCCESS;
         break;
       case SELF_TEST_INVALID:
-        mxt_err(mxt->ctx, "FAIL: Invalid test command");
+        mxt_err(mxt->ctx, "FAIL: Invalid or unsupported test command");
         ret = MXT_ERROR_NOT_SUPPORTED;
         break;
       case SELF_TEST_TIMEOUT:
@@ -97,7 +97,7 @@ static int self_test_handle_messages(struct mxt_device *mxt, uint8_t *msg,
         ret = MXT_ERROR_SELF_TEST_GAIN;
         break;
       default:
-        mxt_err(mxt->ctx, "Unrecognised status %02X", msg[1]);
+        mxt_err(mxt->ctx, "FAIL: status %02X", msg[1]);
         ret = MXT_ERROR_UNEXPECTED_DEVICE_STATE;
         break;
     }
@@ -237,7 +237,36 @@ int run_self_tests(struct mxt_device *mxt, uint8_t cmd)
    if (ret)
      return ret;
 
-   mxt_info(mxt->ctx, "Running tests");
+   switch (cmd) {
+     case SELF_TEST_ANALOG:
+       mxt_info(mxt->ctx, "Running Analog power test");
+       break;
+     case SELF_TEST_PIN_FAULT:
+       mxt_info(mxt->ctx, "Running Pin fault test");
+       break;
+     case SELF_TEST_PIN_FAULT_2:
+       mxt_info(mxt->ctx, "Running Pin fault 2 test");
+       break;
+     case SELF_TEST_AND_GATE:
+       mxt_info(mxt->ctx, "Running AND Gate test");
+       break;
+     case SELF_TEST_SIGNAL_LIMIT:
+       mxt_info(mxt->ctx, "Running Signal Limit test");
+       break;
+     case SELF_TEST_GAIN:
+       mxt_info(mxt->ctx, "Running Gain test");
+       break;
+     case SELF_TEST_OFFSET:
+       mxt_info(mxt->ctx, "Running Offset test");
+       break;
+     case SELF_TEST_ALL:
+       mxt_info(mxt->ctx, "Running all tests");
+       break;
+     default:
+       mxt_info(mxt->ctx, "Writing %02X to CMD register", cmd);
+       break;
+   }
+
    mxt_write_register(mxt, &cmd, t25_addr + 1, 1);
 
    return (mxt_read_messages(mxt, T25_TIMEOUT, NULL, self_test_handle_messages));
