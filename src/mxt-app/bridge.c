@@ -243,6 +243,23 @@ static int bridge_wri_cmd(struct mxt_device *mxt, int sockfd, uint16_t address,
 }
 
 //******************************************************************************
+/// \brief Send chip attach message
+/// \return #mxt_rc
+static int send_chip_attach(struct mxt_device *mxt, int sockfd)
+{
+  int ret;
+  const char * const msg = "CAT\n";
+
+  ret = write(sockfd, msg, strlen(msg));
+  if (ret < 0) {
+    mxt_err(mxt->ctx, "Socket write error %d (%s)", errno, strerror(errno));
+    ret = mxt_errno_to_rc(errno);
+  }
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
 /// \brief Read and deal with incoming command
 /// \return #mxt_rc
 static int handle_cmd(struct mxt_device *mxt, int sockfd)
@@ -317,6 +334,10 @@ static int bridge(struct mxt_device *mxt, int sockfd)
 
   fds[0].fd = sockfd;
   fds[0].events = POLLIN | POLLERR;
+
+  ret = send_chip_attach(mxt, sockfd);
+  if (ret)
+    return ret;
 
   while (1)
   {
