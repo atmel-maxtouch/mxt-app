@@ -118,7 +118,7 @@ int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd)
   if (ret)
     return ret;
 
-  ret = mxt_read_messages(mxt, 100, &t109_command, mxt_self_cap_command);
+  ret = mxt_read_messages(mxt, T109_TIMEOUT, &t109_command, mxt_self_cap_command);
   if (ret)
     return ret;
 

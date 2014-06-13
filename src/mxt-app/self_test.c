@@ -43,6 +43,8 @@
 
 #include "mxt_app.h"
 
+#define T25_TIMEOUT   10
+
 //******************************************************************************
 /// \brief Handle messages from the self test object
 /// \return #mxt_rc
@@ -238,7 +240,7 @@ int run_self_tests(struct mxt_device *mxt, uint8_t cmd)
    mxt_info(mxt->ctx, "Running tests");
    mxt_write_register(mxt, &cmd, t25_addr + 1, 1);
 
-   return (mxt_read_messages(mxt, 100, NULL, self_test_handle_messages));
+   return (mxt_read_messages(mxt, T25_TIMEOUT, NULL, self_test_handle_messages));
 }
 
 //******************************************************************************

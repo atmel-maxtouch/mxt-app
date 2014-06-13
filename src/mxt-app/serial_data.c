@@ -129,7 +129,7 @@ static int mxt_t68_command(struct t68_ctx *ctx, uint8_t cmd)
   if (ret)
     return ret;
 
-  return mxt_read_messages(ctx->mxt, 100, ctx, mxt_t68_get_status);
+  return mxt_read_messages(ctx->mxt, T68_TIMEOUT, ctx, mxt_t68_get_status);
 }
 
 //******************************************************************************
