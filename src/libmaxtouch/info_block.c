@@ -310,7 +310,7 @@ uint16_t mxt_get_object_address(struct mxt_device *mxt, uint16_t object_type, ui
     }
   }
 
-  mxt_warn(mxt->ctx, "T%u not present on device", object_type);
+  mxt_verb(mxt->ctx, "T%u not present on device", object_type);
   return OBJECT_NOT_FOUND;
 }
 
