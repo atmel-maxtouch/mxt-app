@@ -159,7 +159,7 @@ static void print_usage(char *prog_name)
           "    -d sysfs:PATH              : sysfs interface\n"
           "\n"
           "Debug options:\n"
-          "  -v [--verbose] LEVEL       : print additional debug\n",
+          "  -v [--verbose] LEVEL       : set debug level\n",
           MXT_VERSION, prog_name);
 }
 
@@ -178,7 +178,7 @@ int main (int argc, char *argv[])
   struct mxt_conn_info *conn = NULL;
   uint16_t object_type = 0;
   uint8_t instance = 0;
-  uint8_t verbose = 1;
+  uint8_t verbose = 2;
   uint16_t t37_frames = 1;
   uint8_t t37_mode = DELTAS_MODE;
   bool format = false;

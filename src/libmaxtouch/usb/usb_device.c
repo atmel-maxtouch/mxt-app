@@ -896,7 +896,7 @@ void usb_release(struct mxt_device *mxt)
     mxt_dbg(mxt->ctx, "Released the USB interface");
 
     libusb_close(mxt->usb.handle);
-    mxt_info(mxt->ctx, "Disconnected from the device");
+    mxt_dbg(mxt->ctx, "Disconnected from the device");
     mxt->usb.handle = NULL;
 
     mxt->usb.device_connected = false;

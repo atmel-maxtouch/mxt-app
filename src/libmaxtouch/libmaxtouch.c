@@ -496,7 +496,7 @@ int mxt_calibrate_chip(struct mxt_device *mxt)
 
   if (ret == 0)
   {
-    mxt_info(mxt->ctx, "Send calibration command");
+    mxt_info(mxt->ctx, "Sent calibration command");
   }
   else
   {

@@ -253,14 +253,14 @@ void mxt_display_chip_info(struct mxt_device *mxt)
   mxt_get_firmware_version(mxt, (char *)&firmware_version);
 
   /* Display ID information */
-  mxt_info(mxt->ctx, "Family ID = %u (0x%02X)",
+  mxt_dbg(mxt->ctx, "Family ID = %u (0x%02X)",
       id->family, id->family);
-  mxt_info(mxt->ctx, "Variant ID = %u (0x%02X)",
+  mxt_dbg(mxt->ctx, "Variant ID = %u (0x%02X)",
       id->variant, id->variant);
-  mxt_info(mxt->ctx, "Firmware Version = %s", firmware_version);
-  mxt_info(mxt->ctx, "Matrix X Size = %d", id->matrix_x_size);
-  mxt_info(mxt->ctx, "Matrix Y Size = %d", id->matrix_y_size);
-  mxt_info(mxt->ctx, "Number of elements in the Object Table = %d",
+  mxt_dbg(mxt->ctx, "Firmware Version = %s", firmware_version);
+  mxt_dbg(mxt->ctx, "Matrix X Size = %d", id->matrix_x_size);
+  mxt_dbg(mxt->ctx, "Matrix Y Size = %d", id->matrix_y_size);
+  mxt_dbg(mxt->ctx, "Number of elements in the Object Table = %d",
       id->num_objects);
 
   /* Display information about specific objects */
@@ -268,7 +268,7 @@ void mxt_display_chip_info(struct mxt_device *mxt)
   {
     obj = mxt->info.objects[i];
 
-    mxt_info(mxt->ctx, "T%u size:%u instances:%u address:%u",
+    mxt_dbg(mxt->ctx, "T%u size:%u instances:%u address:%u",
       obj.type, MXT_SIZE(obj),
       MXT_INSTANCES(obj), mxt_get_start_position(obj, 0));
   }
