@@ -83,7 +83,7 @@ static int readline(struct mxt_device *mxt, int fd, struct mxt_buffer *linebuf)
     }
     else
     {
-      mxt_dbg(mxt->ctx, "read returned %d (%s)", errno, strerror(errno));
+      mxt_err(mxt->ctx, "Read error: %s (%d)", strerror(errno), errno);
       return mxt_errno_to_rc(errno);
     }
   }
@@ -122,14 +122,14 @@ static int handle_messages(struct mxt_device *mxt, int sockfd)
       ret = write(sockfd, msg, strlen(msg));
       if (ret < 0)
       {
-        mxt_err(mxt->ctx, "write returned %d (%s)", errno, strerror(errno));
+        mxt_err(mxt->ctx, "Write failure: %s (%d)", strerror(errno), errno);
         return mxt_errno_to_rc(ret);
       }
 
       ret = write(sockfd, "\n", 1);
       if (ret < 0)
       {
-        mxt_err(mxt->ctx, "write returned %d (%s)", errno, strerror(errno));
+        mxt_err(mxt->ctx, "Write failure: %s (%d)", strerror(errno), errno);
         return mxt_errno_to_rc(ret);
       }
     }
@@ -184,7 +184,7 @@ static int bridge_rea_cmd(struct mxt_device *mxt, int sockfd,
 
   ret = write(sockfd, response, response_len);
   if (ret < 0) {
-    mxt_err(mxt->ctx, "Socket write error %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "Socket write error: %s (%d)", strerror(errno), errno);
     ret = mxt_errno_to_rc(errno);
     goto free;
   }
@@ -233,7 +233,7 @@ static int bridge_wri_cmd(struct mxt_device *mxt, int sockfd, uint16_t address,
 
   ret = write(sockfd, response, strlen(response));
   if (ret < 0) {
-    mxt_err(mxt->ctx, "Socket write error %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "Socket write error: %s (%d)", strerror(errno), errno);
     ret = mxt_errno_to_rc(errno);
   }
 
@@ -252,7 +252,7 @@ static int send_chip_attach(struct mxt_device *mxt, int sockfd)
 
   ret = write(sockfd, msg, strlen(msg));
   if (ret < 0) {
-    mxt_err(mxt->ctx, "Socket write error %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "Socket write error: %s (%d)", strerror(errno), errno);
     ret = mxt_errno_to_rc(errno);
   }
 
@@ -277,7 +277,7 @@ static int handle_cmd(struct mxt_device *mxt, int sockfd)
 
   ret = readline(mxt, sockfd, &linebuf);
   if (ret) {
-    mxt_dbg(mxt->ctx, "error reading or peer closed socket");
+    mxt_dbg(mxt->ctx, "Error reading or peer closed socket");
     goto free;
   }
 
@@ -357,7 +357,7 @@ static int bridge(struct mxt_device *mxt, int sockfd)
       mxt_dbg(mxt->ctx, "Interrupted");
       continue;
     } else if (pollret == -1) {
-      mxt_err(mxt->ctx, "poll returned %d (%s)", errno, strerror(errno));
+      mxt_err(mxt->ctx, "Poll returned %d (%s)", errno, strerror(errno));
       ret = mxt_errno_to_rc(errno);
       goto disconnect;
     }
@@ -365,7 +365,7 @@ static int bridge(struct mxt_device *mxt, int sockfd)
     /* Detect socket disconnect */
     if (fcntl(sockfd, F_GETFL, &fopts) < 0) {
       ret = MXT_SUCCESS;
-      mxt_dbg(mxt->ctx, "socket disconnected");
+      mxt_dbg(mxt->ctx, "Socket disconnected");
       goto disconnect;
     }
 
@@ -408,7 +408,7 @@ int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port)
 
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd < 0) {
-    mxt_err(mxt->ctx, "socket returned %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "Socket error: %s (%d)", strerror(errno), errno);
     return MXT_ERROR_CONNECTION_FAILURE;
   }
 
@@ -425,7 +425,7 @@ int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port)
   ret = connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
   if (ret < 0)
   {
-    mxt_dbg(mxt->ctx, "connect returned %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "Connect error: %s (%d)", strerror(errno), errno);
     return MXT_ERROR_CONNECTION_FAILURE;
   }
 
@@ -450,7 +450,7 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
   serversock = socket(AF_INET, SOCK_STREAM, 0);
   if (serversock < 0)
   {
-    mxt_err(mxt->ctx, "socket returned %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "Socket error: %s (%d)", strerror(errno), errno);
     return MXT_ERROR_CONNECTION_FAILURE;
   }
 
@@ -464,7 +464,7 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
   ret = bind(serversock, (struct sockaddr *) &server_addr, sizeof(server_addr));
   if (ret < 0)
   {
-    mxt_err(mxt->ctx, "bind returned %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "Bind error: %s (%d)", strerror(errno), errno);
     close(serversock);
     return MXT_ERROR_CONNECTION_FAILURE;
   }
@@ -472,7 +472,7 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
   ret = setsockopt(serversock, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
   if (ret < 0)
   {
-    mxt_err(mxt->ctx, "setsockopt returned %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "Setsockopt error: %s (%d)", strerror(errno), errno);
     close(serversock);
     return MXT_ERROR_CONNECTION_FAILURE;
   }
@@ -481,7 +481,7 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
   ret = listen(serversock, 1);
   if (ret < 0)
   {
-    mxt_dbg(mxt->ctx, "listen returned %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "Listen error: %s (%d)", strerror(errno), errno);
     close(serversock);
     return MXT_ERROR_CONNECTION_FAILURE;
   }
@@ -491,7 +491,7 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
   clientsock = accept(serversock, (struct sockaddr *) &client_addr, &sin_size);
   if (clientsock < 0)
   {
-    mxt_dbg(mxt->ctx, "accept returned %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "Accept error: %s (%d)", strerror(errno), errno);
     close(serversock);
     return MXT_ERROR_CONNECTION_FAILURE;
   }
