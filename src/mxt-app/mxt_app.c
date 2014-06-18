@@ -773,13 +773,14 @@ int main (int argc, char *argv[])
       mxt_verb(ctx, "frames:%u", t37_frames);
       ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames);
       break;
+
     case CMD_ZERO_CFG:
       mxt_verb(ctx, "CMD_ZERO_CFG");
       ret = mxt_zero_config(mxt);
       if (ret)
-      {
         mxt_err(ctx, "Error zeroing all configuration settings");
-      }
+      break;
+
     case CMD_LOAD_CFG:
       mxt_verb(ctx, "CMD_LOAD_CFG");
       mxt_verb(ctx, "filename:%s", strbuf);
