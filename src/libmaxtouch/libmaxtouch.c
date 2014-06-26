@@ -475,6 +475,30 @@ int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
 }
 
 //******************************************************************************
+/// \brief Handle calibration messages
+/// \return #mxt_rc
+static int handle_calibrate_msg(struct mxt_device *mxt, uint8_t *msg,
+                             void *context, uint8_t size)
+{
+  int *last_status = context;
+  int status = msg[1];
+
+  if (mxt_report_id_to_type(mxt, msg[0]) == GEN_COMMANDPROCESSOR_T6)
+  {
+    if (status & 0x10) {
+      mxt_dbg(mxt->ctx, "Device calibrating");
+    } else if (!(status & 0x10) && (*last_status & 0x10)) {
+      mxt_info(mxt->ctx, "Device calibrated");
+      return MXT_SUCCESS;
+    }
+
+    *last_status = status;
+  }
+
+  return MXT_MSG_CONTINUE;
+}
+
+//******************************************************************************
 /// \brief  Calibrate maxtouch chip
 /// \return 0 = success, negative = fail
 int mxt_calibrate_chip(struct mxt_device *mxt)
@@ -487,6 +511,8 @@ int mxt_calibrate_chip(struct mxt_device *mxt)
   t6_addr = mxt_get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
   if (t6_addr == OBJECT_NOT_FOUND)
     return MXT_ERROR_OBJECT_NOT_FOUND;
+
+  mxt_flush_msgs(mxt);
 
   /* Write to command processor register to perform command */
   ret = mxt_write_register
@@ -503,7 +529,20 @@ int mxt_calibrate_chip(struct mxt_device *mxt)
     mxt_err(mxt->ctx, "Failed to send calibration command");
   }
 
-  return ret;
+  int state = 0;
+  int flag = false;
+
+  ret = mxt_read_messages(mxt, MXT_CALIBRATE_TIMEOUT, &state,
+                          handle_calibrate_msg, &flag);
+  if (ret == MXT_ERROR_TIMEOUT) {
+    mxt_err(mxt->ctx, "FAIL: device calibration timed-out");
+    return MXT_ERROR_TIMEOUT;
+  } else if (ret) {
+    mxt_err(mxt->ctx, "FAIL: device calibration failed");
+    return ret;
+  }
+
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************

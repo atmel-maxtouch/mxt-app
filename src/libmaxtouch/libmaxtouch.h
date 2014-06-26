@@ -30,6 +30,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <signal.h>
 
 struct libmaxtouch_ctx;
 struct mxt_device;
@@ -59,6 +60,12 @@ struct mxt_conn_info;
 
 /* Prefix for T5 messages */
 #define MSG_PREFIX "MXT MSG:"
+
+/* Polling delay for continually polling messages */
+#define MXT_MSG_POLL_DELAY_MS 10
+
+/* Calibrate timeout */
+#define MXT_CALIBRATE_TIMEOUT 10
 
 //******************************************************************************
 /// \brief Return codes

@@ -41,7 +41,9 @@
 #include "libmaxtouch/info_block.h"
 #include "libmaxtouch/utilfuncs.h"
 #include "libmaxtouch/log.h"
+#include "libmaxtouch/msg.h"
 
+#include "signal.h"
 #include "mxt_app.h"
 
 //******************************************************************************
@@ -84,4 +86,29 @@ void mxt_release_sigint_handler(struct mxt_device *mxt, struct sigaction sa)
 sig_atomic_t mxt_get_sigint_flag(void)
 {
   return mxt_sigint_rx;
+}
+
+//******************************************************************************
+/// \brief Get messages from device and display to user, with Ctrl-C signal
+/// \param timeout_seconds Represent the time in seconds to continuously
+///   display messages to the user. By setting timeout_seconds to 0, or
+///   MSG_NO_WAIT the T5 object is read only once. By setting timeout_seconds to
+///   -1, or  MSG_CONTINUOUS the T5 object is continually read until the user
+///   presses Ctrl-C.
+/// \param  mxt  Maxtouch Device
+/// \param  context Additional context required by msg_func
+/// \param  msg_func Pointer to function to read object status
+/// \return #mxt_rc
+int mxt_read_messages_sigint(struct mxt_device *mxt, int timeout_seconds, void *context,
+                      int (*msg_func)(struct mxt_device *mxt, uint8_t *msg,
+                      void *context, uint8_t size), int *flag)
+{
+  int ret;
+  struct sigaction sa;
+
+  mxt_init_sigint_handler(mxt, sa);
+  ret = mxt_read_messages(mxt, timeout_seconds, context, (msg_func), (int *)&mxt_sigint_rx);
+  mxt_release_sigint_handler(mxt, sa);
+
+  return ret;
 }

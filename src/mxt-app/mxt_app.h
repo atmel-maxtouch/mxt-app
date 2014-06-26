@@ -28,8 +28,6 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-#include <signal.h>
-
 #define MIN(a,b) \
    ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
@@ -138,9 +136,9 @@ int print_raw_messages(struct mxt_device *mxt, int timeout, uint16_t object_type
 int print_raw_messages_t44(struct mxt_device *mxt);
 void print_t6_status(uint8_t status);
 int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd);
-int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context, int (*msg_func)(struct mxt_device *mxt, uint8_t *msg, void *context, uint8_t size));
 int mxt_debug_dump_frame(struct t37_ctx *ctx);
 int mxt_debug_dump_initialise(struct t37_ctx *ctx);
 void mxt_init_sigint_handler(struct mxt_device *mxt, struct sigaction sa);
 void mxt_release_sigint_handler(struct mxt_device *mxt, struct sigaction sa);
 int mxt_get_sigint_flag(void);
+int mxt_read_messages_sigint(struct mxt_device *mxt, int timeout_seconds, void *context, int (*msg_func)(struct mxt_device *mxt, uint8_t *msg, void *context, uint8_t size), int *flag);

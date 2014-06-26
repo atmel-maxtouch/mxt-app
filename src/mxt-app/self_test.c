@@ -42,6 +42,7 @@
 #include "libmaxtouch/log.h"
 
 #include "mxt_app.h"
+#include "signal.h"
 
 #define T25_TIMEOUT   10
 
@@ -269,7 +270,7 @@ int run_self_tests(struct mxt_device *mxt, uint8_t cmd)
 
    mxt_write_register(mxt, &cmd, t25_addr + 1, 1);
 
-   return (mxt_read_messages(mxt, T25_TIMEOUT, NULL, self_test_handle_messages));
+   return (mxt_read_messages_sigint(mxt, T25_TIMEOUT, NULL, self_test_handle_messages, (int *)&mxt_sigint_rx));
 }
 
 //******************************************************************************

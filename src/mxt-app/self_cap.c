@@ -40,8 +40,10 @@
 #include "libmaxtouch/info_block.h"
 #include "libmaxtouch/utilfuncs.h"
 #include "libmaxtouch/log.h"
+#include "libmaxtouch/msg.h"
 
 #include "mxt_app.h"
+#include "signal.h"
 
 #define T109_TIMEOUT                    30
 
@@ -118,7 +120,7 @@ int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd)
   if (ret)
     return ret;
 
-  ret = mxt_read_messages(mxt, T109_TIMEOUT, &t109_command, mxt_self_cap_command);
+  ret = mxt_read_messages(mxt, T109_TIMEOUT, &t109_command, mxt_self_cap_command, (int *)&mxt_sigint_rx);
   if (ret)
     return ret;
 
@@ -140,7 +142,7 @@ int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd)
   if (ret)
     return ret;
 
-  ret = mxt_read_messages(mxt, 100, (void *) &t109_command, mxt_self_cap_command);
+  ret = mxt_read_messages(mxt, 100, (void *) &t109_command, mxt_self_cap_command, (int *)&mxt_sigint_rx);
   if (ret)
     return ret;
 

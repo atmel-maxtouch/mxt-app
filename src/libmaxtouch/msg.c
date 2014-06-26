@@ -144,3 +144,71 @@ int t44_msg_reset(struct mxt_device *mxt)
 
   return MXT_SUCCESS;
 }
+
+//******************************************************************************
+/// \brief Get messages from device and display to user
+/// \param timeout_seconds Represent the time in seconds to continuously
+///   display messages to the user. By setting timeout_seconds to 0, or
+///   MSG_NO_WAIT the T5 object is read only once. By setting timeout_seconds to
+///   -1, or  MSG_CONTINUOUS the T5 object is repeatedly read until the user
+///   presses Ctrl-C.
+/// \param  mxt  Maxtouch Device
+/// \param  context Additional context required by msg_func
+/// \param  msg_func Pointer to function to read object status
+/// \param  flag Pointer to control flag
+/// \return #mxt_rc
+int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context,
+                      int (*msg_func)(struct mxt_device *mxt, uint8_t *msg,
+                      void *context, uint8_t size), int *flag)
+{
+  int count, len;
+  time_t now;
+  time_t start_time = time(NULL);
+  uint8_t buf[10];
+  int ret;
+
+  while (!*flag)
+  {
+    mxt_msg_wait(mxt, MXT_MSG_POLL_DELAY_MS);
+
+    ret = mxt_get_msg_count(mxt, &count);
+    if (ret)
+      return ret;
+
+    while (count--) {
+      ret = mxt_get_msg_bytes(mxt, buf, sizeof(buf), &len);
+      if (ret && ret != MXT_ERROR_NO_MESSAGE)
+        return ret;
+
+      if (len > 0)
+      {
+        ret = ((*msg_func)(mxt, buf, context, len));
+        if (ret != MXT_MSG_CONTINUE)
+          return ret;
+      }
+    }
+
+    if (timeout_seconds == 0) {
+      return MXT_SUCCESS;
+    } else if (timeout_seconds > 0) {
+      now = time(NULL);
+      if ((now - start_time) > timeout_seconds)
+      {
+        mxt_err(mxt->ctx, "Timeout");
+        return MXT_ERROR_TIMEOUT;
+      }
+    }
+  }
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief Flush messages in buffer
+/// \return #mxt_rc
+int mxt_flush_msgs(struct mxt_device *mxt)
+{
+  int dummy;
+
+  return mxt_get_msg_count(mxt, &dummy);
+}
