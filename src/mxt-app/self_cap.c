@@ -43,7 +43,6 @@
 #include "libmaxtouch/msg.h"
 
 #include "mxt_app.h"
-#include "signal.h"
 
 #define T109_TIMEOUT                    30
 

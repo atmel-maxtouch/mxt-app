@@ -43,7 +43,6 @@
 
 #include "mxt_app.h"
 #include "buffer.h"
-#include "signal.h"
 
 #define T68_CTRL                   0
 #define T68_CTRL_ENABLE            (1 << 0)

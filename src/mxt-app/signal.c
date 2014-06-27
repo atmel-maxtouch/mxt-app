@@ -35,7 +35,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdbool.h>
-#include <signal.h>
 
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/info_block.h"
@@ -43,7 +42,6 @@
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/msg.h"
 
-#include "signal.h"
 #include "mxt_app.h"
 
 //******************************************************************************
@@ -61,7 +59,7 @@ static void mxt_signal_handler(int signal_num)
 
 //******************************************************************************
 /// \brief Handles SIGINT signal
-void mxt_init_sigint_handler(struct mxt_device *mxt, struct sigaction sa)
+static void mxt_init_sigint_handler(struct mxt_device *mxt, struct sigaction sa)
 {
   sa.sa_handler = mxt_signal_handler;
   sigemptyset(&sa.sa_mask);
@@ -72,7 +70,7 @@ void mxt_init_sigint_handler(struct mxt_device *mxt, struct sigaction sa)
 
 //******************************************************************************
 /// \brief Sets default function for SIGINT signal
-void mxt_release_sigint_handler(struct mxt_device *mxt, struct sigaction sa)
+static void mxt_release_sigint_handler(struct mxt_device *mxt, struct sigaction sa)
 {
   sa.sa_handler = SIG_DFL;
   if (sigaction(SIGINT, &sa, NULL) == -1)

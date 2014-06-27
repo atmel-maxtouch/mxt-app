@@ -35,6 +35,7 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <signal.h>
 
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/log.h"

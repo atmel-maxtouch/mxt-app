@@ -43,7 +43,6 @@
 #include "libmaxtouch/log.h"
 
 #include "mxt_app.h"
-#include "signal.h"
 
 //******************************************************************************
 /// \brief Print message as hex

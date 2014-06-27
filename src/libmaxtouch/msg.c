@@ -30,6 +30,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <time.h>
 
 #include "libmaxtouch.h"
 #include "msg.h"

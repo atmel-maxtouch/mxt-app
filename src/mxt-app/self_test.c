@@ -42,7 +42,6 @@
 #include "libmaxtouch/log.h"
 
 #include "mxt_app.h"
-#include "signal.h"
 
 #define T25_TIMEOUT   10
 
