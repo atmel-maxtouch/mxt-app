@@ -573,6 +573,34 @@ int mxt_backup_config(struct mxt_device *mxt, uint8_t backup_command)
 }
 
 //******************************************************************************
+/// \brief  Issue REPORTALL command to device
+/// \return #mxt_rc
+int mxt_report_all(struct mxt_device *mxt)
+{
+  int ret;
+  uint16_t t6_addr;
+  const uint8_t report_all_cmd = 0xff;
+
+  /* Obtain command processor's address */
+  t6_addr = mxt_get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
+  if (t6_addr == OBJECT_NOT_FOUND)
+    return MXT_ERROR_OBJECT_NOT_FOUND;
+
+  /* Write to command processor register to perform command */
+  ret = mxt_write_register
+  (
+    mxt, &report_all_cmd, t6_addr + MXT_T6_REPORTALL_OFFSET, 1
+  );
+
+  if (ret == MXT_SUCCESS)
+    mxt_info(mxt->ctx, "REPORTALL command issued");
+  else
+    mxt_err(mxt->ctx, "Failed to issue REPORTALL command");
+
+  return ret;
+}
+
+//******************************************************************************
 /// \brief  Get number of debug messages available
 /// \note   This may retrieve and buffer messages
 /// \return #mxt_rc

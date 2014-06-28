@@ -37,6 +37,7 @@
 #include "libmaxtouch.h"
 #include "info_block.h"
 #include "utilfuncs.h"
+#include "msg.h"
 
 #define OBP_RAW_MAGIC      "OBP_RAW V1"
 
@@ -91,8 +92,8 @@ static int mxt_save_raw_file(struct mxt_device *mxt, const char *filename)
 
   fprintf(fp, "%06X\n", mxt->info.crc);
 
-  /* can't read object table CRC at present */
-  fprintf(fp, "000000\n");
+  uint32_t checksum = mxt_get_config_crc(mxt);
+  fprintf(fp, "%06X\n", checksum);
 
   for (obj_idx = 0; obj_idx < id->num_objects; obj_idx++)
   {
@@ -166,6 +167,9 @@ static int mxt_save_xcfg_file(struct mxt_device *mxt, const char *filename)
   fprintf(fp, "VARIANT=%d\n", id->variant);
   fprintf(fp, "VERSION=%d\n", id->version);
   fprintf(fp, "BUILD=%d\n", id->build);
+
+  uint32_t checksum = mxt_get_config_crc(mxt);
+  fprintf(fp, "CHECKSUM=0x%06X\n", checksum);
   fprintf(fp, "INFO_BLOCK_CHECKSUM=0x%02X\n", mxt->info.crc);
 
   fprintf(fp, "[APPLICATION_INFO_HEADER]\n");

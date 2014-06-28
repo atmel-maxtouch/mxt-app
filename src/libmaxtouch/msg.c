@@ -213,3 +213,39 @@ int mxt_flush_msgs(struct mxt_device *mxt)
 
   return mxt_get_msg_count(mxt, &dummy);
 }
+
+//******************************************************************************
+/// \brief Gets checksum from T6 message
+/// \return #mxt_rc
+static int get_checksum_message(struct mxt_device *mxt, uint8_t *msg,
+                             void *context, uint8_t size)
+{
+  if (mxt_report_id_to_type(mxt, msg[0]) == GEN_COMMANDPROCESSOR_T6)
+  {
+    uint32_t *checksum = context;
+    *checksum = msg[2] | (msg[3] << 8) | (msg[4] << 16);
+
+    return MXT_SUCCESS;
+  }
+  return MXT_MSG_CONTINUE;
+}
+
+//******************************************************************************
+/// \brief  Reads checksum from T6 messages
+/// \return #mxt_rc
+uint32_t mxt_get_config_crc(struct mxt_device *mxt)
+{
+  int ret;
+  int flag = false;
+  uint32_t checksum;
+
+  ret = mxt_report_all(mxt);
+  if (ret)
+    return 0;
+
+  ret = mxt_read_messages(mxt, 2, &checksum, get_checksum_message, &flag);
+  if (ret)
+    return 0;
+
+  return checksum;
+}
