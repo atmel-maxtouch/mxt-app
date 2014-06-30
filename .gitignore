@@ -11,6 +11,7 @@
 /libtool
 /ltmain.sh
 /stamp-h1
+.dirstamp
 /git-version
 Makefile
 Makefile.in
@@ -24,6 +25,6 @@ Makefile.in
 *.lo
 *.o
 *.la
-/.deps/
+.deps/
 /.libs/
 .reviewboardrc
