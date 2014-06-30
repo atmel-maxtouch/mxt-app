@@ -172,7 +172,7 @@ recheck:
       && (state == MXT_WAITING_FRAME_DATA))
   {
     mxt_dbg(fw->ctx, "Attempting to retrieve bootloader version");
-    ret = mxt_bootloader_read(fw->mxt, &buf[0], 3);
+    ret = mxt_bootloader_read(fw->mxt, buf, sizeof(buf));
     if (ret)
       return ret;
 

@@ -688,12 +688,12 @@ int main (int argc, char *argv[])
         goto free;
       }
 
-      ret = mxt_convert_hex(argv[optind], &databuf[0], &count, sizeof(databuf));
+      ret = mxt_convert_hex(argv[optind], databuf, &count, sizeof(databuf));
       if (ret || count == 0) {
         fprintf(stderr, "Hex convert error\n");
         ret = MXT_ERROR_BAD_INPUT;
       } else {
-        ret = mxt_write_register(mxt, &databuf[0], address, count);
+        ret = mxt_write_register(mxt, databuf, address, count);
         if (ret)
           fprintf(stderr, "Write error\n");
       }

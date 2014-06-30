@@ -67,7 +67,7 @@ char *t44_get_msg_string(struct mxt_device *mxt)
   size_t length;
   unsigned char databuf[20];
 
-  ret = t44_get_msg_bytes(mxt, &databuf[0], sizeof(databuf), &size);
+  ret = t44_get_msg_bytes(mxt, databuf, sizeof(databuf), &size);
   if (ret)
     return NULL;
 
