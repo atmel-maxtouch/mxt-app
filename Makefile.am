@@ -76,3 +76,7 @@ man1/mxt-app.1: README.md
 
 clean-local:
 	-rm man1/mxt-app.1
+
+indent:
+	astyle --style=linux --indent=spaces=2 \
+  $(mxt_app_SOURCES) $(libmaxtouch_la_SOURCES)
