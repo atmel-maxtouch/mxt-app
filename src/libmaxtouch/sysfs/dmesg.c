@@ -65,13 +65,10 @@ static void dmesg_list_add(struct mxt_device *mxt, unsigned long sec, unsigned l
   new_node->next = NULL;
 
   // find node
-  if (mxt->sysfs.dmesg_head != NULL)
-  {
+  if (mxt->sysfs.dmesg_head != NULL) {
     mxt->sysfs.dmesg_tail->next = new_node;
     mxt->sysfs.dmesg_tail = new_node;
-  }
-  else
-  {
+  } else {
     mxt->sysfs.dmesg_head = new_node;
     mxt->sysfs.dmesg_tail = new_node;
   }
@@ -95,8 +92,7 @@ static void dmesg_list_empty(struct mxt_device *mxt)
 
   // release memory
   struct dmesg_item *next_node = NULL;
-  while (old_node->next != NULL)
-  {
+  while (old_node->next != NULL) {
     next_node = old_node->next;
     free(old_node);
 
@@ -136,8 +132,7 @@ int sysfs_get_msg_count(struct mxt_device *mxt, int *count)
   dmesg_list_empty(mxt);
 
   // Search for next new line character
-  while((lineptr = strstr(buffer+sp, "\n" )) != NULL)
-  {
+  while((lineptr = strstr(buffer+sp, "\n" )) != NULL) {
     // Set up start point for next line
     ep = lineptr - buffer - sp;
 
@@ -148,18 +143,15 @@ int sysfs_get_msg_count(struct mxt_device *mxt, int *count)
 
     // Try to parse dmesg line
     if (sscanf(buffer+sp, "<%*c>[%lu.%06lu%*s %255[^\n]",
-        &sec, &msec, (char*)&msg) == 3)
-    {
+               &sec, &msec, (char*)&msg) == 3) {
       // Timestamp must be greater than previous messages, slightly
       // complicated by seconds and microseconds
       if ((sec > mxt->sysfs.timestamp) ||
-          ((sec == mxt->sysfs.timestamp) && (msec > mxt->sysfs.mtimestamp)))
-      {
+          ((sec == mxt->sysfs.timestamp) && (msec > mxt->sysfs.mtimestamp))) {
         msg[sizeof(msg) - 1] = '\0';
         msgptr = strstr(msg, "MXT MSG");
 
-        if (msgptr)
-        {
+        if (msgptr) {
           dmesg_list_add(mxt, sec, msec, msgptr);
         }
       }
@@ -195,8 +187,7 @@ char *sysfs_get_msg_string(struct mxt_device *mxt)
 
   msg_string = mxt->sysfs.dmesg_ptr->msg;
 
-  if (mxt->sysfs.dmesg_ptr != NULL)
-  {
+  if (mxt->sysfs.dmesg_ptr != NULL) {
     // Get next record in linked list
     mxt->sysfs.dmesg_ptr = mxt->sysfs.dmesg_ptr->next;
   }
@@ -221,16 +212,14 @@ int sysfs_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf,
   message = sysfs_get_msg_string(mxt);
 
   /* Check message begins with prefix */
-  if (strncmp(MSG_PREFIX, message, strlen(MSG_PREFIX)))
-  {
+  if (strncmp(MSG_PREFIX, message, strlen(MSG_PREFIX))) {
     *count = 0;
     return MXT_SUCCESS;
   }
 
   message += strlen(MSG_PREFIX);
 
-  while (1 == sscanf(message, "%hhx%n", buf + bufidx, &offset))
-  {
+  while (1 == sscanf(message, "%hhx%n", buf + bufidx, &offset)) {
     message += offset;
     bufidx++;
 

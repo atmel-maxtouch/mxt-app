@@ -55,8 +55,7 @@ static uint32_t crc24(uint32_t crc, uint8_t firstbyte, uint8_t secondbyte)
   result = ((crc << 1u) ^ (uint32_t)data_word);
 
   /* Check if 25th bit is set, and XOR the result to create 24-bit checksum */
-  if (result & 0x1000000)
-  {
+  if (result & 0x1000000) {
     result ^= CRCPOLY;
   }
   return result;
@@ -74,17 +73,15 @@ static int calculate_crc(struct mxt_device *mxt, uint32_t read_crc,
 
   /* Call the CRC function crc24() iteratively to calculate the CRC,
    * passing it two characters at a time.  */
-  while (crc_byte_index < ((size % 2) ? (size - 1) : size))
-  {
+  while (crc_byte_index < ((size % 2) ? (size - 1) : size)) {
     calc_crc = crc24(calc_crc, *(base_addr + crc_byte_index),
-                               *(base_addr + crc_byte_index + 1));
+                     *(base_addr + crc_byte_index + 1));
     crc_byte_index += 2;
   }
 
   /* Call crc24() for the final byte, plus an extra
    *  0 value byte to make the sequence even if it's odd */
-  if (size % 2)
-  {
+  if (size % 2) {
     calc_crc = crc24(calc_crc, *(base_addr + crc_byte_index), 0);
   }
 
@@ -92,17 +89,15 @@ static int calculate_crc(struct mxt_device *mxt, uint32_t read_crc,
   calc_crc &= calc_crc & 0x00FFFFFF;
 
   /* A zero CRC indicates a communications error */
-  if (calc_crc == 0)
-  {
+  if (calc_crc == 0) {
     mxt_err(mxt->ctx, "Information Block Checksum zero");
     return MXT_ERROR_IO;
   }
 
   /* Compare the read checksum with calculated checksum */
-  if (read_crc != calc_crc)
-  {
+  if (read_crc != calc_crc) {
     mxt_err(mxt->ctx, "Information Block Checksum error calc=%06X read=%06X",
-        calc_crc, read_crc);
+            calc_crc, read_crc);
     return MXT_ERROR_INFO_CHECKSUM_MISMATCH;
   }
 
@@ -120,15 +115,13 @@ int mxt_read_info_block(struct mxt_device *mxt)
 
   /* Read the ID Information from the chip */
   uint8_t *info_blk = (uint8_t *)calloc(1, sizeof(struct mxt_id_info));
-  if (info_blk == NULL)
-  {
+  if (info_blk == NULL) {
     mxt_err(mxt->ctx, "Memory allocation failure");
     return MXT_ERROR_NO_MEM;
   }
 
   ret = mxt_read_register(mxt, info_blk, 0, sizeof(struct mxt_id_info));
-  if (ret)
-  {
+  if (ret) {
     mxt_err(mxt->ctx, "Failed to read ID information");
     return ret;
   }
@@ -142,16 +135,14 @@ int mxt_read_info_block(struct mxt_device *mxt)
   size_t info_block_size = crc_area_size + sizeof(struct mxt_raw_crc);
 
   info_blk = (uint8_t *)realloc(info_blk, info_block_size);
-  if (info_blk == NULL)
-  {
+  if (info_blk == NULL) {
     mxt_err(mxt->ctx, "Memory allocation failure");
     return MXT_ERROR_NO_MEM;
   }
 
   /* Read the entire Information Block from the chip */
   ret = mxt_read_register(mxt, info_blk, 0, info_block_size);
-  if (ret)
-  {
+  if (ret) {
     mxt_err(mxt->ctx, "Failed to read Information Block");
     return ret;
   }
@@ -188,29 +179,24 @@ int mxt_calc_report_ids(struct mxt_device *mxt)
   struct mxt_object obj;
 
   /* Calculate the number of report IDs */
-  for (i = 0; i < mxt->info.id->num_objects; i++)
-  {
+  for (i = 0; i < mxt->info.id->num_objects; i++) {
     obj = mxt->info.objects[i];
     num_report_ids += MXT_INSTANCES(obj) * obj.num_report_ids;
   }
 
   /* Allocate memory for report ID look-up table */
   mxt->report_id_map = calloc(num_report_ids, sizeof(struct mxt_report_id_map));
-  if (mxt->report_id_map == NULL)
-  {
+  if (mxt->report_id_map == NULL) {
     mxt_err(mxt->ctx, "calloc failure");
     return MXT_ERROR_NO_MEM;
   }
 
   /* Store the object and instance for each report ID */
-  for (i = 0; i < mxt->info.id->num_objects; i++)
-  {
+  for (i = 0; i < mxt->info.id->num_objects; i++) {
     obj = mxt->info.objects[i];
 
-    for (instance = 0; instance < MXT_INSTANCES(obj); instance++)
-    {
-      for (report_index = 0; report_index < obj.num_report_ids; report_index++)
-      {
+    for (instance = 0; instance < MXT_INSTANCES(obj); instance++) {
+      for (report_index = 0; report_index < obj.num_report_ids; report_index++) {
         mxt->report_id_map[report_id_count].object_type = obj.type;
         mxt->report_id_map[report_id_count].instance = instance;
         report_id_count++;
@@ -254,23 +240,22 @@ void mxt_display_chip_info(struct mxt_device *mxt)
 
   /* Display ID information */
   mxt_dbg(mxt->ctx, "Family ID = %u (0x%02X)",
-      id->family, id->family);
+          id->family, id->family);
   mxt_dbg(mxt->ctx, "Variant ID = %u (0x%02X)",
-      id->variant, id->variant);
+          id->variant, id->variant);
   mxt_dbg(mxt->ctx, "Firmware Version = %s", firmware_version);
   mxt_dbg(mxt->ctx, "Matrix X Size = %d", id->matrix_x_size);
   mxt_dbg(mxt->ctx, "Matrix Y Size = %d", id->matrix_y_size);
   mxt_dbg(mxt->ctx, "Number of elements in the Object Table = %d",
-      id->num_objects);
+          id->num_objects);
 
   /* Display information about specific objects */
-  for (i = 0; i < id->num_objects; i++)
-  {
+  for (i = 0; i < id->num_objects; i++) {
     obj = mxt->info.objects[i];
 
     mxt_dbg(mxt->ctx, "T%u size:%u instances:%u address:%u",
-      obj.type, MXT_SIZE(obj),
-      MXT_INSTANCES(obj), mxt_get_start_position(obj, 0));
+            obj.type, MXT_SIZE(obj),
+            MXT_INSTANCES(obj), mxt_get_start_position(obj, 0));
   }
 }
 
@@ -289,22 +274,17 @@ uint16_t mxt_get_object_address(struct mxt_device *mxt, uint16_t object_type, ui
   int i = 0;
   struct mxt_object obj;
 
-  for (i = 0; i < id->num_objects; i++)
-  {
+  for (i = 0; i < id->num_objects; i++) {
     obj = mxt->info.objects[i];
 
     /* Does object type match? */
-    if (obj.type == object_type)
-    {
+    if (obj.type == object_type) {
       /* Are there enough instances defined in the firmware? */
-      if (obj.instances_minus_one >= instance)
-      {
+      if (obj.instances_minus_one >= instance) {
         return mxt_get_start_position(obj, instance);
-      }
-      else
-      {
+      } else {
         mxt_warn(mxt->ctx, "T%u instance %u not present on device",
-                      object_type, instance);
+                 object_type, instance);
         return OBJECT_NOT_FOUND;
       }
     }
@@ -324,8 +304,7 @@ uint16_t mxt_get_object_address(struct mxt_device *mxt, uint16_t object_type, ui
 uint8_t mxt_get_object_size(struct mxt_device *mxt, uint16_t object_type)
 {
   int i = mxt_get_object_table_num(mxt, object_type);
-  if (i == 255)
-  {
+  if (i == 255) {
     return OBJECT_NOT_FOUND;
   }
 
@@ -344,10 +323,8 @@ uint8_t mxt_get_object_instances(struct mxt_device *mxt, uint16_t object_type)
   struct mxt_id_info *id = mxt->info.id;
   int i;
 
-  for (i = 0; i < id->num_objects; i++)
-  {
-    if (mxt->info.objects[i].type == object_type)
-    {
+  for (i = 0; i < id->num_objects; i++) {
+    if (mxt->info.objects[i].type == object_type) {
       return MXT_INSTANCES(mxt->info.objects[i]);
     }
   }
@@ -367,10 +344,8 @@ uint8_t mxt_get_object_table_num(struct mxt_device *mxt, uint16_t object_type)
   struct mxt_id_info *id = mxt->info.id;
   int i;
 
-  for (i = 0; i < id->num_objects; i++)
-  {
-    if (mxt->info.objects[i].type == object_type)
-    {
+  for (i = 0; i < id->num_objects; i++) {
+    if (mxt->info.objects[i].type == object_type) {
       return i;
     }
   }

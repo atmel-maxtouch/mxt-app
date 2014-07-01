@@ -71,7 +71,7 @@ static int get_objects_addr(struct t37_ctx *ctx)
   if (ctx->t37_size == OBJECT_NOT_FOUND) return MXT_ERROR_OBJECT_NOT_FOUND;
 
   ctx->t111_instances = mxt_get_object_instances(ctx->mxt,
-                                                 SPT_SELFCAPCONFIG_T111);
+                        SPT_SELFCAPCONFIG_T111);
 
   return MXT_SUCCESS;
 }
@@ -88,15 +88,12 @@ static int mxt_debug_dump_page(struct t37_ctx *ctx)
   uint8_t read_page;
   uint8_t page_up_cmd = PAGE_UP;
 
-  if (ctx->page == 0)
-  {
+  if (ctx->page == 0) {
     mxt_verb(ctx->lc, "Writing mode command");
     ret = mxt_write_register(ctx->mxt, &ctx->mode, ctx->diag_cmd_addr, 1);
     if (ret)
       return ret;
-  }
-  else
-  {
+  } else {
     ret = mxt_write_register(ctx->mxt, &page_up_cmd, ctx->diag_cmd_addr, 1);
     if (ret)
       return ret;
@@ -106,21 +103,17 @@ static int mxt_debug_dump_page(struct t37_ctx *ctx)
    * cleared. This means that the chip has actioned the command */
   failures = 0;
 
-  while (read_command)
-  {
+  while (read_command) {
     ret = mxt_read_register(ctx->mxt, &read_command, ctx->diag_cmd_addr, 1);
-    if (ret)
-    {
+    if (ret) {
       mxt_err(ctx->lc, "Failed to read the status of diagnostic mode command");
       return ret;
     }
 
-    if (read_command)
-    {
+    if (read_command) {
       failures++;
 
-      if (failures > 500)
-      {
+      if (failures > 500) {
         mxt_err(ctx->lc, "Timeout waiting for command to be actioned");
         return MXT_ERROR_TIMEOUT;
       }
@@ -128,29 +121,25 @@ static int mxt_debug_dump_page(struct t37_ctx *ctx)
   }
 
   ret = mxt_read_register(ctx->mxt, &read_mode, ctx->t37_addr, 1);
-  if (ret)
-  {
+  if (ret) {
     mxt_err(ctx->lc, "Failed to read current mode");
     return ret;
   }
 
   ret = mxt_read_register(ctx->mxt, &read_page, ctx->t37_addr + 1, 1);
-  if (ret)
-  {
+  if (ret) {
     mxt_err(ctx->lc, "Failed to read page number");
     return ret;
   }
 
-  if ((read_mode != ctx->mode) || (read_page != ctx->page))
-  {
+  if ((read_mode != ctx->mode) || (read_page != ctx->page)) {
     mxt_err(ctx->lc, "Bad page/mode in diagnostic data read");
     return MXT_ERROR_UNEXPECTED_DEVICE_STATE;
   }
 
   ret = mxt_read_register(ctx->mxt, ctx->page_buf,
                           ctx->t37_addr + 2, ctx->page_size);
-  if (ret)
-  {
+  if (ret) {
     mxt_err(ctx->lc, "Failed to read page");
     return ret;
   }
@@ -172,37 +161,43 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
   if (ret < 0)
     return MXT_ERROR_IO;
 
-  if (ctx->self_cap)
-  {
-    for (pass = 0; pass < ctx->num_passes; pass++)
-    {
+  if (ctx->self_cap) {
+    for (pass = 0; pass < ctx->num_passes; pass++) {
       const char *set;
-      switch (pass)
-      {
-        default:
-        case 0: set = "touch"; break;
-        case 1: set = (ctx->num_passes == 3) ? "hover" : "prox"; break;
-        case 2: set = "prox"; break;
+      switch (pass) {
+      default:
+      case 0:
+        set = "touch";
+        break;
+      case 1:
+        set = (ctx->num_passes == 3) ? "hover" : "prox";
+        break;
+      case 2:
+        set = "prox";
+        break;
       }
 
       const char * mode;
-      switch (ctx->mode)
-      {
-        default:
-        case SELF_CAP_DELTAS:    mode = "delta"; break;
-        case SELF_CAP_REFS:      mode = "ref"; break;
-        case SELF_CAP_SIGNALS:   mode = "sig"; break;
+      switch (ctx->mode) {
+      default:
+      case SELF_CAP_DELTAS:
+        mode = "delta";
+        break;
+      case SELF_CAP_REFS:
+        mode = "ref";
+        break;
+      case SELF_CAP_SIGNALS:
+        mode = "sig";
+        break;
       }
 
-      for (y = 0; y < ctx->y_size; y++)
-      {
+      for (y = 0; y < ctx->y_size; y++) {
         ret = fprintf(ctx->hawkeye, "Y%d_SC_%s_%s,", y, set, mode);
         if (ret < 0)
           return MXT_ERROR_IO;
       }
 
-      for (x = 0; x < ctx->x_size; x++)
-      {
+      for (x = 0; x < ctx->x_size; x++) {
         int x_real;
 
         if (ctx->x_size < ctx->y_size)
@@ -215,15 +210,11 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
           return MXT_ERROR_IO;
       }
     }
-  }
-  else
-  {
-    for (x = 0; x < ctx->x_size; x++)
-    {
-      for (y = 0; y < ctx->y_size; y++)
-      {
+  } else {
+    for (x = 0; x < ctx->x_size; x++) {
+      for (y = 0; y < ctx->y_size; y++) {
         ret = fprintf(ctx->hawkeye, "X%dY%d_%s16,", x, y,
-            (ctx->mode == DELTAS_MODE) ? "Delta" : "Reference");
+                      (ctx->mode == DELTAS_MODE) ? "Delta" : "Reference");
         if (ret < 0)
           return MXT_ERROR_IO;
       }
@@ -245,8 +236,7 @@ static int mxt_debug_insert_data_self_cap(struct t37_ctx *ctx)
   int i;
   int ofs;
 
-  for (i = 0; i < ctx->page_size; i += 2)
-  {
+  for (i = 0; i < ctx->page_size; i += 2) {
     int data_pos = ctx->page * ctx->page_size/2 + i/2;
 
     if (data_pos > ctx->num_data_values)
@@ -269,10 +259,8 @@ static int mxt_debug_insert_data(struct t37_ctx *ctx)
   uint16_t value;
   int ofs;
 
-  for (i = 0; i < ctx->page_size; i += 2)
-  {
-    if (ctx->x_ptr > ctx->x_size)
-    {
+  for (i = 0; i < ctx->page_size; i += 2) {
+    if (ctx->x_ptr > ctx->x_size) {
       mxt_err(ctx->lc, "x pointer overrun");
       return MXT_INTERNAL_ERROR;
     }
@@ -289,8 +277,7 @@ static int mxt_debug_insert_data(struct t37_ctx *ctx)
 
     ctx->y_ptr++;
 
-    if (ctx->y_ptr > ctx->stripe_endy)
-    {
+    if (ctx->y_ptr > ctx->stripe_endy) {
       ctx->y_ptr = ctx->stripe_starty;
       ctx->x_ptr++;
     }
@@ -319,31 +306,24 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
   if (ret < 0)
     return MXT_ERROR_IO;
 
-  if (ctx->self_cap)
-  {
-    for (y = 0; y < ctx->y_size; y++)
-    {
+  if (ctx->self_cap) {
+    for (y = 0; y < ctx->y_size; y++) {
       value = (int16_t)ctx->data_buf[y];
       ret = fprintf(ctx->hawkeye, "%d,", value);
       if (ret < 0)
         return MXT_ERROR_IO;
     }
 
-    for (x = 0; x < ctx->x_size; x++)
-    {
+    for (x = 0; x < ctx->x_size; x++) {
       value = (int16_t)ctx->data_buf[ctx->y_size + x];
       ret = fprintf(ctx->hawkeye, "%d,", value);
       if (ret < 0)
         return MXT_ERROR_IO;
     }
-  }
-  else
-  {
+  } else {
     /* iterate through columns */
-    for (x = 0; x < ctx->x_size; x++)
-    {
-      for (y = 0; y < ctx->y_size; y++)
-      {
+    for (x = 0; x < ctx->x_size; x++) {
+      for (y = 0; y < ctx->y_size; y++) {
         ofs = y + x * ctx->y_size;
 
         value = (int16_t)ctx->data_buf[ofs];
@@ -369,8 +349,7 @@ static int get_num_frames(uint16_t *frames)
 {
   printf("Number of frames: ");
 
-  if (scanf("%hu", frames) == EOF)
-  {
+  if (scanf("%hu", frames) == EOF) {
     fprintf(stderr, "Could not handle the input, exiting");
     return MXT_ERROR_BAD_INPUT;
   }
@@ -387,8 +366,7 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
   int ret;
 
   ret = get_objects_addr(ctx);
-  if (ret)
-  {
+  if (ret) {
     mxt_err(ctx->lc, "Failed to get object information");
     return ret;
   }
@@ -397,102 +375,91 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
   ctx->page_size = ctx->t37_size - 2;
   mxt_dbg(ctx->lc, "page_size: %d", ctx->page_size);
 
-  switch (ctx->mode)
-  {
-    case DELTAS_MODE:
-    case REFS_MODE:
-      ctx->self_cap = false;
+  switch (ctx->mode) {
+  case DELTAS_MODE:
+  case REFS_MODE:
+    ctx->self_cap = false;
 
-      if (id->family == 0xA0 && id->variant == 0x00)
-      {
-        /* mXT1386 data is formatted into stripes */
-        ctx->x_size = 27;
-        ctx->y_size = id->matrix_y_size;
-        ctx->num_data_values = 27 * ctx->y_size;
-        ctx->num_passes = 3;
-        ctx->pages = 8;
-      }
-      else
-      {
-        ctx->x_size = id->matrix_x_size;
-        ctx->y_size = id->matrix_y_size;
-        ctx->num_data_values = ctx->x_size * ctx->y_size;
-        ctx->num_passes = 1;
-        ctx->pages = (ctx->num_data_values*2 + (ctx->page_size - 1)) /
-                     ctx->page_size;
-      }
+    if (id->family == 0xA0 && id->variant == 0x00) {
+      /* mXT1386 data is formatted into stripes */
+      ctx->x_size = 27;
+      ctx->y_size = id->matrix_y_size;
+      ctx->num_data_values = 27 * ctx->y_size;
+      ctx->num_passes = 3;
+      ctx->pages = 8;
+    } else {
+      ctx->x_size = id->matrix_x_size;
+      ctx->y_size = id->matrix_y_size;
+      ctx->num_data_values = ctx->x_size * ctx->y_size;
+      ctx->num_passes = 1;
+      ctx->pages = (ctx->num_data_values*2 + (ctx->page_size - 1)) /
+                   ctx->page_size;
+    }
 
-      ctx->stripe_width = ctx->y_size / ctx->num_passes;
-      mxt_dbg(ctx->lc, "stripe_width: %d", ctx->stripe_width);
-      break;
+    ctx->stripe_width = ctx->y_size / ctx->num_passes;
+    mxt_dbg(ctx->lc, "stripe_width: %d", ctx->stripe_width);
+    break;
 
-    case SELF_CAP_SIGNALS:
-    case SELF_CAP_DELTAS:
-    case SELF_CAP_REFS:
-      ctx->self_cap = true;
+  case SELF_CAP_SIGNALS:
+  case SELF_CAP_DELTAS:
+  case SELF_CAP_REFS:
+    ctx->self_cap = true;
 
-      if (id->family == 164)
-      {
-        switch (id->variant)
-        {
-          case 5:
-          case 9:
-            // mXT336T
-            ctx->y_size = 14;
-            ctx->x_size = 24;
-            break;
+    if (id->family == 164) {
+      switch (id->variant) {
+      case 5:
+      case 9:
+        // mXT336T
+        ctx->y_size = 14;
+        ctx->x_size = 24;
+        break;
 
-          case 2:
-          case 7:
-            // mXT640T
-            ctx->y_size = 20;
-            ctx->x_size = 32;
-            break;
+      case 2:
+      case 7:
+        // mXT640T
+        ctx->y_size = 20;
+        ctx->x_size = 32;
+        break;
 
-          case 11:
-          case 12:
-            // mXT1066T
-            ctx->y_size = 26;
-            ctx->x_size = 41;
-            break;
+      case 11:
+      case 12:
+        // mXT1066T
+        ctx->y_size = 26;
+        ctx->x_size = 41;
+        break;
 
-          case 3:
-          case 4:
-          case 13:
-          case 14:
-          case 15:
-          case 16:
-            // mXT2952T
-            ctx->y_size = 72;
-            ctx->x_size = 41;
-            break;
+      case 3:
+      case 4:
+      case 13:
+      case 14:
+      case 15:
+      case 16:
+        // mXT2952T
+        ctx->y_size = 72;
+        ctx->x_size = 41;
+        break;
 
-          default:
-            goto self_cap_unsupported;
-        }
-      }
-      else
-      {
+      default:
         goto self_cap_unsupported;
       }
+    } else {
+      goto self_cap_unsupported;
+    }
 
-      if (ctx->t111_instances == 0)
-      {
-        goto self_cap_unsupported;
-      }
-      else
-      {
-        ctx->num_passes = ctx->t111_instances;
-      }
+    if (ctx->t111_instances == 0) {
+      goto self_cap_unsupported;
+    } else {
+      ctx->num_passes = ctx->t111_instances;
+    }
 
-      ctx->num_data_values = ctx->y_size * ((ctx->x_size > ctx->y_size) ? 3 : 2);
-      ctx->pages = (ctx->num_data_values*2 +(ctx->page_size - 1)) /
-                         ctx->page_size;
-      break;
+    ctx->num_data_values = ctx->y_size * ((ctx->x_size > ctx->y_size) ? 3 : 2);
+    ctx->pages = (ctx->num_data_values*2 +(ctx->page_size - 1)) /
+                 ctx->page_size;
+    break;
 
-    default:
-      mxt_err(ctx->lc, "Unsupported mode %02X", ctx->mode);
-      return MXT_INTERNAL_ERROR;
+  default:
+    mxt_err(ctx->lc, "Unsupported mode %02X", ctx->mode);
+    return MXT_INTERNAL_ERROR;
   }
 
   mxt_dbg(ctx->lc, "Number of passes: %d", ctx->num_passes);
@@ -534,28 +501,23 @@ int mxt_debug_dump_frame(struct t37_ctx* ctx)
   int ret;
 
   /* iterate through stripes */
-  for (ctx->pass = 0; ctx->pass < ctx->num_passes; ctx->pass++)
-  {
-    if (!ctx->self_cap)
-    {
+  for (ctx->pass = 0; ctx->pass < ctx->num_passes; ctx->pass++) {
+    if (!ctx->self_cap) {
       /* Calculate stripe parameters */
       ctx->stripe_starty = ctx->stripe_width * ctx->pass;
       ctx->stripe_endy = ctx->stripe_starty + ctx->stripe_width - 1;
       ctx->x_ptr = 0;
       ctx->y_ptr = ctx->stripe_starty;
-    }
-    else
-    {
+    } else {
       ctx->x_ptr = 0;
       ctx->y_ptr = 0;
     }
 
-    for (page = 0; page < ctx->pages; page++)
-    {
+    for (page = 0; page < ctx->pages; page++) {
       ctx->page = ctx->pages * ctx->pass + page;
 
       mxt_dbg(ctx->lc, "Frame %d Pass %d Page %d", ctx->frame, ctx->pass,
-          ctx->page);
+              ctx->page);
 
       ret = mxt_debug_dump_page(ctx);
       if (ret)
@@ -586,10 +548,9 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   ctx.mxt = mxt;
   ctx.mode = mode;
 
-  if (frames == 0)
-  {
-     mxt_warn(ctx.lc, "Defaulting to 1 frame");
-     frames = 1;
+  if (frames == 0) {
+    mxt_warn(ctx.lc, "Defaulting to 1 frame");
+    frames = 1;
   }
 
   ret = mxt_debug_dump_initialise(&ctx);
@@ -612,8 +573,7 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
 
   t1 = time(NULL);
 
-  for (ctx.frame = 1; ctx.frame <= frames; ctx.frame++)
-  {
+  for (ctx.frame = 1; ctx.frame <= frames; ctx.frame++) {
     ret = mxt_debug_dump_frame(&ctx);
 
     mxt_hawkeye_output(&ctx);
@@ -642,27 +602,26 @@ static void mxt_dd_cmd(struct mxt_device *mxt, char selection, const char *csv_f
   uint16_t frames;
   int ret;
 
-  switch (selection)
-  {
-    case 'd':
-    case 'D':
-      ret = get_num_frames(&frames);
-      if (ret == MXT_SUCCESS)
-        mxt_debug_dump(mxt, DELTAS_MODE, csv_file, frames);
-      break;
-    case 'r':
-    case 'R':
-      ret = get_num_frames(&frames);
-      if (ret == MXT_SUCCESS)
-        mxt_debug_dump(mxt, REFS_MODE, csv_file, frames);
-      break;
-    case 'q':
-    case 'Q':
-      printf("Quitting the debug dump utility\n");
-      break;
-    default:
-      printf("Invalid menu option\n");
-      break;
+  switch (selection) {
+  case 'd':
+  case 'D':
+    ret = get_num_frames(&frames);
+    if (ret == MXT_SUCCESS)
+      mxt_debug_dump(mxt, DELTAS_MODE, csv_file, frames);
+    break;
+  case 'r':
+  case 'R':
+    ret = get_num_frames(&frames);
+    if (ret == MXT_SUCCESS)
+      mxt_debug_dump(mxt, REFS_MODE, csv_file, frames);
+    break;
+  case 'q':
+  case 'Q':
+    printf("Quitting the debug dump utility\n");
+    break;
+  default:
+    printf("Invalid menu option\n");
+    break;
   }
 }
 
@@ -673,28 +632,24 @@ void mxt_dd_menu(struct mxt_device *mxt)
   char menu_input;
   char csv_file_in[MAX_FILENAME_LENGTH + 1];
 
-  while(true)
-  {
+  while(true) {
     printf("\nSelect one of the options:\n\n"
-        "Enter D:   (D)elta dump\n"
-        "Enter R:   (R)eference dump\n"
-        "Enter Q:   (Q)uit the application\n");
+           "Enter D:   (D)elta dump\n"
+           "Enter R:   (R)eference dump\n"
+           "Enter Q:   (Q)uit the application\n");
 
-    if (scanf("%1s", &menu_input) == EOF)
-    {
+    if (scanf("%1s", &menu_input) == EOF) {
       fprintf(stderr, "Could not handle the input, exiting");
       return;
     }
 
-    if ((menu_input == 'q') || (menu_input == 'Q'))
-    {
+    if ((menu_input == 'q') || (menu_input == 'Q')) {
       printf("Quitting the debug dump utility\n");
       return;
     }
 
     printf("\nFile name: ");
-    if (scanf("%255s", csv_file_in) == EOF)
-    {
+    if (scanf("%255s", csv_file_in) == EOF) {
       fprintf(stderr, "Could not handle the input, exiting");
       return;
     }

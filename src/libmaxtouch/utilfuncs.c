@@ -74,18 +74,14 @@ void mxt_print_info_block(struct mxt_device *mxt)
   /* Show the object table */
   printf("Type Start Size Instances ReportIds Name\n");
   printf("-----------------------------------------------------------------\n");
-  for (i = 0; i < id->num_objects; i++)
-  {
+  for (i = 0; i < id->num_objects; i++) {
     obj = mxt->info.objects[i];
 
-    if (obj.num_report_ids > 0)
-    {
+    if (obj.num_report_ids > 0) {
       report_id_start = report_id;
       report_id_end = report_id_start + obj.num_report_ids * MXT_INSTANCES(obj) - 1;
       report_id = report_id_end + 1;
-    }
-    else
-    {
+    } else {
       report_id_start = 0;
       report_id_end = 0;
     }
@@ -112,12 +108,11 @@ void mxt_print_info_block(struct mxt_device *mxt)
 /// \return null terminated string, or NULL for object not found
 const char *mxt_get_object_name(uint8_t objtype)
 {
-  switch(objtype)
-  {
+  switch(objtype) {
     OBJECT_LIST(F_SWITCH)
 
-    default:
-      return NULL;
+  default:
+    return NULL;
   }
 }
 //******************************************************************************
@@ -132,8 +127,7 @@ int mxt_read_object(struct mxt_device *mxt, uint16_t object_type,
   uint16_t i;
   int ret;
 
-  if (object_type > 0)
-  {
+  if (object_type > 0) {
     object_address = mxt_get_object_address(mxt, object_type, instance);
     if (object_address == OBJECT_NOT_FOUND) {
       printf("No such object\n");
@@ -141,22 +135,19 @@ int mxt_read_object(struct mxt_device *mxt, uint16_t object_type,
     }
 
     mxt_dbg(mxt->ctx, "T%u address:%u offset:%u", object_type,
-        object_address, address);
+            object_address, address);
     address = object_address + address;
 
     if (count == 0) {
       count = mxt_get_object_size(mxt, object_type);
     }
-  }
-  else if (count == 0)
-  {
+  } else if (count == 0) {
     mxt_err(mxt->ctx, "No length information");
     return MXT_ERROR_BAD_INPUT;
   }
 
   databuf = (uint8_t *)calloc(count, sizeof(uint8_t));
-  if (databuf == NULL)
-  {
+  if (databuf == NULL) {
     mxt_err(mxt->ctx, "Memory allocation failure");
     return MXT_ERROR_NO_MEM;
   }
@@ -167,8 +158,7 @@ int mxt_read_object(struct mxt_device *mxt, uint16_t object_type,
     goto free;
   }
 
-  if (format)
-  {
+  if (format) {
     if (object_type > 0) {
       const char *obj_name = mxt_get_object_name(object_type);
       if (obj_name)
@@ -179,10 +169,10 @@ int mxt_read_object(struct mxt_device *mxt, uint16_t object_type,
 
     for (i = 0; i < count; i++) {
       printf("%02d:\t0x%02X\t%3d\t" BYTETOBINARYPATTERN "\n",
-          address - object_address + i,
-          databuf[i],
-          databuf[i],
-          BYTETOBINARY(databuf[i]));
+             address - object_address + i,
+             databuf[i],
+             databuf[i],
+             BYTETOBINARY(databuf[i]));
     }
   } else {
     for (i = 0; i < count; i++) {
@@ -203,18 +193,18 @@ free:
 /// \brief Convert hex nibble to digit
 static char to_digit(char hex)
 {
-    char decimal;
+  char decimal;
 
-    if (hex >= '0' && hex <= '9')
-        decimal = hex - '0';
-    else if (hex >= 'A' && hex <= 'F')
-        decimal = hex - 'A' + 10;
-    else if (hex >= 'a' && hex <= 'f')
-        decimal = hex - 'a' + 10;
-    else
-        decimal = 0;
+  if (hex >= '0' && hex <= '9')
+    decimal = hex - '0';
+  else if (hex >= 'A' && hex <= 'F')
+    decimal = hex - 'A' + 10;
+  else if (hex >= 'a' && hex <= 'f')
+    decimal = hex - 'a' + 10;
+  else
+    decimal = 0;
 
-    return decimal;
+  return decimal;
 }
 
 //******************************************************************************
@@ -241,7 +231,7 @@ int mxt_convert_hex(char *hex, unsigned char *databuf,
       return MXT_ERROR_BAD_INPUT;
 
     *(databuf + datapos) = (to_digit(highnibble) << 4)
-      | to_digit(lownibble);
+                           | to_digit(lownibble);
     datapos++;
 
     pos += 2;
@@ -270,8 +260,7 @@ int mxt_print_timestamp(FILE *stream, bool date)
   nowtime = tv.tv_sec;
   nowtm = localtime(&nowtime);
 
-  if (date)
-  {
+  if (date) {
     strftime(tmbuf, sizeof(tmbuf), "%c", nowtm);
     ret = fprintf(stream, "%s", tmbuf);
   } else {

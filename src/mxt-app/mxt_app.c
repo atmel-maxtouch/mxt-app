@@ -54,16 +54,12 @@ static int mxt_init_chip(struct libmaxtouch_ctx *ctx, struct mxt_device **mxt,
 {
   int ret;
 
-  if (!*conn)
-  {
+  if (!*conn) {
     ret = mxt_scan(ctx, conn, false);
-    if (ret == MXT_ERROR_NO_DEVICE)
-    {
+    if (ret == MXT_ERROR_NO_DEVICE) {
       mxt_err(ctx, "Unable to find a device");
       return ret;
-    }
-    else if (ret)
-    {
+    } else if (ret) {
       mxt_err(ctx, "Failed to find device");
       return ret;
     }
@@ -74,8 +70,7 @@ static int mxt_init_chip(struct libmaxtouch_ctx *ctx, struct mxt_device **mxt,
     return ret;
 
 #ifdef HAVE_LIBUSB
-  if ((*mxt)->conn->type == E_USB && usb_is_bootloader(*mxt))
-  {
+  if ((*mxt)->conn->type == E_USB && usb_is_bootloader(*mxt)) {
     mxt_err(ctx, "USB device in bootloader mode");
     mxt_free_device(*mxt);
     return MXT_ERROR_UNEXPECTED_DEVICE_STATE;
@@ -131,7 +126,7 @@ static void print_usage(char *prog_name)
           "For firmware flash:\n"
           "  --flash FIRMWARE           : send FIRMWARE to bootloader\n"
           "  --firmware-version VERSION : check firmware VERSION "
-                                         "before and after flash\n"
+          "before and after flash\n"
           "\n"
           "T68 Serial Data commands:\n"
           "  --t68-file FILE            : upload FILE\n"
@@ -192,8 +187,7 @@ int main (int argc, char *argv[])
   strbuf2[0] = '\0';
   mxt_app_cmd cmd = CMD_NONE;
 
-  while (1)
-  {
+  while (1) {
     int option_index = 0;
 
     static struct option long_options[] = {
@@ -243,375 +237,325 @@ int main (int argc, char *argv[])
     if (c == -1)
       break;
 
-    switch (c)
-    {
-      case 0:
-        if (!strcmp(long_options[option_index].name, "t68-file"))
-        {
-          if (cmd == CMD_NONE) {
-            cmd = CMD_SERIAL_DATA;
-            strncpy(strbuf, optarg, sizeof(strbuf));
-            strbuf[sizeof(strbuf) - 1] = '\0';
-          } else {
-            print_usage(argv[0]);
-            return MXT_ERROR_BAD_INPUT;
-          }
-        }
-        else if (!strcmp(long_options[option_index].name, "t68-datatype"))
-        {
-          t68_datatype = strtol(optarg, NULL, 0);
-        }
-        else if (!strcmp(long_options[option_index].name, "flash"))
-        {
-          if (cmd == CMD_NONE) {
-            cmd = CMD_FLASH;
-            strncpy(strbuf, optarg, sizeof(strbuf));
-            strbuf[sizeof(strbuf) - 1] = '\0';
-          } else {
-            print_usage(argv[0]);
-            return MXT_ERROR_BAD_INPUT;
-          }
-        }
-        else if (!strcmp(long_options[option_index].name, "backup"))
-        {
-          if (cmd == CMD_NONE) {
-            cmd = CMD_BACKUP;
-            if (optarg) {
-              ret = mxt_convert_hex(optarg, &databuf[0], &count, sizeof(databuf));
-              if (ret || count == 0) {
-                fprintf(stderr, "Hex convert error\n");
-                ret = MXT_ERROR_BAD_INPUT;
-              }
-              backup_cmd = databuf[0];
-            }
-          } else {
-            print_usage(argv[0]);
-            return MXT_ERROR_BAD_INPUT;
-          }
-        }
-        else if (!strcmp(long_options[option_index].name, "calibrate"))
-        {
-          if (cmd == CMD_NONE) {
-            cmd = CMD_CALIBRATE;
-          } else {
-            print_usage(argv[0]);
-            return MXT_ERROR_BAD_INPUT;
-          }
-        }
-        else if (!strcmp(long_options[option_index].name, "debug-dump"))
-        {
-          if (cmd == CMD_NONE) {
-            cmd = CMD_DEBUG_DUMP;
-            strncpy(strbuf, optarg, sizeof(strbuf));
-            strbuf[sizeof(strbuf) - 1] = '\0';
-          } else {
-            print_usage(argv[0]);
-            return MXT_ERROR_BAD_INPUT;
-          }
-        }
-        else if (!strcmp(long_options[option_index].name, "reset"))
-        {
-          if (cmd == CMD_NONE) {
-            cmd = CMD_RESET;
-          } else {
-            print_usage(argv[0]);
-            return MXT_ERROR_BAD_INPUT;
-          }
-        }
-        else if (!strcmp(long_options[option_index].name, "self-cap-tune-config"))
-        {
-          if (cmd == CMD_NONE) {
-            cmd = CMD_SELF_CAP_TUNE_CONFIG;
-          } else {
-            print_usage(argv[0]);
-            return MXT_ERROR_BAD_INPUT;
-          }
-        }
-        else if (!strcmp(long_options[option_index].name, "self-cap-tune-nvram"))
-        {
-          if (cmd == CMD_NONE) {
-            cmd = CMD_SELF_CAP_TUNE_NVRAM;
-          } else {
-            print_usage(argv[0]);
-            return MXT_ERROR_BAD_INPUT;
-          }
-        }
-        else if (!strcmp(long_options[option_index].name, "load"))
-        {
-          if (cmd == CMD_NONE) {
-            cmd = CMD_LOAD_CFG;
-            strncpy(strbuf, optarg, sizeof(strbuf));
-            strbuf[sizeof(strbuf) - 1] = '\0';
-          } else {
-            print_usage(argv[0]);
-            return MXT_ERROR_BAD_INPUT;
-          }
-        }
-        else if (!strcmp(long_options[option_index].name, "save"))
-        {
-          if (cmd == CMD_NONE) {
-            cmd = CMD_SAVE_CFG;
-            strncpy(strbuf, optarg, sizeof(strbuf));
-            strbuf[sizeof(strbuf) - 1] = '\0';
-          } else {
-            print_usage(argv[0]);
-            return MXT_ERROR_BAD_INPUT;
-          }
-        }
-        else if (!strcmp(long_options[option_index].name, "reset-bootloader"))
-        {
-          if (cmd == CMD_NONE) {
-            cmd = CMD_RESET_BOOTLOADER;
-          } else {
-            print_usage(argv[0]);
-            return MXT_ERROR_BAD_INPUT;
-          }
-        }
-        else if (!strcmp(long_options[option_index].name, "zero"))
-        {
-          if (cmd == CMD_NONE) {
-            cmd = CMD_ZERO_CFG;
-          } else {
-            print_usage(argv[0]);
-            return MXT_ERROR_BAD_INPUT;
-          }
-        }
-        else if (!strcmp(long_options[option_index].name, "firmware-version"))
-        {
-          strncpy(strbuf2, optarg, sizeof(strbuf2));
-        }
-        else if (!strcmp(long_options[option_index].name, "frames"))
-        {
-          t37_frames = strtol(optarg, NULL, 0);
-        }
-        else if (!strcmp(long_options[option_index].name, "references"))
-        {
-          t37_mode = REFS_MODE;
-        }
-        else if (!strcmp(long_options[option_index].name, "self-cap-signals"))
-        {
-          t37_mode = SELF_CAP_SIGNALS;
-        }
-        else if (!strcmp(long_options[option_index].name, "self-cap-refs"))
-        {
-          t37_mode = SELF_CAP_REFS;
-        }
-        else if (!strcmp(long_options[option_index].name, "self-cap-deltas"))
-        {
-          t37_mode = SELF_CAP_DELTAS;
-        }
-        else if (!strcmp(long_options[option_index].name, "version"))
-        {
-          printf("mxt-app %s%s\n", MXT_VERSION, ENABLE_DEBUG ? " DEBUG":"");
-          return MXT_SUCCESS;
-        }
-        else
-        {
-          fprintf(stderr, "Unknown option %s\n",
-                  long_options[option_index].name);
-        }
-        break;
-
-      case 'd':
-        if (optarg) {
-          if (!strncmp(optarg, "i2c-dev:", 8))
-          {
-            ret = mxt_new_conn(&conn, E_I2C_DEV);
-            if (ret)
-              return ret;
-
-            if (sscanf(optarg, "i2c-dev:%d-%x",
-                  &conn->i2c_dev.adapter, &conn->i2c_dev.address) != 2)
-            {
-              fprintf(stderr, "Invalid device string %s\n", optarg);
-              conn = mxt_unref_conn(conn);
-              return MXT_ERROR_NO_MEM;
-            }
-          }
-          else if (!strncmp(optarg, "sysfs:", 6))
-          {
-            ret = mxt_new_conn(&conn, E_SYSFS);
-            if (ret)
-              return ret;
-
-            conn->sysfs.path = (char *)calloc(strlen(optarg) + 1, sizeof(char));
-            if (!conn->sysfs.path)
-            {
-              fprintf(stderr, "malloc failure\n");
-              conn = mxt_unref_conn(conn);
-              return MXT_ERROR_NO_MEM;
-            }
-
-            memcpy(conn->sysfs.path, optarg + 6, strlen(optarg) - 6);
-          }
-#ifdef HAVE_LIBUSB
-          else if (!strncmp(optarg, "usb:", 4))
-          {
-            ret = mxt_new_conn(&conn, E_USB);
-            if (ret)
-              return ret;
-
-            if (sscanf(optarg, "usb:%d-%d", &conn->usb.bus, &conn->usb.device) != 2)
-            {
-              fprintf(stderr, "Invalid device string %s\n", optarg);
-              conn = mxt_unref_conn(conn);
-              return MXT_ERROR_NO_MEM;
-            }
-          }
-#endif
-          else
-          {
-            fprintf(stderr, "Invalid device string %s\n", optarg);
-            conn = mxt_unref_conn(conn);
-            return MXT_ERROR_BAD_INPUT;
-          }
-        }
-        break;
-
-      case 'C':
+    switch (c) {
+    case 0:
+      if (!strcmp(long_options[option_index].name, "t68-file")) {
         if (cmd == CMD_NONE) {
-          cmd = CMD_BRIDGE_CLIENT;
+          cmd = CMD_SERIAL_DATA;
           strncpy(strbuf, optarg, sizeof(strbuf));
           strbuf[sizeof(strbuf) - 1] = '\0';
         } else {
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
         }
-        break;
-
-      case 'g':
+      } else if (!strcmp(long_options[option_index].name, "t68-datatype")) {
+        t68_datatype = strtol(optarg, NULL, 0);
+      } else if (!strcmp(long_options[option_index].name, "flash")) {
         if (cmd == CMD_NONE) {
-          cmd = CMD_GOLDEN_REFERENCES;
+          cmd = CMD_FLASH;
+          strncpy(strbuf, optarg, sizeof(strbuf));
+          strbuf[sizeof(strbuf) - 1] = '\0';
         } else {
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
         }
-        break;
-
-      case 'h':
-        print_usage(argv[0]);
-        return MXT_SUCCESS;
-
-      case 'f':
-        format = true;
-        break;
-
-      case 'I':
-        if (optarg) {
-          instance = strtol(optarg, NULL, 0);
-        }
-        break;
-
-      case 'M':
+      } else if (!strcmp(long_options[option_index].name, "backup")) {
         if (cmd == CMD_NONE) {
-          cmd = CMD_MESSAGES;
-          if (optarg)
-            msgs_timeout = strtol(optarg, NULL, 0);
-
-        } else {
-          print_usage(argv[0]);
-          return MXT_ERROR_BAD_INPUT;
-        }
-        break;
-
-      case 'n':
-        if (optarg) {
-          count = strtol(optarg, NULL, 0);
-        }
-        break;
-
-      case 'p':
-        if (optarg) {
-          port = strtol(optarg, NULL, 0);
-        }
-        break;
-
-      case 'q':
-        if (cmd == CMD_NONE) {
-          cmd = CMD_QUERY;
-        } else {
-          print_usage(argv[0]);
-          return MXT_ERROR_BAD_INPUT;
-        }
-        break;
-
-      case 'r':
-        if (optarg) {
-          address = strtol(optarg, NULL, 0);
-        }
-        break;
-
-      case 'R':
-        if (cmd == CMD_NONE) {
-          cmd = CMD_READ;
-        } else {
-          print_usage(argv[0]);
-          return MXT_ERROR_BAD_INPUT;
-        }
-        break;
-
-      case 'S':
-        if (cmd == CMD_NONE) {
-          cmd = CMD_BRIDGE_SERVER;
-        } else {
-          print_usage(argv[0]);
-          return MXT_ERROR_BAD_INPUT;
-        }
-        break;
-
-      case 'T':
-        if (optarg) {
-          object_type = strtol(optarg, NULL, 0);
-        }
-        break;
-
-      case 'i':
-        if (cmd == CMD_NONE) {
-          cmd = CMD_INFO;
-        } else {
-          print_usage(argv[0]);
-          return MXT_ERROR_BAD_INPUT;
-        }
-        break;
-
-      case 't':
-        if (cmd == CMD_NONE) {
+          cmd = CMD_BACKUP;
           if (optarg) {
             ret = mxt_convert_hex(optarg, &databuf[0], &count, sizeof(databuf));
-            if (ret) {
+            if (ret || count == 0) {
               fprintf(stderr, "Hex convert error\n");
               ret = MXT_ERROR_BAD_INPUT;
-            } else {
-              self_test_cmd = databuf[0];
             }
+            backup_cmd = databuf[0];
           }
-          cmd = CMD_TEST;
         } else {
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
         }
-        break;
-
-      case 'v':
-        if (optarg) {
-          verbose = strtol(optarg, NULL, 0);
-        }
-        break;
-
-      case 'W':
+      } else if (!strcmp(long_options[option_index].name, "calibrate")) {
         if (cmd == CMD_NONE) {
-          cmd = CMD_WRITE;
+          cmd = CMD_CALIBRATE;
         } else {
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
         }
-        break;
+      } else if (!strcmp(long_options[option_index].name, "debug-dump")) {
+        if (cmd == CMD_NONE) {
+          cmd = CMD_DEBUG_DUMP;
+          strncpy(strbuf, optarg, sizeof(strbuf));
+          strbuf[sizeof(strbuf) - 1] = '\0';
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "reset")) {
+        if (cmd == CMD_NONE) {
+          cmd = CMD_RESET;
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "self-cap-tune-config")) {
+        if (cmd == CMD_NONE) {
+          cmd = CMD_SELF_CAP_TUNE_CONFIG;
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "self-cap-tune-nvram")) {
+        if (cmd == CMD_NONE) {
+          cmd = CMD_SELF_CAP_TUNE_NVRAM;
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "load")) {
+        if (cmd == CMD_NONE) {
+          cmd = CMD_LOAD_CFG;
+          strncpy(strbuf, optarg, sizeof(strbuf));
+          strbuf[sizeof(strbuf) - 1] = '\0';
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "save")) {
+        if (cmd == CMD_NONE) {
+          cmd = CMD_SAVE_CFG;
+          strncpy(strbuf, optarg, sizeof(strbuf));
+          strbuf[sizeof(strbuf) - 1] = '\0';
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "reset-bootloader")) {
+        if (cmd == CMD_NONE) {
+          cmd = CMD_RESET_BOOTLOADER;
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "zero")) {
+        if (cmd == CMD_NONE) {
+          cmd = CMD_ZERO_CFG;
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "firmware-version")) {
+        strncpy(strbuf2, optarg, sizeof(strbuf2));
+      } else if (!strcmp(long_options[option_index].name, "frames")) {
+        t37_frames = strtol(optarg, NULL, 0);
+      } else if (!strcmp(long_options[option_index].name, "references")) {
+        t37_mode = REFS_MODE;
+      } else if (!strcmp(long_options[option_index].name, "self-cap-signals")) {
+        t37_mode = SELF_CAP_SIGNALS;
+      } else if (!strcmp(long_options[option_index].name, "self-cap-refs")) {
+        t37_mode = SELF_CAP_REFS;
+      } else if (!strcmp(long_options[option_index].name, "self-cap-deltas")) {
+        t37_mode = SELF_CAP_DELTAS;
+      } else if (!strcmp(long_options[option_index].name, "version")) {
+        printf("mxt-app %s%s\n", MXT_VERSION, ENABLE_DEBUG ? " DEBUG":"");
+        return MXT_SUCCESS;
+      } else {
+        fprintf(stderr, "Unknown option %s\n",
+                long_options[option_index].name);
+      }
+      break;
 
-      default:
-        /* Output newline to create space under getopt error output */
-        fprintf(stderr, "\n\n");
+    case 'd':
+      if (optarg) {
+        if (!strncmp(optarg, "i2c-dev:", 8)) {
+          ret = mxt_new_conn(&conn, E_I2C_DEV);
+          if (ret)
+            return ret;
+
+          if (sscanf(optarg, "i2c-dev:%d-%x",
+                     &conn->i2c_dev.adapter, &conn->i2c_dev.address) != 2) {
+            fprintf(stderr, "Invalid device string %s\n", optarg);
+            conn = mxt_unref_conn(conn);
+            return MXT_ERROR_NO_MEM;
+          }
+        } else if (!strncmp(optarg, "sysfs:", 6)) {
+          ret = mxt_new_conn(&conn, E_SYSFS);
+          if (ret)
+            return ret;
+
+          conn->sysfs.path = (char *)calloc(strlen(optarg) + 1, sizeof(char));
+          if (!conn->sysfs.path) {
+            fprintf(stderr, "malloc failure\n");
+            conn = mxt_unref_conn(conn);
+            return MXT_ERROR_NO_MEM;
+          }
+
+          memcpy(conn->sysfs.path, optarg + 6, strlen(optarg) - 6);
+        }
+#ifdef HAVE_LIBUSB
+        else if (!strncmp(optarg, "usb:", 4)) {
+          ret = mxt_new_conn(&conn, E_USB);
+          if (ret)
+            return ret;
+
+          if (sscanf(optarg, "usb:%d-%d", &conn->usb.bus, &conn->usb.device) != 2) {
+            fprintf(stderr, "Invalid device string %s\n", optarg);
+            conn = mxt_unref_conn(conn);
+            return MXT_ERROR_NO_MEM;
+          }
+        }
+#endif
+        else {
+          fprintf(stderr, "Invalid device string %s\n", optarg);
+          conn = mxt_unref_conn(conn);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      }
+      break;
+
+    case 'C':
+      if (cmd == CMD_NONE) {
+        cmd = CMD_BRIDGE_CLIENT;
+        strncpy(strbuf, optarg, sizeof(strbuf));
+        strbuf[sizeof(strbuf) - 1] = '\0';
+      } else {
         print_usage(argv[0]);
         return MXT_ERROR_BAD_INPUT;
+      }
+      break;
+
+    case 'g':
+      if (cmd == CMD_NONE) {
+        cmd = CMD_GOLDEN_REFERENCES;
+      } else {
+        print_usage(argv[0]);
+        return MXT_ERROR_BAD_INPUT;
+      }
+      break;
+
+    case 'h':
+      print_usage(argv[0]);
+      return MXT_SUCCESS;
+
+    case 'f':
+      format = true;
+      break;
+
+    case 'I':
+      if (optarg) {
+        instance = strtol(optarg, NULL, 0);
+      }
+      break;
+
+    case 'M':
+      if (cmd == CMD_NONE) {
+        cmd = CMD_MESSAGES;
+        if (optarg)
+          msgs_timeout = strtol(optarg, NULL, 0);
+
+      } else {
+        print_usage(argv[0]);
+        return MXT_ERROR_BAD_INPUT;
+      }
+      break;
+
+    case 'n':
+      if (optarg) {
+        count = strtol(optarg, NULL, 0);
+      }
+      break;
+
+    case 'p':
+      if (optarg) {
+        port = strtol(optarg, NULL, 0);
+      }
+      break;
+
+    case 'q':
+      if (cmd == CMD_NONE) {
+        cmd = CMD_QUERY;
+      } else {
+        print_usage(argv[0]);
+        return MXT_ERROR_BAD_INPUT;
+      }
+      break;
+
+    case 'r':
+      if (optarg) {
+        address = strtol(optarg, NULL, 0);
+      }
+      break;
+
+    case 'R':
+      if (cmd == CMD_NONE) {
+        cmd = CMD_READ;
+      } else {
+        print_usage(argv[0]);
+        return MXT_ERROR_BAD_INPUT;
+      }
+      break;
+
+    case 'S':
+      if (cmd == CMD_NONE) {
+        cmd = CMD_BRIDGE_SERVER;
+      } else {
+        print_usage(argv[0]);
+        return MXT_ERROR_BAD_INPUT;
+      }
+      break;
+
+    case 'T':
+      if (optarg) {
+        object_type = strtol(optarg, NULL, 0);
+      }
+      break;
+
+    case 'i':
+      if (cmd == CMD_NONE) {
+        cmd = CMD_INFO;
+      } else {
+        print_usage(argv[0]);
+        return MXT_ERROR_BAD_INPUT;
+      }
+      break;
+
+    case 't':
+      if (cmd == CMD_NONE) {
+        if (optarg) {
+          ret = mxt_convert_hex(optarg, &databuf[0], &count, sizeof(databuf));
+          if (ret) {
+            fprintf(stderr, "Hex convert error\n");
+            ret = MXT_ERROR_BAD_INPUT;
+          } else {
+            self_test_cmd = databuf[0];
+          }
+        }
+        cmd = CMD_TEST;
+      } else {
+        print_usage(argv[0]);
+        return MXT_ERROR_BAD_INPUT;
+      }
+      break;
+
+    case 'v':
+      if (optarg) {
+        verbose = strtol(optarg, NULL, 0);
+      }
+      break;
+
+    case 'W':
+      if (cmd == CMD_NONE) {
+        cmd = CMD_WRITE;
+      } else {
+        print_usage(argv[0]);
+        return MXT_ERROR_BAD_INPUT;
+      }
+      break;
+
+    default:
+      /* Output newline to create space under getopt error output */
+      fprintf(stderr, "\n\n");
+      print_usage(argv[0]);
+      return MXT_ERROR_BAD_INPUT;
     }
   }
 
@@ -619,8 +563,7 @@ int main (int argc, char *argv[])
   struct libmaxtouch_ctx *ctx;
 
   ret = mxt_new(&ctx);
-  if (ret)
-  {
+  if (ret) {
     mxt_err(ctx, "Failed to init libmaxtouch");
     return ret;
   }
@@ -632,8 +575,7 @@ int main (int argc, char *argv[])
   /* Debug does not work until mxt_set_verbose() is called */
   mxt_info(ctx, "Version:%s", MXT_VERSION);
 
-  if (cmd == CMD_WRITE || cmd == CMD_READ)
-  {
+  if (cmd == CMD_WRITE || cmd == CMD_READ) {
     mxt_verb(ctx, "instance:%u", instance);
     mxt_verb(ctx, "count:%u", count);
     mxt_verb(ctx, "address:%u", address);
@@ -642,13 +584,10 @@ int main (int argc, char *argv[])
   }
 
   /* initialise chip, bootloader mode handles this itself */
-  if (cmd == CMD_QUERY)
-  {
+  if (cmd == CMD_QUERY) {
     ret = mxt_scan(ctx, &conn, true);
     goto free;
-  }
-  else if (cmd != CMD_FLASH)
-  {
+  } else if (cmd != CMD_FLASH) {
     ret = mxt_init_chip(ctx, &mxt, &conn);
     if (ret)
       goto free;
@@ -658,190 +597,180 @@ int main (int argc, char *argv[])
   }
 
   switch (cmd) {
-    case CMD_WRITE:
-      mxt_verb(ctx, "Write command");
+  case CMD_WRITE:
+    mxt_verb(ctx, "Write command");
 
-      if (object_type > 0) {
-        object_address = mxt_get_object_address(mxt, object_type, instance);
-        if (object_address == OBJECT_NOT_FOUND) {
-          fprintf(stderr, "No such object\n");
-          ret = MXT_ERROR_OBJECT_NOT_FOUND;
-          break;
-        }
-
-        mxt_verb(ctx, "T%u address:%u offset:%u", object_type,
-            object_address, address);
-        address = object_address + address;
-
-        if (count == 0) {
-          count = mxt_get_object_size(mxt, object_type);
-        }
-      } else if (count == 0) {
-        fprintf(stderr, "Not enough arguments!\n");
-        ret = MXT_ERROR_BAD_INPUT;
-        goto free;
+    if (object_type > 0) {
+      object_address = mxt_get_object_address(mxt, object_type, instance);
+      if (object_address == OBJECT_NOT_FOUND) {
+        fprintf(stderr, "No such object\n");
+        ret = MXT_ERROR_OBJECT_NOT_FOUND;
+        break;
       }
 
-      if (optind != (argc - 1)) {
-        fprintf(stderr, "Must give hex input\n");
-        ret = MXT_ERROR_BAD_INPUT;
-        goto free;
+      mxt_verb(ctx, "T%u address:%u offset:%u", object_type,
+               object_address, address);
+      address = object_address + address;
+
+      if (count == 0) {
+        count = mxt_get_object_size(mxt, object_type);
       }
+    } else if (count == 0) {
+      fprintf(stderr, "Not enough arguments!\n");
+      ret = MXT_ERROR_BAD_INPUT;
+      goto free;
+    }
 
-      ret = mxt_convert_hex(argv[optind], databuf, &count, sizeof(databuf));
-      if (ret || count == 0) {
-        fprintf(stderr, "Hex convert error\n");
-        ret = MXT_ERROR_BAD_INPUT;
-      } else {
-        ret = mxt_write_register(mxt, databuf, address, count);
-        if (ret)
-          fprintf(stderr, "Write error\n");
-      }
-      break;
+    if (optind != (argc - 1)) {
+      fprintf(stderr, "Must give hex input\n");
+      ret = MXT_ERROR_BAD_INPUT;
+      goto free;
+    }
 
-    case CMD_READ:
-      mxt_verb(ctx, "Read command");
-      ret = mxt_read_object(mxt, object_type, instance, address, count, format);
-      break;
+    ret = mxt_convert_hex(argv[optind], databuf, &count, sizeof(databuf));
+    if (ret || count == 0) {
+      fprintf(stderr, "Hex convert error\n");
+      ret = MXT_ERROR_BAD_INPUT;
+    } else {
+      ret = mxt_write_register(mxt, databuf, address, count);
+      if (ret)
+        fprintf(stderr, "Write error\n");
+    }
+    break;
 
-    case CMD_INFO:
-      mxt_verb(ctx, "CMD_INFO");
-      mxt_print_info_block(mxt);
-      ret = MXT_SUCCESS;
-      break;
+  case CMD_READ:
+    mxt_verb(ctx, "Read command");
+    ret = mxt_read_object(mxt, object_type, instance, address, count, format);
+    break;
 
-    case CMD_GOLDEN_REFERENCES:
-      mxt_verb(ctx, "CMD_GOLDEN_REFERENCES");
-      ret = mxt_store_golden_refs(mxt);
-      break;
+  case CMD_INFO:
+    mxt_verb(ctx, "CMD_INFO");
+    mxt_print_info_block(mxt);
+    ret = MXT_SUCCESS;
+    break;
 
-    case CMD_BRIDGE_SERVER:
-      mxt_verb(ctx, "CMD_BRIDGE_SERVER");
-      mxt_verb(ctx, "port:%u", port);
-      ret = mxt_socket_server(mxt, port);
-      break;
+  case CMD_GOLDEN_REFERENCES:
+    mxt_verb(ctx, "CMD_GOLDEN_REFERENCES");
+    ret = mxt_store_golden_refs(mxt);
+    break;
 
-    case CMD_BRIDGE_CLIENT:
-      mxt_verb(ctx, "CMD_BRIDGE_CLIENT");
-      ret = mxt_socket_client(mxt, strbuf, port);
-      break;
+  case CMD_BRIDGE_SERVER:
+    mxt_verb(ctx, "CMD_BRIDGE_SERVER");
+    mxt_verb(ctx, "port:%u", port);
+    ret = mxt_socket_server(mxt, port);
+    break;
 
-    case CMD_SERIAL_DATA:
-      mxt_verb(ctx, "CMD_SERIAL_DATA");
-      mxt_verb(ctx, "t68_datatype:%u", t68_datatype);
-      ret = mxt_serial_data_upload(mxt, strbuf, t68_datatype);
-      break;
+  case CMD_BRIDGE_CLIENT:
+    mxt_verb(ctx, "CMD_BRIDGE_CLIENT");
+    ret = mxt_socket_client(mxt, strbuf, port);
+    break;
 
-    case CMD_TEST:
-      mxt_verb(ctx, "CMD_TEST");
-      ret = run_self_tests(mxt, self_test_cmd);
-      break;
+  case CMD_SERIAL_DATA:
+    mxt_verb(ctx, "CMD_SERIAL_DATA");
+    mxt_verb(ctx, "t68_datatype:%u", t68_datatype);
+    ret = mxt_serial_data_upload(mxt, strbuf, t68_datatype);
+    break;
 
-    case CMD_FLASH:
-      mxt_verb(ctx, "CMD_FLASH");
-      ret = mxt_flash_firmware(ctx, mxt, strbuf, strbuf2, conn);
-      break;
+  case CMD_TEST:
+    mxt_verb(ctx, "CMD_TEST");
+    ret = run_self_tests(mxt, self_test_cmd);
+    break;
 
-    case CMD_RESET:
-      mxt_verb(ctx, "CMD_RESET");
-      ret = mxt_reset_chip(mxt, false);
-      break;
+  case CMD_FLASH:
+    mxt_verb(ctx, "CMD_FLASH");
+    ret = mxt_flash_firmware(ctx, mxt, strbuf, strbuf2, conn);
+    break;
 
-    case CMD_RESET_BOOTLOADER:
-      mxt_verb(ctx, "CMD_RESET_BOOTLOADER");
-      ret = mxt_reset_chip(mxt, true);
-      break;
+  case CMD_RESET:
+    mxt_verb(ctx, "CMD_RESET");
+    ret = mxt_reset_chip(mxt, false);
+    break;
 
-    case CMD_MESSAGES:
-      mxt_verb(ctx, "CMD_MESSAGES");
-      mxt_verb(ctx, "msgs_timeout:%d", msgs_timeout);
-      ret = print_raw_messages(mxt, msgs_timeout, object_type);
-      break;
+  case CMD_RESET_BOOTLOADER:
+    mxt_verb(ctx, "CMD_RESET_BOOTLOADER");
+    ret = mxt_reset_chip(mxt, true);
+    break;
 
-    case CMD_BACKUP:
-      mxt_verb(ctx, "CMD_BACKUP");
+  case CMD_MESSAGES:
+    mxt_verb(ctx, "CMD_MESSAGES");
+    mxt_verb(ctx, "msgs_timeout:%d", msgs_timeout);
+    ret = print_raw_messages(mxt, msgs_timeout, object_type);
+    break;
+
+  case CMD_BACKUP:
+    mxt_verb(ctx, "CMD_BACKUP");
+    ret = mxt_backup_config(mxt, backup_cmd);
+    break;
+
+  case CMD_CALIBRATE:
+    mxt_verb(ctx, "CMD_CALIBRATE");
+    ret = mxt_calibrate_chip(mxt);
+    break;
+
+  case CMD_DEBUG_DUMP:
+    mxt_verb(ctx, "CMD_DEBUG_DUMP");
+    mxt_verb(ctx, "mode:%u", t37_mode);
+    mxt_verb(ctx, "frames:%u", t37_frames);
+    ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames);
+    break;
+
+  case CMD_ZERO_CFG:
+    mxt_verb(ctx, "CMD_ZERO_CFG");
+    ret = mxt_zero_config(mxt);
+    if (ret)
+      mxt_err(ctx, "Error zeroing all configuration settings");
+    break;
+
+  case CMD_LOAD_CFG:
+    mxt_verb(ctx, "CMD_LOAD_CFG");
+    mxt_verb(ctx, "filename:%s", strbuf);
+    ret = mxt_load_config_file(mxt, strbuf);
+    if (ret) {
+      mxt_err(ctx, "Error loading the configuration");
+    } else {
+      mxt_info(ctx, "Configuration loaded");
+
       ret = mxt_backup_config(mxt, backup_cmd);
-      break;
+      if (ret) {
+        mxt_err(ctx, "Error backing up");
+      } else {
+        mxt_info(ctx, "Configuration backed up");
 
-    case CMD_CALIBRATE:
-      mxt_verb(ctx, "CMD_CALIBRATE");
-      ret = mxt_calibrate_chip(mxt);
-      break;
-
-    case CMD_DEBUG_DUMP:
-      mxt_verb(ctx, "CMD_DEBUG_DUMP");
-      mxt_verb(ctx, "mode:%u", t37_mode);
-      mxt_verb(ctx, "frames:%u", t37_frames);
-      ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames);
-      break;
-
-    case CMD_ZERO_CFG:
-      mxt_verb(ctx, "CMD_ZERO_CFG");
-      ret = mxt_zero_config(mxt);
-      if (ret)
-        mxt_err(ctx, "Error zeroing all configuration settings");
-      break;
-
-    case CMD_LOAD_CFG:
-      mxt_verb(ctx, "CMD_LOAD_CFG");
-      mxt_verb(ctx, "filename:%s", strbuf);
-      ret = mxt_load_config_file(mxt, strbuf);
-      if (ret)
-      {
-        mxt_err(ctx, "Error loading the configuration");
-      }
-      else
-      {
-        mxt_info(ctx, "Configuration loaded");
-
-        ret = mxt_backup_config(mxt, backup_cmd);
-        if (ret)
-        {
-          mxt_err(ctx, "Error backing up");
-        }
-        else
-        {
-          mxt_info(ctx, "Configuration backed up");
-
-          ret = mxt_reset_chip(mxt, false);
-          if (ret)
-          {
-            mxt_err(ctx, "Error resetting");
-          }
-          else
-          {
-            mxt_info(ctx, "Chip reset");
-          }
+        ret = mxt_reset_chip(mxt, false);
+        if (ret) {
+          mxt_err(ctx, "Error resetting");
+        } else {
+          mxt_info(ctx, "Chip reset");
         }
       }
-      break;
+    }
+    break;
 
-    case CMD_SAVE_CFG:
-      mxt_verb(ctx, "CMD_SAVE_CFG");
-      mxt_verb(ctx, "filename:%s", strbuf);
-      ret = mxt_save_config_file(mxt, strbuf);
-      break;
+  case CMD_SAVE_CFG:
+    mxt_verb(ctx, "CMD_SAVE_CFG");
+    mxt_verb(ctx, "filename:%s", strbuf);
+    ret = mxt_save_config_file(mxt, strbuf);
+    break;
 
-    case CMD_SELF_CAP_TUNE_CONFIG:
-    case CMD_SELF_CAP_TUNE_NVRAM:
-      mxt_verb(ctx, "CMD_SELF_CAP_TUNE");
-      ret = mxt_self_cap_tune(mxt, cmd);
-      break;
+  case CMD_SELF_CAP_TUNE_CONFIG:
+  case CMD_SELF_CAP_TUNE_NVRAM:
+    mxt_verb(ctx, "CMD_SELF_CAP_TUNE");
+    ret = mxt_self_cap_tune(mxt, cmd);
+    break;
 
-    case CMD_NONE:
-    default:
-      mxt_verb(ctx, "cmd: %d", cmd);
-      mxt_set_log_fn(ctx, mxt_log_stdout);
+  case CMD_NONE:
+  default:
+    mxt_verb(ctx, "cmd: %d", cmd);
+    mxt_set_log_fn(ctx, mxt_log_stdout);
 
-      if (verbose <= 2)
-        mxt_set_log_level(ctx, 2);
+    if (verbose <= 2)
+      mxt_set_log_level(ctx, 2);
 
-      ret = mxt_menu(mxt);
-      break;
+    ret = mxt_menu(mxt);
+    break;
   }
 
-  if (cmd != CMD_FLASH)
-  {
+  if (cmd != CMD_FLASH) {
     mxt_set_debug(mxt, false);
     mxt_free_device(mxt);
     mxt_unref_conn(conn);

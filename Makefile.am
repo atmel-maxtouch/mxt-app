@@ -13,11 +13,11 @@ AM_CFLAGS = \
 	-fvisibility=hidden \
 	-ffunction-sections \
 	-fdata-sections \
-  -Wall -Werror -Wmissing-declarations -Wmissing-prototypes -Wnested-externs \
-  -Wpointer-arith -Wsign-compare -Wchar-subscripts -Wstrict-prototypes \
-  -Wwrite-strings -Wshadow -Wformat-security -Wtype-limits \
-  -DMXT_VERSION=\"$(GIT_VERSION)\" \
-  -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
+	-Wall -Werror -Wmissing-declarations -Wmissing-prototypes -Wnested-externs \
+	-Wpointer-arith -Wsign-compare -Wchar-subscripts -Wstrict-prototypes \
+	-Wwrite-strings -Wshadow -Wformat-security -Wtype-limits \
+	-DMXT_VERSION=\"$(GIT_VERSION)\" \
+	-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
 AM_LDFLAGS = \
 	-Wl,--gc-sections \
@@ -69,14 +69,14 @@ man1_MANS = man1/mxt-app.1
 
 man1/mxt-app.1: README.md
 	-pandoc -s -t man \
-  -V title="MXT-APP" \
-  -V section="1" \
-  -V description="\"mxt-app $(GIT_VERSION)\"" \
-  README.md -o man1/mxt-app.1
+	-V title="MXT-APP" \
+	-V section="1" \
+	-V description="\"mxt-app $(GIT_VERSION)\"" \
+	README.md -o man1/mxt-app.1
 
 clean-local:
 	-rm man1/mxt-app.1
 
 indent:
 	astyle --style=linux --indent=spaces=2 \
-  $(mxt_app_SOURCES) $(libmaxtouch_la_SOURCES)
+	$(mxt_app_SOURCES) $(libmaxtouch_la_SOURCES)

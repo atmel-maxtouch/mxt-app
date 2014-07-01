@@ -45,19 +45,18 @@
 /// \brief Some objects are volatile or read-only and should not be saved to config file
 static bool mxt_object_is_volatile(uint16_t object_type)
 {
-  switch (object_type)
-  {
-    case DEBUG_DELTAS_T2:
-    case DEBUG_REFERENCES_T3:
-    case DEBUG_SIGNALS_T4:
-    case GEN_MESSAGEPROCESSOR_T5:
-    case GEN_COMMANDPROCESSOR_T6:
-    case SPT_MESSAGECOUNT_T44:
-    case GEN_DATASOURCE_T53:
-      return true;
+  switch (object_type) {
+  case DEBUG_DELTAS_T2:
+  case DEBUG_REFERENCES_T3:
+  case DEBUG_SIGNALS_T4:
+  case GEN_MESSAGEPROCESSOR_T5:
+  case GEN_COMMANDPROCESSOR_T6:
+  case SPT_MESSAGECOUNT_T44:
+  case GEN_DATASOURCE_T53:
+    return true;
 
-    default:
-      return false;
+  default:
+    return false;
   }
 }
 
@@ -76,8 +75,7 @@ static int mxt_save_raw_file(struct mxt_device *mxt, const char *filename)
   mxt_info(mxt->ctx, "Opening config file %s...", filename);
 
   fp = fopen(filename, "w");
-  if (fp == NULL)
-  {
+  if (fp == NULL) {
     mxt_err(mxt->ctx, "Error opening %s: %s", filename, strerror(errno));
     return mxt_errno_to_rc(errno);
   }
@@ -95,8 +93,7 @@ static int mxt_save_raw_file(struct mxt_device *mxt, const char *filename)
   uint32_t checksum = mxt_get_config_crc(mxt);
   fprintf(fp, "%06X\n", checksum);
 
-  for (obj_idx = 0; obj_idx < id->num_objects; obj_idx++)
-  {
+  for (obj_idx = 0; obj_idx < id->num_objects; obj_idx++) {
     object = mxt->info.objects[obj_idx];
     num_bytes = MXT_SIZE(object);
 
@@ -104,23 +101,20 @@ static int mxt_save_raw_file(struct mxt_device *mxt, const char *filename)
       continue;
 
     temp = (uint8_t *)calloc(num_bytes, sizeof(char));
-    if (temp == NULL)
-    {
+    if (temp == NULL) {
       mxt_err(mxt->ctx, "Failed to allocate memory");
       ret = MXT_ERROR_NO_MEM;
       goto close;
     }
 
-    for (instance = 0; instance < MXT_INSTANCES(object); instance++)
-    {
+    for (instance = 0; instance < MXT_INSTANCES(object); instance++) {
       fprintf(fp, "%04X %04X %04X", object.type, instance, num_bytes);
 
       mxt_read_register(mxt, temp,
-                       mxt_get_start_position(object, instance),
-                       num_bytes);
+                        mxt_get_start_position(object, instance),
+                        num_bytes);
 
-      for (i=0; i< num_bytes; i++)
-      {
+      for (i=0; i< num_bytes; i++) {
         fprintf(fp, " %02X", *(temp + i));
       }
 
@@ -152,8 +146,7 @@ static int mxt_save_xcfg_file(struct mxt_device *mxt, const char *filename)
   mxt_info(mxt->ctx, "Opening config file %s...", filename);
 
   fp = fopen(filename, "w");
-  if (fp == NULL)
-  {
+  if (fp == NULL) {
     mxt_err(mxt->ctx, "Error opening %s: %s", filename, strerror(errno));
     return mxt_errno_to_rc(errno);
   }
@@ -176,8 +169,7 @@ static int mxt_save_xcfg_file(struct mxt_device *mxt, const char *filename)
   fprintf(fp, "NAME=mxt-app\n");
   fprintf(fp, "VERSION=%s\n", MXT_VERSION);
 
-  for (obj_idx = 0; obj_idx < id->num_objects; obj_idx++)
-  {
+  for (obj_idx = 0; obj_idx < id->num_objects; obj_idx++) {
     object = mxt->info.objects[obj_idx];
 
     if (mxt_object_is_volatile(object.type))
@@ -186,15 +178,13 @@ static int mxt_save_xcfg_file(struct mxt_device *mxt, const char *filename)
     num_bytes = MXT_SIZE(object);
 
     temp = (uint8_t *)calloc(num_bytes, sizeof(char));
-    if (temp == NULL)
-    {
+    if (temp == NULL) {
       mxt_err(mxt->ctx, "Failed to allocate memory");
       ret = MXT_ERROR_NO_MEM;
       goto close;
     }
 
-    for (instance = 0; instance < MXT_INSTANCES(object); instance++)
-    {
+    for (instance = 0; instance < MXT_INSTANCES(object); instance++) {
       int address = mxt_get_start_position(object, instance);
 
       const char *obj_name = mxt_get_object_name(object.type);
@@ -208,8 +198,7 @@ static int mxt_save_xcfg_file(struct mxt_device *mxt, const char *filename)
 
       mxt_read_register(mxt, temp, address, num_bytes);
 
-      for (i = 0; i < num_bytes; i++)
-      {
+      for (i = 0; i < num_bytes; i++) {
         fprintf(fp, "%d 1 UNKNOWN[%d]=%d\n", i, i, *(temp + i));
       }
     }
@@ -232,13 +221,10 @@ int mxt_save_config_file(struct mxt_device *mxt, const char *filename)
 
   char *extension = strrchr(filename, '.');
 
-  if (extension && !strcmp(extension, ".xcfg"))
-  {
+  if (extension && !strcmp(extension, ".xcfg")) {
     mxt_dbg(mxt->ctx, "Saving %s as .xcfg", filename);
     ret = mxt_save_xcfg_file(mxt, filename);
-  }
-  else
-  {
+  } else {
     mxt_dbg(mxt->ctx, "Saving %s as OBP_RAW", filename);
     ret = mxt_save_raw_file(mxt, filename);
   }
@@ -277,28 +263,24 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
   }
 
   fp = fopen(filename, "r");
-  if (fp == NULL)
-  {
+  if (fp == NULL) {
     mxt_err(mxt->ctx, "Error opening %s: %s", filename, strerror(errno));
     ret = mxt_errno_to_rc(errno);
     goto free;
   }
 
-  while (!file_read)
-  {
+  while (!file_read) {
     /* First character is expected to be '[' - skip empty lines and spaces  */
     c = getc(fp);
     while ((c == '\n') || (c == '\r') || (c == 0x20))
       c = getc(fp);
 
-    if (c != '[')
-    {
+    if (c != '[') {
       if (c == EOF)
         break;
 
       /* If we are ignoring the current section then look for the next section */
-      if (ignore_line)
-      {
+      if (ignore_line) {
         continue;
       }
 
@@ -307,8 +289,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
       goto close;
     }
 
-    if (fscanf(fp, "%[^] ]", object) != 1)
-    {
+    if (fscanf(fp, "%[^] ]", object) != 1) {
       mxt_err(mxt->ctx, "Object parse error");
       ret = MXT_ERROR_FILE_FORMAT;
       goto close;
@@ -317,8 +298,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
     /* Ignore the comments and file header sections */
     if (!strcmp(object, "COMMENTS")
         || !strcmp(object, "VERSION_INFO_HEADER")
-        || !strcmp(object, "APPLICATION_INFO_HEADER"))
-    {
+        || !strcmp(object, "APPLICATION_INFO_HEADER")) {
       ignore_line = true;
       mxt_dbg(mxt->ctx, "Skipping %s", object);
       continue;
@@ -326,64 +306,54 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
 
     ignore_line = false;
 
-    if (fscanf(fp, "%s", tmp) != 1)
-    {
+    if (fscanf(fp, "%s", tmp) != 1) {
       mxt_err(mxt->ctx, "Instance parse error");
       ret = MXT_ERROR_FILE_FORMAT;
       goto close;
     }
 
-    if (strcmp(tmp, "INSTANCE"))
-    {
+    if (strcmp(tmp, "INSTANCE")) {
       mxt_err(mxt->ctx, "Parse error, expected INSTANCE");
       ret = MXT_ERROR_FILE_FORMAT;
       goto close;
     }
 
-    if (fscanf(fp, "%d", &instance) != 1)
-    {
+    if (fscanf(fp, "%d", &instance) != 1) {
       mxt_err(mxt->ctx, "Instance number parse error");
       ret = MXT_ERROR_FILE_FORMAT;
       goto close;
     }
 
     /* Read rest of header section */
-    while(c != ']')
-    {
+    while(c != ']') {
       c = getc(fp);
-      if (c == '\n')
-      {
+      if (c == '\n') {
         mxt_err(mxt->ctx, "Parse error, expected ] before end of line");
         ret = MXT_ERROR_FILE_FORMAT;
         goto close;
       }
     }
 
-    while(c != '\n')
-    {
+    while(c != '\n') {
       c = getc(fp);
     }
 
-    while ((c != '=') && (c != EOF))
-    {
+    while ((c != '=') && (c != EOF)) {
       c = getc(fp);
     }
 
-    if (fscanf(fp, "%d", &object_address) != 1)
-    {
+    if (fscanf(fp, "%d", &object_address) != 1) {
       mxt_err(mxt->ctx, "Object address parse error");
       ret = MXT_ERROR_FILE_FORMAT;
       goto close;
     }
 
     c = getc(fp);
-    while((c != '=') && (c != EOF))
-    {
+    while((c != '=') && (c != EOF)) {
       c = getc(fp);
     }
 
-    if (fscanf(fp, "%d", &object_size) != 1)
-    {
+    if (fscanf(fp, "%d", &object_size) != 1) {
       mxt_err(mxt->ctx, "Object size parse error");
       ret = MXT_ERROR_FILE_FORMAT;
       goto close;
@@ -393,32 +363,28 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
 
     /* Find object type ID number at end of object string */
     substr = strrchr(object, '_');
-    if (substr == NULL || (*(substr + 1) != 'T'))
-    {
+    if (substr == NULL || (*(substr + 1) != 'T')) {
       mxt_err(mxt->ctx, "Parse error, could not find T number in %s", object);
       ret = MXT_ERROR_FILE_FORMAT;
       goto close;
     }
 
-    if (sscanf(substr + 2, "%d", &object_id) != 1)
-    {
+    if (sscanf(substr + 2, "%d", &object_id) != 1) {
       mxt_err(mxt->ctx, "Unable to get object type ID for %s", object);
       ret = MXT_ERROR_FILE_FORMAT;
       goto close;
     }
 
     mxt_dbg(mxt->ctx, "%s T%u OBJECT_ADDRESS=%d OBJECT_SIZE=%d",
-        object, object_id, object_address, object_size);
+            object, object_id, object_address, object_size);
 
     /* Check the address of the object */
     expected_address = mxt_get_object_address(mxt, (uint8_t)object_id,
-                                              (uint8_t)instance);
-    if (expected_address == OBJECT_NOT_FOUND)
-    {
+                       (uint8_t)instance);
+    if (expected_address == OBJECT_NOT_FOUND) {
       /* Skip to next section */
       c = getc(fp);
-      while (true)
-      {
+      while (true) {
         while ((c != '\n') && (c != '\r') && (c != EOF))
           c = getc(fp);
 
@@ -429,9 +395,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
 
       fseek(fp, -1, SEEK_CUR);
       continue;
-    }
-    else if (object_address != (int)expected_address)
-    {
+    } else if (object_address != (int)expected_address) {
       mxt_warn
       (
         mxt->ctx,
@@ -444,8 +408,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
 
     /* Check the size of the object */
     expected_size = mxt_get_object_size(mxt, (uint8_t)object_id);
-    if (object_size != (int)expected_size)
-    {
+    if (object_size != (int)expected_size) {
       mxt_warn
       (
         mxt->ctx,
@@ -461,8 +424,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
     if (ret)
       return ret;
 
-    while (true)
-    {
+    while (true) {
       /* Find next line, check first character valid and rewind */
       c = getc(fp);
       while((c == '\n') || (c == '\r') || (c == 0x20))
@@ -479,28 +441,24 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
         break;
 
       /* Read address */
-      if (fscanf(fp, "%d", &offset) != 1)
-      {
+      if (fscanf(fp, "%d", &offset) != 1) {
         mxt_err(mxt->ctx, "Address parse error");
         ret = MXT_ERROR_FILE_FORMAT;
         goto close;
       }
 
       /* Read byte count of this register (max 2) */
-      if (fscanf(fp, "%d", &width) != 1)
-      {
+      if (fscanf(fp, "%d", &width) != 1) {
         mxt_err(mxt->ctx, "Byte count parse error");
         ret = MXT_ERROR_FILE_FORMAT;
         goto close;
       }
 
-      while((c != '=') && (c != EOF))
-      {
+      while((c != '=') && (c != EOF)) {
         c = getc(fp);
       }
 
-      if (fscanf(fp, "%d", &data) != 1)
-      {
+      if (fscanf(fp, "%d", &data) != 1) {
         mxt_err(mxt->ctx, "Data parse error");
         ret = MXT_ERROR_FILE_FORMAT;
         goto close;
@@ -508,19 +466,18 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
 
       c = getc(fp);
 
-      switch (width)
-      {
-        case 1:
-          *(mem + offset) = (char) data;
-          break;
-        case 2:
-          *(mem + offset) = (char) data & 0xFF;
-          *(mem + offset + 1) = (char) ((data >> 8) & 0xFF);
-          break;
-        default:
-          mxt_err(mxt->ctx, "Only 16-bit / 8-bit config values supported!");
-          ret = MXT_ERROR_FILE_FORMAT;
-          goto close;
+      switch (width) {
+      case 1:
+        *(mem + offset) = (char) data;
+        break;
+      case 2:
+        *(mem + offset) = (char) data & 0xFF;
+        *(mem + offset + 1) = (char) ((data >> 8) & 0xFF);
+        break;
+      default:
+        mxt_err(mxt->ctx, "Only 16-bit / 8-bit config values supported!");
+        ret = MXT_ERROR_FILE_FORMAT;
+        goto close;
       }
     }
 
@@ -541,8 +498,7 @@ free:
 
 //******************************************************************************
 /// \brief  Structure containing configuration data for a particular object
-struct mxt_object_config
-{
+struct mxt_object_config {
   uint32_t type;
   uint8_t instance;
   uint32_t size;
@@ -563,19 +519,16 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename)
   char line[2048];
 
   fp = fopen(filename, "r");
-  if (fp == NULL)
-  {
+  if (fp == NULL) {
     mxt_err(mxt->ctx, "Error opening %s: %s", filename, strerror(errno));
     return mxt_errno_to_rc(errno);
   }
 
-  if (fgets(line, sizeof(line), fp) == NULL)
-  {
+  if (fgets(line, sizeof(line), fp) == NULL) {
     mxt_err(mxt->ctx, "Unexpected EOF");
   }
 
-  if (strncmp(line, OBP_RAW_MAGIC, strlen(OBP_RAW_MAGIC)))
-  {
+  if (strncmp(line, OBP_RAW_MAGIC, strlen(OBP_RAW_MAGIC))) {
     mxt_warn(mxt->ctx, "Not in OBP_RAW format");
     ret = MXT_ERROR_FILE_FORMAT;
     goto close;
@@ -614,12 +567,11 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename)
    * is invalid anyway. */
   if (info_crc != mxt->info.crc) {
     mxt_warn(mxt->ctx, "Info Block CRC mismatch - device=0x%06X "
-        "file=0x%06X - attempting to apply config",
-        mxt->info.crc, info_crc);
+             "file=0x%06X - attempting to apply config",
+             mxt->info.crc, info_crc);
   }
 
-  while (true)
-  {
+  while (true) {
     struct mxt_object_config cfg;
 
     /* Read type, instance, length */
@@ -645,7 +597,7 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename)
        * config or config from a later fw version,
        * or the file is corrupt or hand-edited */
       mxt_warn(mxt->ctx, "Discarding %u bytes in T%u!",
-          cfg.size - mxt_get_object_size(mxt, cfg.type), cfg.type);
+               cfg.size - mxt_get_object_size(mxt, cfg.type), cfg.type);
 
       cfg.size = mxt_get_object_size(mxt, cfg.type);
     }
@@ -707,13 +659,10 @@ int mxt_load_config_file(struct mxt_device *mxt, const char *filename)
 
   char *extension = strrchr(filename, '.');
 
-  if (extension && !strcmp(extension, ".xcfg"))
-  {
+  if (extension && !strcmp(extension, ".xcfg")) {
     mxt_dbg(mxt->ctx, "Loading %s as .xcfg", filename);
     ret = mxt_load_xcfg_file(mxt, filename);
-  }
-  else
-  {
+  } else {
     mxt_dbg(mxt->ctx, "Loading %s as OBP_RAW", filename);
     ret = mxt_load_raw_file(mxt, filename);
   }
@@ -736,19 +685,16 @@ int mxt_zero_config(struct mxt_device *mxt)
 
   /* Single buffer to match MAX object size*/
   buf = (uint8_t *)calloc(1, MXT_OBJECT_SIZE_MAX);
-  if (buf == NULL)
-  {
+  if (buf == NULL) {
     mxt_err(mxt->ctx, "Failed to allocate memory");
     return MXT_ERROR_NO_MEM;
   }
 
-  for (obj_idx = 0; obj_idx < id->num_objects; obj_idx++)
-  {
+  for (obj_idx = 0; obj_idx < id->num_objects; obj_idx++) {
     object = mxt->info.objects[obj_idx];
     num_bytes = MXT_SIZE(object);
 
-    for (instance = 0; instance < MXT_INSTANCES(object); instance++)
-    {
+    for (instance = 0; instance < MXT_INSTANCES(object); instance++) {
       int address = mxt_get_start_position(object, instance);
       ret = mxt_write_register(mxt, buf, address, num_bytes);
       if (ret)

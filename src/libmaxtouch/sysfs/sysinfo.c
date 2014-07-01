@@ -66,8 +66,7 @@ int get_uptime(unsigned long *uptime)
     return mxt_errno_to_rc(errno);
 
   b = fgets(buf, BUFSIZ, fp);
-  if (b == buf)
-  {
+  if (b == buf) {
     /* The following sscanf must use the C locale.  */
     setlocale(LC_NUMERIC, "C");
     ret = sscanf(buf, "%lf", &upsecs);
@@ -76,9 +75,7 @@ int get_uptime(unsigned long *uptime)
       *uptime = upsecs;
       ret = MXT_SUCCESS;
     }
-  }
-  else
-  {
+  } else {
     ret = MXT_ERROR_IO;
   }
 

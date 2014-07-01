@@ -98,8 +98,8 @@ sig_atomic_t mxt_get_sigint_flag(void)
 /// \param  msg_func Pointer to function to read object status
 /// \return #mxt_rc
 int mxt_read_messages_sigint(struct mxt_device *mxt, int timeout_seconds, void *context,
-                      int (*msg_func)(struct mxt_device *mxt, uint8_t *msg,
-                      void *context, uint8_t size), int *flag)
+                             int (*msg_func)(struct mxt_device *mxt, uint8_t *msg,
+                                 void *context, uint8_t size), int *flag)
 {
   int ret;
   struct sigaction sa;

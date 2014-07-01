@@ -71,16 +71,16 @@
 static void mxt_gr_print_status(struct mxt_device *mxt, uint8_t status)
 {
   mxt_info(mxt->ctx,
-      "T66 state: %02X %s%s%s%s%s%s%s%s%s", status,
-      (status & GR_STATE_FCALFAIL) ? "FCALFAIL " : "",
-      (status & GR_STATE_FCALPASS) ? "FCALPASS " : "",
-      (status & GR_STATE_FCALSEQDONE) ? "FCALSEQDONE " : "",
-      (status & GR_STATE_FCALSEQTO) ? "FCALSEQTO " : "",
-      (status & GR_STATE_FCALSEQERR) ? "FCALSEQERR " : "",
-      ((status & GR_STATE_FCALSTATE_MASK) == GR_STATE_IDLE)     ? "Idle " : "",
-      ((status & GR_STATE_FCALSTATE_MASK) == GR_STATE_GENERATED)?"Generated ":"",
-      ((status & GR_STATE_FCALSTATE_MASK) == GR_STATE_PRIMED)   ? "Primed " : "",
-      (status & GR_STATE_BADSTOREDATA) ? "BADSTOREDATA " : "");
+           "T66 state: %02X %s%s%s%s%s%s%s%s%s", status,
+           (status & GR_STATE_FCALFAIL) ? "FCALFAIL " : "",
+           (status & GR_STATE_FCALPASS) ? "FCALPASS " : "",
+           (status & GR_STATE_FCALSEQDONE) ? "FCALSEQDONE " : "",
+           (status & GR_STATE_FCALSEQTO) ? "FCALSEQTO " : "",
+           (status & GR_STATE_FCALSEQERR) ? "FCALSEQERR " : "",
+           ((status & GR_STATE_FCALSTATE_MASK) == GR_STATE_IDLE)     ? "Idle " : "",
+           ((status & GR_STATE_FCALSTATE_MASK) == GR_STATE_GENERATED)?"Generated ":"",
+           ((status & GR_STATE_FCALSTATE_MASK) == GR_STATE_PRIMED)   ? "Primed " : "",
+           (status & GR_STATE_BADSTOREDATA) ? "BADSTOREDATA " : "");
 }
 
 //******************************************************************************
@@ -95,14 +95,11 @@ static int mxt_gr_get_status(struct mxt_device *mxt, uint8_t *msg,
 
   mxt_verb(mxt->ctx, "Received message from T%u", object_type);
 
-  if (object_type == SPT_GOLDENREFERENCES_T66)
-  {
+  if (object_type == SPT_GOLDENREFERENCES_T66) {
     *status = msg[1];
     mxt_gr_print_status(mxt, *status);
     return MXT_SUCCESS;
-  }
-  else if (object_type == GEN_COMMANDPROCESSOR_T6)
-  {
+  } else if (object_type == GEN_COMMANDPROCESSOR_T6) {
     print_t6_status(msg[1]);
     return MXT_MSG_CONTINUE;
   }
@@ -131,12 +128,9 @@ static int mxt_gr_run_command(struct mxt_device *mxt, uint16_t addr, uint8_t cmd
     return ret;
 
   if (((actual_state & GR_STATE_FCALSTATE_MASK) == wanted_fcal_state)
-      && (actual_state & wanted_statebit))
-  {
+      && (actual_state & wanted_statebit)) {
     return MXT_SUCCESS;
-  }
-  else
-  {
+  } else {
     mxt_err(mxt->ctx, "Failed to enter correct state");
     return MXT_ERROR_UNEXPECTED_DEVICE_STATE;
   }
@@ -171,7 +165,7 @@ int mxt_store_golden_refs(struct mxt_device *mxt)
 
   mxt_info(mxt->ctx, "Storing");
   ret = mxt_gr_run_command(mxt, addr, GR_FCALCMD_STORE,
-                          GR_STATE_IDLE, GR_STATE_FCALSEQDONE);
+                           GR_STATE_IDLE, GR_STATE_FCALSEQDONE);
   if (ret)
     return ret;
 

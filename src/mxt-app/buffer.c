@@ -47,13 +47,10 @@ int mxt_buf_init(struct mxt_buffer *ctx)
   ctx->size = 0;
   ptr = calloc(ctx->capacity, sizeof(uint8_t));
 
-  if (ptr)
-  {
+  if (ptr) {
     ctx->data = (uint8_t *)ptr;
     return MXT_SUCCESS;
-  }
-  else
-  {
+  } else {
     return MXT_ERROR_NO_MEM;
   }
 }
@@ -73,14 +70,11 @@ static int mxt_buf_realloc(struct mxt_buffer *ctx, size_t new_size)
   new_capacity = ctx->capacity + BUFFER_BLOCKSIZE;
   ptr = realloc(ctx->data, new_capacity * sizeof(uint8_t));
 
-  if (ptr)
-  {
+  if (ptr) {
     ctx->data = (uint8_t *)ptr;
     ctx->capacity = new_capacity;
     return MXT_SUCCESS;
-  }
-  else
-  {
+  } else {
     return MXT_ERROR_NO_MEM;
   }
 }
@@ -109,8 +103,7 @@ int mxt_buf_add(struct mxt_buffer *ctx, uint8_t value)
 /// \brief Free memory associated with buffer
 void mxt_buf_free(struct mxt_buffer *ctx)
 {
-  if (ctx->data)
-  {
+  if (ctx->data) {
     free(ctx->data);
     ctx->data = 0;
   }

@@ -61,8 +61,7 @@
 
 //******************************************************************************
 /// \brief T68 Serial Data Command Context object
-struct t68_ctx
-{
+struct t68_ctx {
   struct mxt_device *mxt;
   struct libmaxtouch_ctx *lc;
   const char *filename;
@@ -79,14 +78,14 @@ struct t68_ctx
 static void mxt_t68_print_status(struct t68_ctx *ctx, uint8_t status)
 {
   mxt_info(ctx->lc, "T68 status: %02X %s%s%s%s%s%s%s",
-      status,
-      (status == 0x00) ? "Success/No error" : "",
-      (status == 0x01) ? "Command supplied in CMD.COMMAND is out of sequence" : "",
-      (status == 0x02) ? "Supplied DATATYPE value is not supported" : "",
-      (status == 0x03) ? "Supplied LENGTH value exceeds length of DATA[] array" : "",
-      (status == 0x04) ? "More bytes supplied than can be accommodated by this data type" : "",
-      (status == 0x05) ? "Data content is invalid" : "",
-      (status == 0x0F) ? "The action could not be completed due to an error outside of this object" : "");
+           status,
+           (status == 0x00) ? "Success/No error" : "",
+           (status == 0x01) ? "Command supplied in CMD.COMMAND is out of sequence" : "",
+           (status == 0x02) ? "Supplied DATATYPE value is not supported" : "",
+           (status == 0x03) ? "Supplied LENGTH value exceeds length of DATA[] array" : "",
+           (status == 0x04) ? "More bytes supplied than can be accommodated by this data type" : "",
+           (status == 0x05) ? "Data content is invalid" : "",
+           (status == 0x0F) ? "The action could not be completed due to an error outside of this object" : "");
 }
 
 //******************************************************************************
@@ -101,17 +100,14 @@ static int mxt_t68_get_status(struct mxt_device *mxt, uint8_t *msg,
 
   mxt_verb(mxt->ctx, "Received message from T%u", object_type);
 
-  if (object_type == SERIAL_DATA_COMMAND_T68)
-  {
+  if (object_type == SERIAL_DATA_COMMAND_T68) {
     /* mask off reserved bits */
     status = msg[1] & 0x0F;
 
     mxt_t68_print_status(ctx, status);
 
     return (status == 0) ? MXT_SUCCESS : MXT_ERROR_SERIAL_DATA_FAILURE;
-  }
-  else if (object_type == GEN_COMMANDPROCESSOR_T6)
-  {
+  } else if (object_type == GEN_COMMANDPROCESSOR_T6) {
     print_t6_status(msg[1]);
   }
   return MXT_MSG_CONTINUE;
@@ -165,8 +161,7 @@ static int mxt_t68_load_file(struct t68_ctx *ctx)
 
   /* open file */
   fp = fopen(ctx->filename, "r");
-  if (fp == NULL)
-  {
+  if (fp == NULL) {
     mxt_err(ctx->lc, "Error opening %s", ctx->filename);
     return mxt_errno_to_rc(errno);
   }
@@ -177,56 +172,44 @@ static int mxt_t68_load_file(struct t68_ctx *ctx)
     goto close;
   }
 
-  while (!file_read)
-  {
+  while (!file_read) {
     /* Read next value from file */
     c = getc(fp);
-    if (c == EOF)
-    {
+    if (c == EOF) {
       break;
     }
     /* skip spaces, newlines, commas*/
-    else if (c == 0x20 || c == '\r' || c == '\n' || c == ',')
-    {
+    else if (c == 0x20 || c == '\r' || c == '\n' || c == ',') {
       continue;
     }
     /* Ignore comment lines */
-    else if (c == '[')
-    {
+    else if (c == '[') {
       // Grab comment key
-      if (fscanf(fp, "%255[^]]", buf) != 1)
-      {
+      if (fscanf(fp, "%255[^]]", buf) != 1) {
         ret = MXT_ERROR_FILE_FORMAT;
         goto fail;
       }
 
       mxt_verb(ctx->lc, "[%s]", buf);
 
-      if (!strncasecmp(buf, "datatype=", 9))
-      {
-        if (sscanf(buf + 9, "%d", &c) != 1)
-        {
+      if (!strncasecmp(buf, "datatype=", 9)) {
+        if (sscanf(buf + 9, "%d", &c) != 1) {
           mxt_warn(ctx->lc, "Unable to parse datatype");
-        }
-        else
-        {
+        } else {
           ctx->t68_datatype = c;
           mxt_info(ctx->lc, "DATATYPE set to %u by file", ctx->t68_datatype);
         }
       }
 
       // Read until end of line
-      while (c != '\n')
-      {
+      while (c != '\n') {
         c = getc(fp);
       }
       continue;
     }
     /* A value looks like "0xABu," */
-    else if (c == '0')
-    {
-      if (fscanf(fp, "x%2su", (char *)&buf) != 1)
-      {
+    else if (c == '0') {
+      if (fscanf(fp, "x%2su", (char *)&buf) != 1) {
         mxt_err(ctx->lc, "Parse error");
         ret = MXT_ERROR_FILE_FORMAT;
         goto fail;
@@ -239,9 +222,7 @@ static int mxt_t68_load_file(struct t68_ctx *ctx)
       ret = mxt_buf_add(&ctx->buf, value);
       if (ret)
         goto fail;
-    }
-    else
-    {
+    } else {
       mxt_err(ctx->lc, "Unexpected character \"%c\"", c);
       ret = MXT_ERROR_FILE_FORMAT;
       goto fail;
@@ -296,14 +277,12 @@ static int mxt_t68_send_frames(struct t68_ctx *ctx)
   int frame = 1;
   uint8_t cmd;
 
-  while (offset < ctx->buf.size)
-  {
+  while (offset < ctx->buf.size) {
     frame_size = MIN(ctx->buf.size - offset, ctx->t68_data_size);
 
     mxt_info(ctx->lc, "Writing frame %u, %u bytes", frame, frame_size);
 
-    if (frame_size > UCHAR_MAX)
-    {
+    if (frame_size > UCHAR_MAX) {
       mxt_err(ctx->lc, "Serial data frame size miscalculation");
       return MXT_INTERNAL_ERROR;
     }
@@ -371,17 +350,14 @@ static int mxt_t68_check_power_cfg(struct t68_ctx *ctx)
 
   mxt_verb(ctx->lc, "T7 IDLEACQINT=%u ACTVACQINT=%u", buf[0], buf[1]);
 
-  if ((buf[0] == 0) || (buf[1] == 0))
-  {
+  if ((buf[0] == 0) || (buf[1] == 0)) {
     mxt_err(ctx->lc, "Warning: The T7 power configuration object shows that the chip "
-           "is in deep sleep, and so will not process T68 serial data "
-           "commands. Please set the T7 power configuration idle acquisition "
-           "interval to a non-zero value and try again.");
+            "is in deep sleep, and so will not process T68 serial data "
+            "commands. Please set the T7 power configuration idle acquisition "
+            "interval to a non-zero value and try again.");
 
     return MXT_ERROR_UNEXPECTED_DEVICE_STATE;
-  }
-  else
-  {
+  } else {
     return MXT_SUCCESS;
   }
 }
@@ -446,8 +422,7 @@ int mxt_serial_data_upload(struct mxt_device *mxt, const char *filename, uint16_
 
   mxt_info(ctx.lc, "Sending data");
   ret = mxt_t68_send_frames(&ctx);
-  if (ret)
-  {
+  if (ret) {
     mxt_err(ctx.lc, "Error sending data");
     goto release;
   }

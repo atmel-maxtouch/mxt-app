@@ -54,13 +54,11 @@ static int print_message_hex(struct mxt_device *mxt, uint8_t *msg,
   int j;
   int len;
 
-  if (object_type == 0 || object_type == mxt_report_id_to_type(mxt, msg[0]))
-  {
+  if (object_type == 0 || object_type == mxt_report_id_to_type(mxt, msg[0])) {
     len = snprintf(mxt->msg_string, sizeof(mxt->msg_string), MSG_PREFIX);
-    for (j = 0; j < size; j++)
-    {
+    for (j = 0; j < size; j++) {
       len += snprintf(mxt->msg_string + len, sizeof(mxt->msg_string) - len,
-          "%02X ", msg[j]);
+                      "%02X ", msg[j]);
     }
 
     printf("%s\n", mxt->msg_string);

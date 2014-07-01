@@ -65,24 +65,19 @@ static int readline(struct mxt_device *mxt, int fd, struct mxt_buffer *linebuf)
   for (n = 1; n < MAX_LINESIZE; n++) {
     /* read 1 character at a time */
     readcount = read(fd, &c, 1);
-    if (readcount == 1)
-    {
+    if (readcount == 1) {
       if ((c == '\n') || (c == '\r'))
         break;
 
       ret = mxt_buf_add(linebuf, c);
       if (ret)
         return ret;
-    }
-    else if (readcount == 0)
-    {
+    } else if (readcount == 0) {
       if (n == 1)
         return MXT_SUCCESS;
       else
         break;
-    }
-    else
-    {
+    } else {
       mxt_err(mxt->ctx, "Read error: %s (%d)", strerror(errno), errno);
       return mxt_errno_to_rc(errno);
     }
@@ -109,10 +104,8 @@ static int handle_messages(struct mxt_device *mxt, int sockfd)
   if (ret)
     return ret;
 
-  if (count > 0)
-  {
-    for (i = 0; i < count; i++)
-    {
+  if (count > 0) {
+    for (i = 0; i < count; i++) {
       msg = mxt_get_msg_string(mxt);
       if (msg == NULL) {
         mxt_warn(mxt->ctx, "Failed to retrieve message");
@@ -120,15 +113,13 @@ static int handle_messages(struct mxt_device *mxt, int sockfd)
       }
 
       ret = write(sockfd, msg, strlen(msg));
-      if (ret < 0)
-      {
+      if (ret < 0) {
         mxt_err(mxt->ctx, "Write failure: %s (%d)", strerror(errno), errno);
         return mxt_errno_to_rc(ret);
       }
 
       ret = write(sockfd, "\n", 1);
-      if (ret < 0)
-      {
+      if (ret < 0) {
         mxt_err(mxt->ctx, "Write failure: %s (%d)", strerror(errno), errno);
         return mxt_errno_to_rc(ret);
       }
@@ -152,8 +143,7 @@ static int bridge_rea_cmd(struct mxt_device *mxt, int sockfd,
   int i;
 
   databuf = calloc(count, sizeof(uint8_t));
-  if (!databuf)
-  {
+  if (!databuf) {
     mxt_err(mxt->ctx, "Failed to allocate memory");
     return MXT_ERROR_NO_MEM;
   }
@@ -161,8 +151,7 @@ static int bridge_rea_cmd(struct mxt_device *mxt, int sockfd,
   /* Allow for newline/null byte */
   response_len = strlen(PREFIX) + count*2 + 1;
   response = calloc(response_len, sizeof(uint8_t));
-  if (!response)
-  {
+  if (!response) {
     mxt_err(mxt->ctx, "Failed to allocate memory");
     ret = MXT_ERROR_NO_MEM;
     goto free_databuf;
@@ -212,8 +201,7 @@ static int bridge_wri_cmd(struct mxt_device *mxt, int sockfd, uint16_t address,
   uint8_t *databuf;
 
   databuf = calloc(bytes, sizeof(uint8_t));
-  if (!databuf)
-  {
+  if (!databuf) {
     mxt_err(mxt->ctx, "Failed to allocate memory");
     return MXT_ERROR_NO_MEM;
   }
@@ -339,11 +327,9 @@ static int bridge(struct mxt_device *mxt, int sockfd)
   if (ret)
     return ret;
 
-  while (1)
-  {
+  while (1) {
     debug_ng_fd = mxt_get_msg_poll_fd(mxt);
-    if (debug_ng_fd)
-    {
+    if (debug_ng_fd) {
       fds[1].fd = debug_ng_fd;
       fds[1].events = POLLPRI;
       numfds = 2;
@@ -416,15 +402,14 @@ int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port)
   bzero((char *) &serv_addr, sizeof(serv_addr));
   serv_addr.sin_family = AF_INET;
   bcopy((char *)server->h_addr,
-      (char *)&serv_addr.sin_addr.s_addr,
-      server->h_length);
+        (char *)&serv_addr.sin_addr.s_addr,
+        server->h_length);
   serv_addr.sin_port = htons(port);
 
   /* Connect */
   mxt_info(mxt->ctx, "Connecting to %s:%u", ip_address, port);
   ret = connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
-  if (ret < 0)
-  {
+  if (ret < 0) {
     mxt_err(mxt->ctx, "Connect error: %s (%d)", strerror(errno), errno);
     return MXT_ERROR_CONNECTION_FAILURE;
   }
@@ -448,8 +433,7 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
 
   /* Create endpoint */
   serversock = socket(AF_INET, SOCK_STREAM, 0);
-  if (serversock < 0)
-  {
+  if (serversock < 0) {
     mxt_err(mxt->ctx, "Socket error: %s (%d)", strerror(errno), errno);
     return MXT_ERROR_CONNECTION_FAILURE;
   }
@@ -462,16 +446,14 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
 
   /* Bind name to socket */
   ret = bind(serversock, (struct sockaddr *) &server_addr, sizeof(server_addr));
-  if (ret < 0)
-  {
+  if (ret < 0) {
     mxt_err(mxt->ctx, "Bind error: %s (%d)", strerror(errno), errno);
     close(serversock);
     return MXT_ERROR_CONNECTION_FAILURE;
   }
 
   ret = setsockopt(serversock, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
-  if (ret < 0)
-  {
+  if (ret < 0) {
     mxt_err(mxt->ctx, "Setsockopt error: %s (%d)", strerror(errno), errno);
     close(serversock);
     return MXT_ERROR_CONNECTION_FAILURE;
@@ -479,8 +461,7 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
 
   /* Start listening */
   ret = listen(serversock, 1);
-  if (ret < 0)
-  {
+  if (ret < 0) {
     mxt_err(mxt->ctx, "Listen error: %s (%d)", strerror(errno), errno);
     close(serversock);
     return MXT_ERROR_CONNECTION_FAILURE;
@@ -489,8 +470,7 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
   /* This string is used by ADB bridge client to signal it can connect */
   printf("AWAITING_CONNECTION\n");
   clientsock = accept(serversock, (struct sockaddr *) &client_addr, &sin_size);
-  if (clientsock < 0)
-  {
+  if (clientsock < 0) {
     mxt_err(mxt->ctx, "Accept error: %s (%d)", strerror(errno), errno);
     close(serversock);
     return MXT_ERROR_CONNECTION_FAILURE;

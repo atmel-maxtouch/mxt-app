@@ -62,19 +62,16 @@ static int mxt_self_cap_command(struct mxt_device *mxt, uint8_t *msg,
 
   mxt_verb(mxt->ctx, "Received message from T%u", object_type);
 
-  if (object_type == SPT_SELFCAPGLOBALCONFIG_T109)
-  {
-    if (msg[1] == *cmd)
-    {
-      switch (msg[2])
-      {
-        case 0: return MXT_SUCCESS;
-        case 1: return MXT_ERROR_SELFCAP_TUNE;
+  if (object_type == SPT_SELFCAPGLOBALCONFIG_T109) {
+    if (msg[1] == *cmd) {
+      switch (msg[2]) {
+      case 0:
+        return MXT_SUCCESS;
+      case 1:
+        return MXT_ERROR_SELFCAP_TUNE;
       }
     }
-  }
-  else if (object_type == GEN_COMMANDPROCESSOR_T6)
-  {
+  } else if (object_type == GEN_COMMANDPROCESSOR_T6) {
     print_t6_status(msg[1]);
   }
   return MXT_MSG_CONTINUE;
@@ -123,18 +120,17 @@ int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd)
   if (ret)
     return ret;
 
-  switch (cmd)
-  {
-    case CMD_SELF_CAP_TUNE_CONFIG:
-      mxt_info(mxt->ctx, "Store to Config");
-      t109_command = T109_CMD_STORE_TO_CONFIG_RAM;
-      break;
+  switch (cmd) {
+  case CMD_SELF_CAP_TUNE_CONFIG:
+    mxt_info(mxt->ctx, "Store to Config");
+    t109_command = T109_CMD_STORE_TO_CONFIG_RAM;
+    break;
 
-    default:
-    case CMD_SELF_CAP_TUNE_NVRAM:
-      mxt_info(mxt->ctx, "Store to NVRAM");
-      t109_command = T109_CMD_STORE_TO_NVM;
-      break;
+  default:
+  case CMD_SELF_CAP_TUNE_NVRAM:
+    mxt_info(mxt->ctx, "Store to NVRAM");
+    t109_command = T109_CMD_STORE_TO_NVM;
+    break;
   }
   mxt_info(mxt->ctx, "Writing %u to T109 CMD register", cmd);
   ret = mxt_write_register(mxt, &t109_command, t109_addr + T109_CMD_OFFSET, 1);

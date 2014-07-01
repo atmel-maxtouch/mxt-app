@@ -56,50 +56,48 @@ static int self_test_handle_messages(struct mxt_device *mxt, uint8_t *msg,
 
   mxt_verb(mxt->ctx, "Received message from T%u", object_type);
 
-  if (object_type == SPT_SELFTEST_T25)
-  {
-    switch (msg[1])
-    {
-      case SELF_TEST_ALL:
-        mxt_info(mxt->ctx, "PASS: All tests passed");
-        ret = MXT_SUCCESS;
-        break;
-      case SELF_TEST_INVALID:
-        mxt_err(mxt->ctx, "FAIL: Invalid or unsupported test command");
-        ret = MXT_ERROR_NOT_SUPPORTED;
-        break;
-      case SELF_TEST_TIMEOUT:
-        mxt_err(mxt->ctx, "FAIL: Test timeout");
-        ret = MXT_ERROR_TIMEOUT;
-        break;
-      case SELF_TEST_ANALOG:
-        mxt_err(mxt->ctx, "FAIL: AVdd Analog power is not present");
-        ret = MXT_ERROR_SELF_TEST_ANALOG;
-        break;
-      case SELF_TEST_PIN_FAULT:
-        mxt_err(mxt->ctx, "FAIL: Pin fault");
-        ret = MXT_ERROR_SELF_TEST_PIN_FAULT;
-        break;
-      case SELF_TEST_PIN_FAULT_2:
-        mxt_err(mxt->ctx, "FAIL: Pin fault 2");
-        ret = MXT_ERROR_SELF_TEST_PIN_FAULT;
-        break;
-      case SELF_TEST_AND_GATE:
-        mxt_err(mxt->ctx, "FAIL: AND Gate Fault");
-        ret = MXT_ERROR_SELF_TEST_AND_GATE;
-        break;
-      case SELF_TEST_SIGNAL_LIMIT:
-        mxt_err(mxt->ctx, "FAIL: Signal limit fault");
-        ret = MXT_ERROR_SELF_TEST_SIGNAL_LIMIT;
-        break;
-      case SELF_TEST_GAIN:
-        mxt_err(mxt->ctx, "FAIL: Gain error");
-        ret = MXT_ERROR_SELF_TEST_GAIN;
-        break;
-      default:
-        mxt_err(mxt->ctx, "FAIL: status %02X", msg[1]);
-        ret = MXT_ERROR_UNEXPECTED_DEVICE_STATE;
-        break;
+  if (object_type == SPT_SELFTEST_T25) {
+    switch (msg[1]) {
+    case SELF_TEST_ALL:
+      mxt_info(mxt->ctx, "PASS: All tests passed");
+      ret = MXT_SUCCESS;
+      break;
+    case SELF_TEST_INVALID:
+      mxt_err(mxt->ctx, "FAIL: Invalid or unsupported test command");
+      ret = MXT_ERROR_NOT_SUPPORTED;
+      break;
+    case SELF_TEST_TIMEOUT:
+      mxt_err(mxt->ctx, "FAIL: Test timeout");
+      ret = MXT_ERROR_TIMEOUT;
+      break;
+    case SELF_TEST_ANALOG:
+      mxt_err(mxt->ctx, "FAIL: AVdd Analog power is not present");
+      ret = MXT_ERROR_SELF_TEST_ANALOG;
+      break;
+    case SELF_TEST_PIN_FAULT:
+      mxt_err(mxt->ctx, "FAIL: Pin fault");
+      ret = MXT_ERROR_SELF_TEST_PIN_FAULT;
+      break;
+    case SELF_TEST_PIN_FAULT_2:
+      mxt_err(mxt->ctx, "FAIL: Pin fault 2");
+      ret = MXT_ERROR_SELF_TEST_PIN_FAULT;
+      break;
+    case SELF_TEST_AND_GATE:
+      mxt_err(mxt->ctx, "FAIL: AND Gate Fault");
+      ret = MXT_ERROR_SELF_TEST_AND_GATE;
+      break;
+    case SELF_TEST_SIGNAL_LIMIT:
+      mxt_err(mxt->ctx, "FAIL: Signal limit fault");
+      ret = MXT_ERROR_SELF_TEST_SIGNAL_LIMIT;
+      break;
+    case SELF_TEST_GAIN:
+      mxt_err(mxt->ctx, "FAIL: Gain error");
+      ret = MXT_ERROR_SELF_TEST_GAIN;
+      break;
+    default:
+      mxt_err(mxt->ctx, "FAIL: status %02X", msg[1]);
+      ret = MXT_ERROR_UNEXPECTED_DEVICE_STATE;
+      break;
     }
   } else {
     ret = MXT_MSG_CONTINUE;
@@ -120,20 +118,19 @@ static int print_touch_object_limits(struct mxt_device *mxt, uint16_t t25_addr,
   int ret;
 
   for (instance = 0; (instance < mxt_get_object_instances(mxt, object_type));
-      instance++)
-  {
+       instance++) {
     ret = mxt_read_register(mxt, (uint8_t *)&buf,
-        mxt_get_object_address(mxt, object_type, instance), 1);
+                            mxt_get_object_address(mxt, object_type, instance), 1);
     if (ret)
       return ret;
 
     mxt_info(mxt->ctx, "%s[%d] %s",
-        mxt_get_object_name(object_type),
-        instance,
-        buf[0] & 0x01 ? "enabled":"disabled");
+             mxt_get_object_name(object_type),
+             instance,
+             buf[0] & 0x01 ? "enabled":"disabled");
 
     ret = mxt_read_register(mxt, (uint8_t *)&buf,
-        t25_addr + 2 + *touch_object * 4, 4);
+                            t25_addr + 2 + *touch_object * 4, 4);
     if (ret)
       return ret;
 
@@ -156,27 +153,27 @@ static int print_t25_limits(struct mxt_device *mxt, uint16_t t25_addr)
   int ret;
 
   ret = print_touch_object_limits(mxt, t25_addr, TOUCH_MULTITOUCHSCREEN_T9,
-      &touch_object);
+                                  &touch_object);
   if (ret)
     return ret;
 
   ret = print_touch_object_limits(mxt, t25_addr, TOUCH_MULTITOUCHSCREEN_T100,
-      &touch_object);
+                                  &touch_object);
   if (ret)
     return ret;
 
   ret = print_touch_object_limits(mxt, t25_addr, TOUCH_PROXKEY_T52,
-      &touch_object);
+                                  &touch_object);
   if (ret)
     return ret;
 
   ret = print_touch_object_limits(mxt, t25_addr, TOUCH_KEYARRAY_T15,
-      &touch_object);
+                                  &touch_object);
   if (ret)
     return ret;
 
   ret = print_touch_object_limits(mxt, t25_addr, TOUCH_PROXIMITY_T23,
-      &touch_object);
+                                  &touch_object);
   if (ret)
     return ret;
 
@@ -187,103 +184,98 @@ static int print_t25_limits(struct mxt_device *mxt, uint16_t t25_addr)
 /// \brief Disable noise suppression objects
 static void disable_noise_suppression(struct mxt_device *mxt)
 {
-   uint16_t addr;
-   uint8_t disable = 0;
+  uint16_t addr;
+  uint8_t disable = 0;
 
-   addr = mxt_get_object_address(mxt, PROCG_NOISESUPPRESSION_T22, 0);
-   if (addr != OBJECT_NOT_FOUND)
-   {
-      mxt_write_register(mxt, &disable, addr, 1);
-   }
+  addr = mxt_get_object_address(mxt, PROCG_NOISESUPPRESSION_T22, 0);
+  if (addr != OBJECT_NOT_FOUND) {
+    mxt_write_register(mxt, &disable, addr, 1);
+  }
 
-   addr = mxt_get_object_address(mxt, PROCG_NOISESUPPRESSION_T48, 0);
-   if (addr != OBJECT_NOT_FOUND)
-   {
-      mxt_write_register(mxt, &disable, addr, 1);
-   }
+  addr = mxt_get_object_address(mxt, PROCG_NOISESUPPRESSION_T48, 0);
+  if (addr != OBJECT_NOT_FOUND) {
+    mxt_write_register(mxt, &disable, addr, 1);
+  }
 
-   addr = mxt_get_object_address(mxt, PROCG_NOISESUPPRESSION_T54, 0);
-   if (addr != OBJECT_NOT_FOUND)
-   {
-      mxt_write_register(mxt, &disable, addr, 1);
-   }
+  addr = mxt_get_object_address(mxt, PROCG_NOISESUPPRESSION_T54, 0);
+  if (addr != OBJECT_NOT_FOUND) {
+    mxt_write_register(mxt, &disable, addr, 1);
+  }
 
-   addr = mxt_get_object_address(mxt, PROCG_NOISESUPPRESSION_T62, 0);
-   if (addr != OBJECT_NOT_FOUND)
-   {
-      mxt_write_register(mxt, &disable, addr, 1);
-   }
+  addr = mxt_get_object_address(mxt, PROCG_NOISESUPPRESSION_T62, 0);
+  if (addr != OBJECT_NOT_FOUND) {
+    mxt_write_register(mxt, &disable, addr, 1);
+  }
 }
 
 //******************************************************************************
 /// \brief Run self test
 int run_self_tests(struct mxt_device *mxt, uint8_t cmd)
 {
-   uint16_t t25_addr;
-   uint8_t enable = 3;
-   int ret;
+  uint16_t t25_addr;
+  uint8_t enable = 3;
+  int ret;
 
-   mxt_msg_reset(mxt);
+  mxt_msg_reset(mxt);
 
-   // Enable self test object & reporting
-   t25_addr = mxt_get_object_address(mxt, SPT_SELFTEST_T25, 0);
-   mxt_info(mxt->ctx, "Enabling self test object");
-   mxt_write_register(mxt, &enable, t25_addr, 1);
+  // Enable self test object & reporting
+  t25_addr = mxt_get_object_address(mxt, SPT_SELFTEST_T25, 0);
+  mxt_info(mxt->ctx, "Enabling self test object");
+  mxt_write_register(mxt, &enable, t25_addr, 1);
 
-   mxt_info(mxt->ctx, "Disabling noise suppression");
-   disable_noise_suppression(mxt);
+  mxt_info(mxt->ctx, "Disabling noise suppression");
+  disable_noise_suppression(mxt);
 
-   ret = print_t25_limits(mxt, t25_addr);
-   if (ret)
-     return ret;
+  ret = print_t25_limits(mxt, t25_addr);
+  if (ret)
+    return ret;
 
-   switch (cmd) {
-     case SELF_TEST_ANALOG:
-       mxt_info(mxt->ctx, "Running Analog power test");
-       break;
-     case SELF_TEST_PIN_FAULT:
-       mxt_info(mxt->ctx, "Running Pin fault test");
-       break;
-     case SELF_TEST_PIN_FAULT_2:
-       mxt_info(mxt->ctx, "Running Pin fault 2 test");
-       break;
-     case SELF_TEST_AND_GATE:
-       mxt_info(mxt->ctx, "Running AND Gate test");
-       break;
-     case SELF_TEST_SIGNAL_LIMIT:
-       mxt_info(mxt->ctx, "Running Signal Limit test");
-       break;
-     case SELF_TEST_GAIN:
-       mxt_info(mxt->ctx, "Running Gain test");
-       break;
-     case SELF_TEST_OFFSET:
-       mxt_info(mxt->ctx, "Running Offset test");
-       break;
-     case SELF_TEST_ALL:
-       mxt_info(mxt->ctx, "Running all tests");
-       break;
-     default:
-       mxt_info(mxt->ctx, "Writing %02X to CMD register", cmd);
-       break;
-   }
+  switch (cmd) {
+  case SELF_TEST_ANALOG:
+    mxt_info(mxt->ctx, "Running Analog power test");
+    break;
+  case SELF_TEST_PIN_FAULT:
+    mxt_info(mxt->ctx, "Running Pin fault test");
+    break;
+  case SELF_TEST_PIN_FAULT_2:
+    mxt_info(mxt->ctx, "Running Pin fault 2 test");
+    break;
+  case SELF_TEST_AND_GATE:
+    mxt_info(mxt->ctx, "Running AND Gate test");
+    break;
+  case SELF_TEST_SIGNAL_LIMIT:
+    mxt_info(mxt->ctx, "Running Signal Limit test");
+    break;
+  case SELF_TEST_GAIN:
+    mxt_info(mxt->ctx, "Running Gain test");
+    break;
+  case SELF_TEST_OFFSET:
+    mxt_info(mxt->ctx, "Running Offset test");
+    break;
+  case SELF_TEST_ALL:
+    mxt_info(mxt->ctx, "Running all tests");
+    break;
+  default:
+    mxt_info(mxt->ctx, "Writing %02X to CMD register", cmd);
+    break;
+  }
 
-   mxt_write_register(mxt, &cmd, t25_addr + 1, 1);
+  mxt_write_register(mxt, &cmd, t25_addr + 1, 1);
 
-   return (mxt_read_messages_sigint(mxt, T25_TIMEOUT, NULL, self_test_handle_messages, (int *)&mxt_sigint_rx));
+  return (mxt_read_messages_sigint(mxt, T25_TIMEOUT, NULL, self_test_handle_messages, (int *)&mxt_sigint_rx));
 }
 
 //******************************************************************************
 /// \brief Run self test
 uint8_t self_test_menu(struct mxt_device *mxt)
 {
-   int self_test;
-   uint8_t cmd;
+  int self_test;
+  uint8_t cmd;
 
-   while (1)
-   {
-      cmd = 0;
+  while (1) {
+    cmd = 0;
 
-      printf("Self-test menu:\n\
+    printf("Self-test menu:\n\
       Enter 1 for running Analog power test\n\
       Enter 2 for running Pin fault test\n\
       Enter 3 for running Pin fault 2 test\n\
@@ -293,47 +285,44 @@ uint8_t self_test_menu(struct mxt_device *mxt)
       Enter 7 for running all the above tests\n\
       Enter 255 to get out of the self-test menu\n");
 
-      if (scanf("%d", &self_test) != 1)
-      {
-        printf("Input error\n");
-        return MXT_ERROR_BAD_INPUT;
-      }
+    if (scanf("%d", &self_test) != 1) {
+      printf("Input error\n");
+      return MXT_ERROR_BAD_INPUT;
+    }
 
-      switch(self_test)
-      {
-      case 1:
-        cmd = SELF_TEST_ANALOG;
-        break;
-      case 2:
-        cmd = SELF_TEST_PIN_FAULT;
-        break;
-      case 3:
-        cmd = SELF_TEST_PIN_FAULT_2;
-        break;
-      case 4:
-        cmd = SELF_TEST_AND_GATE;
-        break;
-      case 5:
-        cmd = SELF_TEST_SIGNAL_LIMIT;
-        break;
-      case 6:
-        cmd = SELF_TEST_GAIN;
-        break;
-      case 7:
-        cmd = SELF_TEST_ALL;
-        break;
-      case 255:
-        break;
-      default:
-        printf("Invalid option\n");
-        break;
-      }
+    switch(self_test) {
+    case 1:
+      cmd = SELF_TEST_ANALOG;
+      break;
+    case 2:
+      cmd = SELF_TEST_PIN_FAULT;
+      break;
+    case 3:
+      cmd = SELF_TEST_PIN_FAULT_2;
+      break;
+    case 4:
+      cmd = SELF_TEST_AND_GATE;
+      break;
+    case 5:
+      cmd = SELF_TEST_SIGNAL_LIMIT;
+      break;
+    case 6:
+      cmd = SELF_TEST_GAIN;
+      break;
+    case 7:
+      cmd = SELF_TEST_ALL;
+      break;
+    case 255:
+      break;
+    default:
+      printf("Invalid option\n");
+      break;
+    }
 
-      if (cmd > 0)
-      {
-        run_self_tests(mxt, cmd);
-      }
-   }
+    if (cmd > 0) {
+      run_self_tests(mxt, cmd);
+    }
+  }
 
-   return MXT_SUCCESS;
+  return MXT_SUCCESS;
 }

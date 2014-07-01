@@ -129,8 +129,7 @@ static int scan_sysfs_directory(struct libmaxtouch_ctx *ctx,
 
   length = strlen(dirname) + strlen(i2c_dir->d_name) + 2;
 
-  if ((pszDirname = (char *)calloc(length, sizeof(char))) == NULL)
-  {
+  if ((pszDirname = (char *)calloc(length, sizeof(char))) == NULL) {
     ret = MXT_ERROR_NO_MEM;
     goto free;
   }
@@ -138,50 +137,37 @@ static int scan_sysfs_directory(struct libmaxtouch_ctx *ctx,
   snprintf(pszDirname, length, "%s/%s", dirname, i2c_dir->d_name);
 
   pDirectory = opendir(pszDirname);
-  if (!pDirectory)
-  {
+  if (!pDirectory) {
     ret = MXT_ERROR_NO_MEM;
     goto free;
   }
 
-  while ((pEntry = readdir(pDirectory)) != NULL)
-  {
-    if (!strcmp(pEntry->d_name, "mem_access"))
-    {
+  while ((pEntry = readdir(pDirectory)) != NULL) {
+    if (!strcmp(pEntry->d_name, "mem_access")) {
       mxt_dbg(ctx, "Found mem_access interface at %s/mem_access", pszDirname);
       mem_access_found = true;
-    }
-    else if (!strcmp(pEntry->d_name, "debug_enable"))
-    {
+    } else if (!strcmp(pEntry->d_name, "debug_enable")) {
       mxt_dbg(ctx, "Found debug_enable interface at %s/debug_enable", pszDirname);
       debug_found = true;
-    }
-    else if (!strcmp(pEntry->d_name, "debug_msg"))
-    {
+    } else if (!strcmp(pEntry->d_name, "debug_msg")) {
       mxt_dbg(ctx, "Found Debug V2 at %s/debug_msg", pszDirname);
       debug_v2_found = true;
     }
   }
 
   /* If device found, store it and return success */
-  if (mem_access_found && (debug_found || debug_v2_found))
-  {
-    if (ctx->query)
-    {
+  if (mem_access_found && (debug_found || debug_v2_found)) {
+    if (ctx->query) {
       printf("sysfs:%s Atmel %s interface\n", pszDirname,
              debug_v2_found ? "Debug V2" : "Debug");
 
       ctx->query_found_device = true;
-    }
-    else
-    {
+    } else {
       ret = sysfs_new_connection(ctx, conn, pszDirname);
       mxt_dbg(ctx, "Found %s", pszDirname);
       goto close;
     }
-  }
-  else
-  {
+  } else {
     mxt_verb(ctx, "Ignoring %s", pszDirname);
   }
 
@@ -212,8 +198,7 @@ static int scan_driver_directory(struct libmaxtouch_ctx *ctx,
 
   length = strlen(path) + strlen(dir->d_name) + 1;
 
-  if ((pszDirname = (char *)calloc(length, sizeof(char))) == NULL)
-  {
+  if ((pszDirname = (char *)calloc(length, sizeof(char))) == NULL) {
     mxt_err(ctx, "calloc failure");
     return MXT_ERROR_NO_MEM;
   }
@@ -221,19 +206,16 @@ static int scan_driver_directory(struct libmaxtouch_ctx *ctx,
   snprintf(pszDirname, length, "%s%s", path, dir->d_name);
 
   pDirectory = opendir(pszDirname);
-  if (pDirectory == NULL)
-  {
+  if (pDirectory == NULL) {
     ret = MXT_ERROR_NO_MEM;
     goto free;
   }
 
-  while ((pEntry = readdir(pDirectory)) != NULL)
-  {
+  while ((pEntry = readdir(pDirectory)) != NULL) {
     if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
       continue;
 
-    if (sscanf(pEntry->d_name, "%d-%x", &adapter, &address) == 2)
-    {
+    if (sscanf(pEntry->d_name, "%d-%x", &adapter, &address) == 2) {
       ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname);
 
       // If found or error finish
@@ -266,8 +248,7 @@ int sysfs_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
   if (!pDirectory)
     return MXT_ERROR_NO_DEVICE;
 
-  while ((pEntry = readdir(pDirectory)) != NULL)
-  {
+  while ((pEntry = readdir(pDirectory)) != NULL) {
     if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
       continue;
 
@@ -315,19 +296,14 @@ int sysfs_open(struct mxt_device *mxt)
 
   ret = stat(filename, &filestat);
   if (ret < 0) {
-    if (errno == ENOENT)
-    {
+    if (errno == ENOENT) {
       mxt->sysfs.debug_v2 = false;
-    }
-    else
-    {
+    } else {
       mxt_err(mxt->ctx, "Could not stat %s, error %s (%d)",
               filename, strerror(errno), errno);
       return mxt_errno_to_rc(errno);
     }
-  }
-  else
-  {
+  } else {
     mxt->sysfs.debug_v2 = true;
   }
 
@@ -340,8 +316,7 @@ int sysfs_open(struct mxt_device *mxt)
 /// \brief  Release device
 void sysfs_release(struct mxt_device *mxt)
 {
-  if (mxt)
-  {
+  if (mxt) {
     free(mxt->sysfs.temp_path);
     free(mxt->sysfs.debug_v2_msg_buf);
   }
@@ -355,18 +330,16 @@ static int open_device_file(struct mxt_device *mxt, int *fd_out)
   int fd;
 
   // Check device is initialised
-  if (!mxt || !mxt->sysfs.mem_access_path)
-  {
+  if (!mxt || !mxt->sysfs.mem_access_path) {
     mxt_err(mxt->ctx, "Device uninitialised");
     return MXT_ERROR_NO_DEVICE;
   }
 
   fd = open(mxt->sysfs.mem_access_path, O_RDWR);
 
-  if (fd < 0)
-  {
+  if (fd < 0) {
     mxt_err(mxt->ctx, "Could not open %s, error %s (%d)",
-        mxt->sysfs.mem_access_path, strerror(errno), errno);
+            mxt->sysfs.mem_access_path, strerror(errno), errno);
 
     return mxt_errno_to_rc(errno);
   }
@@ -388,19 +361,16 @@ int sysfs_read_register(struct mxt_device *mxt, unsigned char *buf, int start_re
   if (ret)
     return ret;
 
-  if (lseek(fd, start_register, 0) < 0)
-  {
+  if (lseek(fd, start_register, 0) < 0) {
     mxt_err(mxt->ctx, "lseek error %s (%d)", strerror(errno), errno);
     ret = mxt_errno_to_rc(errno);
     goto close;
   }
 
   bytes_read = 0;
-  while (bytes_read < count)
-  {
+  while (bytes_read < count) {
     ret = read(fd, buf + bytes_read, count - bytes_read);
-    if (ret < 0)
-    {
+    if (ret < 0) {
       mxt_err(mxt->ctx, "read error %s (%d)", strerror(errno), errno);
       ret = mxt_errno_to_rc(errno);
       goto close;
@@ -429,19 +399,16 @@ int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf, int s
   if (ret)
     return ret;
 
-  if (lseek(fd, start_register, 0) < 0)
-  {
+  if (lseek(fd, start_register, 0) < 0) {
     mxt_err(mxt->ctx, "lseek error %s (%d)", strerror(errno), errno);
     ret = mxt_errno_to_rc(errno);
     goto close;
   }
 
   bytes_written = 0;
-  while (bytes_written < count)
-  {
+  while (bytes_written < count) {
     ret = write(fd, buf+bytes_written, count - bytes_written);
-    if (ret < 0)
-    {
+    if (ret < 0) {
       mxt_err(mxt->ctx, "Error %s (%d) writing to register", strerror(errno), errno);
       ret = mxt_errno_to_rc(errno);
       goto close;
@@ -471,18 +438,14 @@ static int write_boolean_file(struct mxt_device *mxt, const char *filename,
   FILE *file;
 
   file = fopen(filename, "w+");
-  if (!file)
-  {
+  if (!file) {
     mxt_err(mxt->ctx, "Could not open %s, error %s (%d)", filename, strerror(errno), errno);
     return mxt_errno_to_rc(errno);
   }
 
-  if (value == true)
-  {
+  if (value == true) {
     fputs("1", file);
-  }
-  else
-  {
+  } else {
     fputs("0", file);
   }
 
@@ -505,25 +468,20 @@ static int read_boolean_file(struct mxt_device *mxt, char *filename,
   bool ret;
 
   file = fopen(filename, "r");
-  if (!file)
-  {
+  if (!file) {
     mxt_err(mxt->ctx, "Could not open %s, error %s (%d)", filename, strerror(errno), errno);
     return mxt_errno_to_rc(errno);
   }
 
   ret = fread(&val, sizeof(char), 1, file);
-  if (ret < 0)
-  {
+  if (ret < 0) {
     mxt_err(mxt->ctx, "Error reading files");
     return MXT_ERROR_IO;
   }
 
-  if (val == 49) // ASCII '0'
-  {
+  if (val == 49) { // ASCII '0'
     *value = true;
-  }
-  else
-  {
+  } else {
     *value = false;
   }
 
@@ -542,31 +500,24 @@ int sysfs_set_debug(struct mxt_device *mxt, bool debug_state)
   int ret;
 
   // Check device is initialised
-  if (!mxt)
-  {
+  if (!mxt) {
     mxt_err(mxt->ctx, "Device uninitialised");
     return MXT_ERROR_NO_DEVICE;
   }
 
-  if (mxt->sysfs.debug_v2 == true)
-  {
+  if (mxt->sysfs.debug_v2 == true) {
     ret = write_boolean_file(mxt, make_path(mxt, "debug_v2_enable"), debug_state);
     if (ret)
       ret = write_boolean_file(mxt, make_path(mxt, "debug_enable"), debug_state);
 
-    if (debug_state)
-    {
+    if (debug_state) {
       ret = sysfs_open_notify_fd(mxt);
       if (ret)
         return ret;
-    }
-    else
-    {
+    } else {
       close(mxt->sysfs.debug_notify_fd);
     }
-  }
-  else
-  {
+  } else {
     ret = write_boolean_file(mxt, make_path(mxt, "debug_enable"), debug_state);
   }
 
@@ -590,10 +541,9 @@ char *sysfs_get_msg_string_v2(struct mxt_device *mxt)
     return NULL;
 
   length = snprintf(msg_string, sizeof(msg_string), "MXT MSG:");
-  for (i = 0; i < size; i++)
-  {
+  for (i = 0; i < size; i++) {
     length += snprintf(msg_string + length, sizeof(msg_string) - length,
-        "%02X ", databuf[i]);
+                       "%02X ", databuf[i]);
   }
 
   return &msg_string[0];
@@ -691,8 +641,7 @@ int sysfs_get_msg_count_v2(struct mxt_device *mxt, int *count)
   t5_size = mxt_get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5) - 1;
 
   num_bytes = read(fd, mxt->sysfs.debug_v2_msg_buf, mxt->sysfs.debug_v2_size);
-  if (num_bytes < 0)
-  {
+  if (num_bytes < 0) {
     mxt_err(mxt->ctx, "read error %s (%d)", strerror(errno), errno);
     ret = mxt_errno_to_rc(errno);
     goto close;
@@ -718,8 +667,7 @@ close:
 int sysfs_get_debug(struct mxt_device *mxt, bool *value)
 {
   // Check device is initialised
-  if (!mxt)
-  {
+  if (!mxt) {
     mxt_err(mxt->ctx, "Device uninitialised");
     return false;
   }
@@ -734,8 +682,7 @@ int sysfs_get_debug(struct mxt_device *mxt, bool *value)
 char *sysfs_get_directory(struct mxt_device *mxt)
 {
   // Check device is initialised
-  if (!mxt)
-  {
+  if (!mxt) {
     mxt_err(mxt->ctx, "Device uninitialised");
     return 0;
   }

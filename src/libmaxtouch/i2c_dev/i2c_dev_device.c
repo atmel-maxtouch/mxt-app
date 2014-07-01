@@ -125,9 +125,7 @@ int i2c_dev_read_register(struct mxt_device *mxt, unsigned char *buf, int start_
   if (read(fd, buf, count) != count) {
     mxt_err(mxt->ctx, "Error %s (%d) reading from i2c", strerror(errno), errno);
     ret = mxt_errno_to_rc(errno);
-  }
-  else
-  {
+  } else {
     ret = MXT_SUCCESS;
   }
 
@@ -163,14 +161,10 @@ int i2c_dev_write_register(struct mxt_device *mxt, unsigned char const *val, int
     if (write(fd, buf, count) != count) {
       mxt_err(mxt->ctx, "Error %s (%d) writing to i2c", strerror(errno), errno);
       ret = mxt_errno_to_rc(errno);
-    }
-    else
-    {
+    } else {
       ret = MXT_SUCCESS;
     }
-  }
-  else
-  {
+  } else {
     ret = MXT_SUCCESS;
   }
 
@@ -196,9 +190,7 @@ int i2c_dev_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int coun
   if (read(fd, buf, count) != count) {
     mxt_err(mxt->ctx, "Error %s (%d) reading from i2c", strerror(errno), errno);
     ret = mxt_errno_to_rc(errno);
-  }
-  else
-  {
+  } else {
     ret = MXT_SUCCESS;
   }
 
@@ -223,9 +215,7 @@ int i2c_dev_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, i
   if (write(fd, buf, count) != count) {
     mxt_err(mxt->ctx, "Error %s (%d) writing to i2c", strerror(errno), errno);
     ret = mxt_errno_to_rc(errno);
-  }
-  else
-  {
+  } else {
     ret = MXT_SUCCESS;
   }
 

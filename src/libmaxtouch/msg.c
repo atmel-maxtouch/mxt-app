@@ -72,8 +72,7 @@ char *t44_get_msg_string(struct mxt_device *mxt)
     return NULL;
 
   length = snprintf(mxt->msg_string, sizeof(mxt->msg_string), MSG_PREFIX);
-  for (i = 0; i < size; i++)
-  {
+  for (i = 0; i < size; i++) {
     length += snprintf(mxt->msg_string + length, sizeof(mxt->msg_string) - length,
                        "%02X ", databuf[i]);
   }
@@ -97,8 +96,7 @@ int t44_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf,
 
   /* Do not read CRC byte */
   size = mxt_get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5) - 1;
-  if (size > buflen)
-  {
+  if (size > buflen) {
     mxt_err(mxt->ctx, "Buffer too small!");
     return MXT_ERROR_NO_MEM;
   }
@@ -108,8 +106,7 @@ int t44_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf,
     return ret;
 
   /* Check for invalid message */
-  if (buf[0] == 255u)
-  {
+  if (buf[0] == 255u) {
     mxt_verb(mxt->ctx, "Invalid message");
     return MXT_ERROR_NO_MESSAGE;
   }
@@ -127,17 +124,14 @@ int t44_msg_reset(struct mxt_device *mxt)
   unsigned char databuf[20];
 
   ret = t44_get_msg_count(mxt, &count);
-  if (ret)
-  {
+  if (ret) {
     mxt_verb(mxt->ctx, "rc = %d", ret);
     return ret;
   }
 
-  for (i = 0; i < count; i++)
-  {
+  for (i = 0; i < count; i++) {
     ret = t44_get_msg_bytes(mxt, &databuf[0], sizeof(databuf), &size);
-    if (ret)
-    {
+    if (ret) {
       mxt_verb(mxt->ctx, "rc = %d", ret);
       return ret;
     }
@@ -160,7 +154,7 @@ int t44_msg_reset(struct mxt_device *mxt)
 /// \return #mxt_rc
 int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context,
                       int (*msg_func)(struct mxt_device *mxt, uint8_t *msg,
-                      void *context, uint8_t size), int *flag)
+                                      void *context, uint8_t size), int *flag)
 {
   int count, len;
   time_t now;
@@ -168,8 +162,7 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
   uint8_t buf[10];
   int ret;
 
-  while (!*flag)
-  {
+  while (!*flag) {
     mxt_msg_wait(mxt, MXT_MSG_POLL_DELAY_MS);
 
     ret = mxt_get_msg_count(mxt, &count);
@@ -181,8 +174,7 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
       if (ret && ret != MXT_ERROR_NO_MESSAGE)
         return ret;
 
-      if (len > 0)
-      {
+      if (len > 0) {
         ret = ((*msg_func)(mxt, buf, context, len));
         if (ret != MXT_MSG_CONTINUE)
           return ret;
@@ -193,8 +185,7 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
       return MXT_SUCCESS;
     } else if (timeout_seconds > 0) {
       now = time(NULL);
-      if ((now - start_time) > timeout_seconds)
-      {
+      if ((now - start_time) > timeout_seconds) {
         mxt_err(mxt->ctx, "Timeout");
         return MXT_ERROR_TIMEOUT;
       }
@@ -218,10 +209,9 @@ int mxt_flush_msgs(struct mxt_device *mxt)
 /// \brief Gets checksum from T6 message
 /// \return #mxt_rc
 static int get_checksum_message(struct mxt_device *mxt, uint8_t *msg,
-                             void *context, uint8_t size)
+                                void *context, uint8_t size)
 {
-  if (mxt_report_id_to_type(mxt, msg[0]) == GEN_COMMANDPROCESSOR_T6)
-  {
+  if (mxt_report_id_to_type(mxt, msg[0]) == GEN_COMMANDPROCESSOR_T6) {
     uint32_t *checksum = context;
     *checksum = msg[2] | (msg[3] << 8) | (msg[4] << 16);
 
