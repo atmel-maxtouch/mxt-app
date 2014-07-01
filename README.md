@@ -424,6 +424,11 @@ There are two build harnesses, for Android and autotools:
 
 ## Android
 
+To download libusbdroid submodule:
+
+    git submodule init
+    git submodule update
+
 To compile using Android NDK:
 
     ndk-build
