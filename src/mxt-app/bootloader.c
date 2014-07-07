@@ -581,17 +581,17 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
   }
 #ifdef HAVE_LIBUSB
   else if (fw.mxt->conn->type == E_USB) {
-    int usb_device_number;
+    bool bus_devices[USB_MAX_BUS_DEVICES] = { 0 };
     int tries = 10;
 
-    ret = usb_find_max_address(fw.mxt, &usb_device_number);
+    ret = usb_find_bus_devices(fw.mxt, bus_devices);
     if (ret)
       return ret;
 
     while (tries--) {
       sleep(MXT_RESET_TIME);
 
-      ret = usb_rediscover_device(fw.mxt, usb_device_number);
+      ret = usb_rediscover_device(fw.mxt, bus_devices);
       if (ret == MXT_SUCCESS)
         break;
     }

@@ -557,9 +557,6 @@ static int usb_find_device(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt)
   struct libusb_device **devs;
   int usb_bus, usb_device;
 
-  mxt_verb(mxt->ctx, "Finding device usb:%03d-%03d",
-           mxt->conn->usb.bus, mxt->conn->usb.device);
-
   count = libusb_get_device_list(ctx->usb.libusb_ctx, &devs);
   if (count <= 0) {
     mxt_err(mxt->ctx, "%s enumerating devices", libusb_error_name(count));
@@ -581,10 +578,12 @@ static int usb_find_device(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt)
     if (mxt->conn->usb.bus == usb_bus && mxt->conn->usb.device == usb_device) {
       if (desc.idProduct == 0x6123) {
         mxt->usb.bridge_chip = true;
-        mxt_dbg(mxt->ctx, "Found 5030 bridge chip");
+        mxt_dbg(mxt->ctx, "Found usb:%03d-%03d 5030 bridge chip",
+                usb_bus, usb_device);
       } else {
         mxt->usb.bridge_chip = false;
-        mxt_verb(mxt->ctx, "Found VID=%04X PID=%04X",
+        mxt_verb(mxt->ctx, "Found usb:%03d-%03d VID=%04X PID=%04X",
+                 usb_bus, usb_device,
                  desc.idVendor, desc.idProduct);
       }
 
@@ -594,10 +593,14 @@ static int usb_find_device(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt)
       ret = MXT_SUCCESS;
       goto free_device_list;
     } else {
-      mxt_verb(mxt->ctx, "Ignoring VID=%04X PID=%04X",
+      mxt_verb(mxt->ctx, "Ignoring usb:%03d-%03d VID=%04X PID=%04X",
+               usb_bus, usb_device,
                desc.idVendor, desc.idProduct);
     }
   }
+
+  mxt_err(mxt->ctx, "Could not find device usb:%03d-%03d",
+          mxt->conn->usb.bus, mxt->conn->usb.device);
 
   ret = MXT_ERROR_NO_DEVICE;
 
@@ -855,15 +858,14 @@ int usb_close(struct libmaxtouch_ctx *ctx)
 }
 
 //******************************************************************************
-/// \brief Find the maximum device address on the USB bus
+/// \brief Enumerate the maxtouch devices on the same bus
 /// \return #mxt_rc
-int usb_find_max_address(struct mxt_device *mxt, int *address)
+int usb_find_bus_devices(struct mxt_device *mxt, bool *found)
 {
   int ret, count, i;
   struct libusb_device **devs;
   int usb_bus = 0;
   int usb_device = 0;
-  int max_device_nr = 0;
 
   count = libusb_get_device_list(mxt->ctx->usb.libusb_ctx, &devs);
   if (count <= 0) {
@@ -883,33 +885,24 @@ int usb_find_max_address(struct mxt_device *mxt, int *address)
     usb_bus = libusb_get_bus_number(devs[i]);
     usb_device = libusb_get_device_address(devs[i]);
 
-    if (usb_bus == mxt->conn->usb.bus) {
-      if (usb_device > max_device_nr) {
-        max_device_nr = usb_device;
-      }
+    if ((usb_bus == mxt->conn->usb.bus) && (usb_supported_pid_vid(desc))) {
+      found[usb_device] = true;
     }
   }
-
-  *address = max_device_nr;
 
   libusb_free_device_list(devs, 1);
   return MXT_SUCCESS;
 }
 
 //******************************************************************************
-/// \brief Rediscover device
+/// \brief Rediscover device on bus
 /// \return #mxt_rc
-int usb_rediscover_device(struct mxt_device *mxt, int max_device)
+int usb_rediscover_device(struct mxt_device *mxt, bool *device_list)
 {
   int ret, count, i;
   struct libusb_device **devs;
   int usb_bus = 0;
   int usb_device = 0;
-
-  /* We must wait for the chip to be ready to communicate again */
-  mxt_verb(mxt->ctx, "Trying to find chip at %03d-%03d or %03d-%03d",
-           mxt->conn->usb.bus, mxt->conn->usb.device,
-           mxt->conn->usb.bus, (max_device + 1));
 
   count = libusb_get_device_list(mxt->ctx->usb.libusb_ctx, &devs);
   if (count <= 0) {
@@ -926,28 +919,28 @@ int usb_rediscover_device(struct mxt_device *mxt, int max_device)
       continue;
     }
 
-    if (usb_supported_pid_vid(desc)) {
-      usb_bus = libusb_get_bus_number(devs[i]);
-      usb_device = libusb_get_device_address(devs[i]);
+    usb_bus = libusb_get_bus_number(devs[i]);
+    usb_device = libusb_get_device_address(devs[i]);
 
+    if (usb_supported_pid_vid(desc)) {
       if (usb_bus == mxt->conn->usb.bus) {
         if (usb_device == mxt->conn->usb.device) {
           /* Old device still connected, fine */
           mxt_dbg(mxt->ctx, "USB device still there at %03d-%03d",
                   usb_bus, usb_device);
           return MXT_SUCCESS;
-        } else if (usb_device == (max_device + 1)) {
+        } else if (device_list[usb_device] == false) {
           /* Found a new device on bus. We make the assumption that it is the
            * device that just reset. It might be another device with the same
            * PID/VID just plugged in, but there's no way of knowing */
           mxt->conn->usb.device = usb_device;
-          mxt_info(mxt->ctx, "Rediscovered device at address %03d-%03d",
+          mxt_info(mxt->ctx, "Found new device on bus at address %03d-%03d",
                    usb_bus, usb_device);
           return MXT_SUCCESS;
         }
       }
     } else {
-      mxt_verb(mxt->ctx, "Ignoring %03d-%03d VID=%04X PID=%04X",
+      mxt_verb(mxt->ctx, "Ignoring usb:%03d-%03d VID=%04X PID=%04X",
                usb_bus, usb_device, desc.idVendor, desc.idProduct);
     }
   }
@@ -964,7 +957,7 @@ int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
   int ret;
   uint16_t t6_addr;
   unsigned char write_value = RESET_COMMAND;
-  int max_device = 0;
+  bool bus_devices[USB_MAX_BUS_DEVICES] = { 0 };
   int tries = 10;
   int bytes_written;
 
@@ -977,8 +970,8 @@ int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
   if (bootloader_mode)
     write_value = BOOTLOADER_COMMAND;
 
-  /* Find max address on bus */
-  ret = usb_find_max_address(mxt, &max_device);
+  /* Store bus device list */
+  ret = usb_find_bus_devices(mxt, bus_devices);
   if (ret)
     return ret;
 
@@ -998,7 +991,7 @@ int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
     /* sleep 500 ms */
     usleep(500000);
 
-    ret = usb_rediscover_device(mxt, max_device);
+    ret = usb_rediscover_device(mxt, bus_devices);
     if (ret == MXT_SUCCESS)
       break;
   }

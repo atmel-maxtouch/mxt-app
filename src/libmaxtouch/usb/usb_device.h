@@ -34,6 +34,8 @@
 #include <libusb-1.0/libusb.h>
 #endif
 
+#define USB_MAX_BUS_DEVICES  127
+
 //******************************************************************************
 /// \brief USB library context
 struct usb_context
@@ -75,5 +77,5 @@ int usb_bootloader_read(struct mxt_device *mxt, unsigned char *buf, size_t count
 int usb_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, size_t count);
 bool usb_is_bootloader(struct mxt_device *mxt);
 int usb_read_chg(struct mxt_device *mxt, bool *value);
-int usb_find_max_address(struct mxt_device *mxt, int *address);
-int usb_rediscover_device(struct mxt_device *mxt, int max_device);
+int usb_find_bus_devices(struct mxt_device *mxt, bool *device_list);
+int usb_rediscover_device(struct mxt_device *mxt, bool *device_list);
