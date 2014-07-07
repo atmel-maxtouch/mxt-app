@@ -498,11 +498,7 @@ int mxt_calibrate_chip(struct mxt_device *mxt)
   mxt_flush_msgs(mxt);
 
   /* Write to command processor register to perform command */
-  ret = mxt_write_register
-        (
-          mxt, &write_value, t6_addr + MXT_T6_CALIBRATE_OFFSET, 1
-        );
-
+  ret = mxt_write_register(mxt, &write_value, t6_addr + MXT_T6_CALIBRATE_OFFSET, 1);
   if (ret == 0) {
     mxt_info(mxt->ctx, "Sent calibration command");
   } else {
@@ -515,8 +511,8 @@ int mxt_calibrate_chip(struct mxt_device *mxt)
   ret = mxt_read_messages(mxt, MXT_CALIBRATE_TIMEOUT, &state,
                           handle_calibrate_msg, &flag);
   if (ret == MXT_ERROR_TIMEOUT) {
-    mxt_err(mxt->ctx, "FAIL: device calibration timed-out");
-    return MXT_ERROR_TIMEOUT;
+    mxt_warn(mxt->ctx, "WARN: timed out waiting for calibrate status");
+    return MXT_SUCCESS;
   } else if (ret) {
     mxt_err(mxt->ctx, "FAIL: device calibration failed");
     return ret;
