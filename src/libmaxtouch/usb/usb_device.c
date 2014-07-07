@@ -643,19 +643,28 @@ static int usb_initialise_libusb(struct libmaxtouch_ctx *ctx)
 int usb_open(struct mxt_device *mxt)
 {
   int ret;
+  unsigned int tries = 5;
 
   ret = usb_initialise_libusb(mxt->ctx);
   if (ret)
     return ret;
 
   ret = usb_find_device(mxt->ctx, mxt);
-  if (ret != 0) {
-    mxt_err(mxt->ctx, "Could not find device");
+  if (ret != 0)
     return MXT_ERROR_NO_DEVICE;
-  }
 
+retry:
   ret = libusb_open(mxt->usb.device, &mxt->usb.handle);
-  if (ret != LIBUSB_SUCCESS) {
+  if (ret == LIBUSB_ERROR_NO_DEVICE) {
+    usleep(500000);
+    if (tries--) {
+      mxt_warn(mxt->ctx, "%s opening USB device, retrying", libusb_error_name(ret));
+      goto retry;
+    } else {
+      mxt_err(mxt->ctx, "%s opening USB device", libusb_error_name(ret));
+      return usberror_to_rc(ret);
+    }
+  } else if (ret != LIBUSB_SUCCESS) {
     mxt_err(mxt->ctx, "%s opening USB device", libusb_error_name(ret));
     return usberror_to_rc(ret);
   }
