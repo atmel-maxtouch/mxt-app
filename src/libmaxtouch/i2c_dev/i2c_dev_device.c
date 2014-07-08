@@ -99,7 +99,7 @@ static int open_and_set_slave_address(struct mxt_device *mxt, int *fd_out)
 /// \return #mxt_rc
 int i2c_dev_read_register(struct mxt_device *mxt, unsigned char *buf, int start_register, int count)
 {
-  int fd;
+  int fd = -ENODEV;
   int ret;
   char register_buf[2];
 
@@ -139,7 +139,7 @@ close:
 /// \return #mxt_rc
 int i2c_dev_write_register(struct mxt_device *mxt, unsigned char const *val, int start_register, int datalength)
 {
-  int fd;
+  int fd = -ENODEV;
   int count;
   int ret;
   unsigned char *buf;
@@ -178,7 +178,7 @@ int i2c_dev_write_register(struct mxt_device *mxt, unsigned char const *val, int
 /// \return #mxt_rc
 int i2c_dev_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count)
 {
-  int fd;
+  int fd = -ENODEV;
   int ret;
 
   ret = open_and_set_slave_address(mxt, &fd);
@@ -203,7 +203,7 @@ int i2c_dev_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int coun
 /// \return #mxt_rc
 int i2c_dev_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int count)
 {
-  int fd;
+  int fd = -ENODEV;
   int ret;
 
   ret = open_and_set_slave_address(mxt, &fd);
