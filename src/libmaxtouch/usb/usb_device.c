@@ -63,11 +63,10 @@
 #define COMMS_STATUS_ADDR_NACK   0x01
 #define COMMS_STATUS_WRITE_OK    0x04
 
-#ifndef HAVE_LIBUSB_ERROR_NAME
 //******************************************************************************
 /// \brief Converts a libusb error code into a string
 /// \return Error string
-static const char *libusb_error_name(int errcode)
+static const char *usb_error_name(int errcode)
 {
   switch (errcode) {
   case LIBUSB_SUCCESS:
@@ -102,7 +101,6 @@ static const char *libusb_error_name(int errcode)
     return "unrecognised error code";
   }
 }
-#endif
 
 //******************************************************************************
 /// \brief Convert errors from the libusb API to #mxt_rc values
@@ -161,14 +159,14 @@ static int usb_transfer(struct mxt_device *mxt, void *cmd, int cmd_size,
         );
 
   if (ret != LIBUSB_SUCCESS) {
-    mxt_err(mxt->ctx, "USB command error %s", libusb_error_name(ret));
+    mxt_err(mxt->ctx, "USB command error %s", usb_error_name(ret));
     return usberror_to_rc(ret);
   } else if (bytes_transferred != cmd_size) {
     mxt_err
     (
       mxt->ctx,
       "Read request failed - %d bytes transferred, returned %s",
-      bytes_transferred, libusb_error_name(ret)
+      bytes_transferred, usb_error_name(ret)
     );
     return MXT_ERROR_IO;
   } else {
@@ -188,14 +186,14 @@ static int usb_transfer(struct mxt_device *mxt, void *cmd, int cmd_size,
         );
 
   if (ret != LIBUSB_SUCCESS) {
-    mxt_err(mxt->ctx, "USB response error %s", libusb_error_name(ret));
+    mxt_err(mxt->ctx, "USB response error %s", usb_error_name(ret));
     return usberror_to_rc(ret);
   } else if (bytes_transferred != response_size) {
     mxt_err
     (
       mxt->ctx,
       "Read response failed - %d bytes transferred, returned %s",
-      bytes_transferred, libusb_error_name(ret)
+      bytes_transferred, usb_error_name(ret)
     );
     return MXT_ERROR_IO;
   } else {
@@ -561,7 +559,7 @@ static int usb_find_device(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt)
 
   count = libusb_get_device_list(ctx->usb.libusb_ctx, &devs);
   if (count <= 0) {
-    mxt_err(mxt->ctx, "%s enumerating devices", libusb_error_name(count));
+    mxt_err(mxt->ctx, "%s enumerating devices", usb_error_name(count));
     return usberror_to_rc(count);
   }
 
@@ -570,7 +568,7 @@ static int usb_find_device(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt)
     ret = libusb_get_device_descriptor(devs[i], &desc);
     if (ret != LIBUSB_SUCCESS) {
       mxt_warn(mxt->ctx, "%s trying to retrieve descriptor",
-               libusb_error_name(ret));
+               usb_error_name(ret));
       continue;
     }
 
@@ -625,7 +623,7 @@ static int usb_initialise_libusb(struct libmaxtouch_ctx *ctx)
   /* Initialise library */
   ret = libusb_init(&(ctx->usb.libusb_ctx));
   if (ret != LIBUSB_SUCCESS) {
-    mxt_err(ctx, "%s initialising libusb", libusb_error_name(ret));
+    mxt_err(ctx, "%s initialising libusb", usb_error_name(ret));
     return usberror_to_rc(ret);
   }
 
@@ -663,14 +661,14 @@ retry:
   if (ret == LIBUSB_ERROR_NO_DEVICE) {
     usleep(500000);
     if (tries--) {
-      mxt_warn(mxt->ctx, "%s opening USB device, retrying", libusb_error_name(ret));
+      mxt_warn(mxt->ctx, "%s opening USB device, retrying", usb_error_name(ret));
       goto retry;
     } else {
-      mxt_err(mxt->ctx, "%s opening USB device", libusb_error_name(ret));
+      mxt_err(mxt->ctx, "%s opening USB device", usb_error_name(ret));
       return usberror_to_rc(ret);
     }
   } else if (ret != LIBUSB_SUCCESS) {
-    mxt_err(mxt->ctx, "%s opening USB device", libusb_error_name(ret));
+    mxt_err(mxt->ctx, "%s opening USB device", usb_error_name(ret));
     return usberror_to_rc(ret);
   }
 
@@ -698,7 +696,7 @@ retry:
     (
       mxt->ctx,
       "Unable to claim bInterfaceNumber %d of the device, returned %s",
-      mxt->usb.interface, libusb_error_name(ret)
+      mxt->usb.interface, usb_error_name(ret)
     );
     return usberror_to_rc(ret);
   } else {
@@ -710,7 +708,7 @@ retry:
                                    ENDPOINT_1_IN);
   if (ret < LIBUSB_SUCCESS) {
     mxt_err(mxt->ctx, "%s getting maximum packet size on endpoint 1 IN",
-            libusb_error_name(ret));
+            usb_error_name(ret));
     return usberror_to_rc(ret);
   }
 
@@ -772,7 +770,7 @@ int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
 
   count = libusb_get_device_list(ctx->usb.libusb_ctx, &devs);
   if (count <= 0) {
-    mxt_err(ctx, "%s enumerating devices", libusb_error_name(count));
+    mxt_err(ctx, "%s enumerating devices", usb_error_name(count));
     return usberror_to_rc(count);
   }
 
@@ -781,7 +779,7 @@ int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
     ret = libusb_get_device_descriptor(devs[i], &desc);
     if (ret != LIBUSB_SUCCESS) {
       mxt_warn(ctx, "%s trying to retrieve descriptor",
-               libusb_error_name(ret));
+               usb_error_name(ret));
       continue;
     }
 
@@ -871,7 +869,7 @@ int usb_find_bus_devices(struct mxt_device *mxt, bool *found)
 
   count = libusb_get_device_list(mxt->ctx->usb.libusb_ctx, &devs);
   if (count <= 0) {
-    mxt_err(mxt->ctx, "%s enumerating devices", libusb_error_name(count));
+    mxt_err(mxt->ctx, "%s enumerating devices", usb_error_name(count));
     return usberror_to_rc(count);
   }
 
@@ -880,7 +878,7 @@ int usb_find_bus_devices(struct mxt_device *mxt, bool *found)
     ret = libusb_get_device_descriptor(devs[i], &desc);
     if (ret != LIBUSB_SUCCESS) {
       mxt_warn(mxt->ctx, "%s trying to retrieve descriptor",
-               libusb_error_name(ret));
+               usb_error_name(ret));
       continue;
     }
 
@@ -908,7 +906,7 @@ int usb_rediscover_device(struct mxt_device *mxt, bool *device_list)
 
   count = libusb_get_device_list(mxt->ctx->usb.libusb_ctx, &devs);
   if (count <= 0) {
-    mxt_err(mxt->ctx, "%s enumerating devices", libusb_error_name(count));
+    mxt_err(mxt->ctx, "%s enumerating devices", usb_error_name(count));
     return usberror_to_rc(count);
   }
 
@@ -917,7 +915,7 @@ int usb_rediscover_device(struct mxt_device *mxt, bool *device_list)
     ret = libusb_get_device_descriptor(devs[i], &desc);
     if (ret != LIBUSB_SUCCESS) {
       mxt_warn(mxt->ctx, "%s trying to retrieve descriptor",
-               libusb_error_name(ret));
+               usb_error_name(ret));
       continue;
     }
 
