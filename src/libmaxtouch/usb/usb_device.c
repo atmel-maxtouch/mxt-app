@@ -161,6 +161,7 @@ static int usb_transfer(struct mxt_device *mxt, void *cmd, int cmd_size,
         );
 
   if (ret != LIBUSB_SUCCESS) {
+    mxt_err(mxt->ctx, "USB command error %s", libusb_error_name(ret));
     return usberror_to_rc(ret);
   } else if (bytes_transferred != cmd_size) {
     mxt_err
@@ -187,6 +188,7 @@ static int usb_transfer(struct mxt_device *mxt, void *cmd, int cmd_size,
         );
 
   if (ret != LIBUSB_SUCCESS) {
+    mxt_err(mxt->ctx, "USB response error %s", libusb_error_name(ret));
     return usberror_to_rc(ret);
   } else if (bytes_transferred != response_size) {
     mxt_err
