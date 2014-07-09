@@ -958,7 +958,7 @@ int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
   uint16_t t6_addr;
   unsigned char write_value = RESET_COMMAND;
   bool bus_devices[USB_MAX_BUS_DEVICES] = { 0 };
-  int tries = 10;
+  int tries;
   int bytes_written;
 
   /* Obtain command processor's address */
@@ -975,10 +975,16 @@ int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
   if (ret)
     return ret;
 
+  tries = 10;
+retry:
   /* Send write command to reset the chip */
   ret = write_data(mxt, &write_value, t6_addr + MXT_T6_RESET_OFFSET, 1,
                    &bytes_written, true);
-  if (ret) {
+  if (ret == MXT_ERROR_NO_DEVICE && tries--) {
+    usleep(500000);
+    mxt_warn(mxt->ctx, "Error sending reset command, retrying");
+    goto retry;
+  } else if (ret) {
     mxt_err(mxt->ctx, "Reset of the chip unsuccessful");
     return ret;
   }
@@ -987,6 +993,7 @@ int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
 
   usb_release(mxt);
 
+  tries = 10;
   while (tries--) {
     /* sleep 500 ms */
     usleep(500000);
