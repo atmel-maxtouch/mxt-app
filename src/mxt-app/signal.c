@@ -59,21 +59,21 @@ static void mxt_signal_handler(int signal_num)
 
 //******************************************************************************
 /// \brief Handles SIGINT signal
-static void mxt_init_sigint_handler(struct mxt_device *mxt, struct sigaction sa)
+static void mxt_init_sigint_handler(struct mxt_device *mxt, struct sigaction *sa)
 {
-  sa.sa_handler = mxt_signal_handler;
-  sigemptyset(&sa.sa_mask);
-  sa.sa_flags = SA_RESTART;
-  if (sigaction(SIGINT, &sa, NULL) == -1)
+  sa->sa_handler = mxt_signal_handler;
+  sigemptyset(&sa->sa_mask);
+  sa->sa_flags = SA_RESTART;
+  if (sigaction(SIGINT, sa, NULL) == -1)
     mxt_err(mxt->ctx, "Can't catch SIGINT");
 }
 
 //******************************************************************************
 /// \brief Sets default function for SIGINT signal
-static void mxt_release_sigint_handler(struct mxt_device *mxt, struct sigaction sa)
+static void mxt_release_sigint_handler(struct mxt_device *mxt, struct sigaction *sa)
 {
-  sa.sa_handler = SIG_DFL;
-  if (sigaction(SIGINT, &sa, NULL) == -1)
+  sa->sa_handler = SIG_DFL;
+  if (sigaction(SIGINT, sa, NULL) == -1)
     mxt_err(mxt->ctx, "Can't return SIGINT to default handler");
 
   mxt_sigint_rx = 0;
@@ -104,9 +104,10 @@ int mxt_read_messages_sigint(struct mxt_device *mxt, int timeout_seconds, void *
   int ret;
   struct sigaction sa;
 
-  mxt_init_sigint_handler(mxt, sa);
+
+  mxt_init_sigint_handler(mxt, &sa);
   ret = mxt_read_messages(mxt, timeout_seconds, context, (msg_func), (int *)&mxt_sigint_rx);
-  mxt_release_sigint_handler(mxt, sa);
+  mxt_release_sigint_handler(mxt, &sa);
 
   return ret;
 }
