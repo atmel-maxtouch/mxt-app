@@ -50,6 +50,12 @@
 
 #define MAX_LINESIZE 10000
 
+struct bridge_context {
+	int sockfd;
+	bool msgs_enabled;
+};
+
+
 //******************************************************************************
 /// \brief Read command on a single line
 /// \return #mxt_rc
@@ -91,40 +97,47 @@ static int readline(struct mxt_device *mxt, int fd, struct mxt_buffer *linebuf)
   return MXT_SUCCESS;
 }
 
+#define MXT_ADB_CLIENT_MSG_PREFIX "MSG "
+
 //******************************************************************************
 /// \brief Read MXT messages and send them to other end
 /// \return #mxt_rc
-static int handle_messages(struct mxt_device *mxt, int sockfd)
+static int handle_messages(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
 {
-  int count, i;
-  char *msg;
+  int count, i, length;
   int ret;
+
+  unsigned char databuf[20];
 
   ret = mxt_get_msg_count(mxt, &count);
   if (ret)
     return ret;
 
-  if (count > 0) {
-    for (i = 0; i < count; i++) {
-      msg = mxt_get_msg_string(mxt);
-      if (msg == NULL) {
-        mxt_warn(mxt->ctx, "Failed to retrieve message");
-        return MXT_SUCCESS;
-      }
 
-      ret = write(sockfd, msg, strlen(msg));
+  if (count > 0 && bridge_ctx->msgs_enabled) {
+
+    ret = mxt_get_msg_bytes(mxt, databuf, sizeof(databuf),&count);
+    if (ret)
+      return ret;
+
+    length = snprintf(mxt->msg_string, sizeof(mxt->msg_string), MXT_ADB_CLIENT_MSG_PREFIX);
+    for (i = 0; i < count; i++) {
+      length += snprintf(mxt->msg_string + length, sizeof(mxt->msg_string) - length,
+          "%02X", databuf[i]);
+    }
+
+      ret = write(bridge_ctx->sockfd, mxt->msg_string, strlen(mxt->msg_string));
       if (ret < 0) {
         mxt_err(mxt->ctx, "Write failure: %s (%d)", strerror(errno), errno);
         return mxt_errno_to_rc(ret);
       }
 
-      ret = write(sockfd, "\n", 1);
+      ret = write(bridge_ctx->sockfd, "\n", 1);
       if (ret < 0) {
         mxt_err(mxt->ctx, "Write failure: %s (%d)", strerror(errno), errno);
         return mxt_errno_to_rc(ret);
       }
     }
-  }
 
   return MXT_SUCCESS;
 }
@@ -132,7 +145,7 @@ static int handle_messages(struct mxt_device *mxt, int sockfd)
 //******************************************************************************
 /// \brief Handle bridge read
 /// \return #mxt_rc
-static int bridge_rea_cmd(struct mxt_device *mxt, int sockfd,
+static int bridge_rea_cmd(struct mxt_device *mxt, struct bridge_context *bridge_ctx,
                           uint16_t address, uint16_t count)
 {
   int ret;
@@ -171,7 +184,7 @@ static int bridge_rea_cmd(struct mxt_device *mxt, int sockfd,
     response[response_len - 1] = '\n';
   }
 
-  ret = write(sockfd, response, response_len);
+  ret = write(bridge_ctx->sockfd, response, response_len);
   if (ret < 0) {
     mxt_err(mxt->ctx, "Socket write error: %s (%d)", strerror(errno), errno);
     ret = mxt_errno_to_rc(errno);
@@ -190,7 +203,7 @@ free_databuf:
 //******************************************************************************
 /// \brief Handle bridge write
 /// \return #mxt_rc
-static int bridge_wri_cmd(struct mxt_device *mxt, int sockfd, uint16_t address,
+static int bridge_wri_cmd(struct mxt_device *mxt, struct bridge_context *bridge_ctx, uint16_t address,
                           char *hex, uint16_t bytes)
 {
   int ret;
@@ -219,7 +232,7 @@ static int bridge_wri_cmd(struct mxt_device *mxt, int sockfd, uint16_t address,
     }
   }
 
-  ret = write(sockfd, response, strlen(response));
+  ret = write(bridge_ctx->sockfd, response, strlen(response));
   if (ret < 0) {
     mxt_err(mxt->ctx, "Socket write error: %s (%d)", strerror(errno), errno);
     ret = mxt_errno_to_rc(errno);
@@ -231,14 +244,78 @@ static int bridge_wri_cmd(struct mxt_device *mxt, int sockfd, uint16_t address,
 }
 
 //******************************************************************************
+/// \brief Handle bridge reset command
+/// \return #mxt_rc
+static int bridge_handle_reset(struct mxt_device *mxt,
+                               struct bridge_context *bridge_ctx,
+                               uint16_t address)
+{
+  int ret;
+  char *response;
+  const char * const PREFIX = "RST ";
+  size_t response_len = 8;
+
+  /* Allow for newline/null byte */
+  response = calloc(response_len, sizeof(uint8_t));
+  if (!response) {
+    mxt_err(mxt->ctx, "Failed to allocate memory");
+    ret = MXT_ERROR_NO_MEM;
+    goto free;
+  }
+
+  strcpy(response, PREFIX);
+  ret =  mxt_reset_chip(mxt, false);
+  if (ret) {
+    mxt_warn(mxt->ctx, "RST ERR");
+    strcpy(response + strlen(PREFIX), "ERR\n");
+    response_len = strlen(response);
+  } else {
+    mxt_info(mxt->ctx, "RST OK");
+    strcpy(response + strlen(PREFIX), "OK\n");
+    response_len = strlen(response);
+  }
+
+  ret = write(bridge_ctx->sockfd, response, response_len);
+  if (ret < 0) {
+    mxt_err(mxt->ctx, "Socket write error: %s (%d)", strerror(errno), errno);
+    ret = mxt_errno_to_rc(errno);
+    goto free;
+  }
+
+  ret = MXT_SUCCESS;
+
+free:
+  free(response);
+  return ret;
+}
+
+//******************************************************************************
 /// \brief Send chip attach message
 /// \return #mxt_rc
-static int send_chip_attach(struct mxt_device *mxt, int sockfd)
+static int send_chip_attach(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
 {
   int ret;
   const char * const msg = "CAT\n";
 
-  ret = write(sockfd, msg, strlen(msg));
+  ret = write(bridge_ctx->sockfd, msg, strlen(msg));
+  if (ret < 0) {
+    mxt_err(mxt->ctx, "Socket write error: %s (%d)", strerror(errno), errno);
+    ret = mxt_errno_to_rc(errno);
+  }
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief Send chip detach message
+/// \return #mxt_rc
+static int send_chip_detach(struct mxt_device *mxt,
+                            struct bridge_context *bridge_ctx)
+{
+  int ret;
+  const char * const msg = "CDT\n";
+
+  ret = write(bridge_ctx->sockfd, msg, strlen(msg));
   if (ret < 0) {
     mxt_err(mxt->ctx, "Socket write error: %s (%d)", strerror(errno), errno);
     ret = mxt_errno_to_rc(errno);
@@ -250,7 +327,7 @@ static int send_chip_attach(struct mxt_device *mxt, int sockfd)
 //******************************************************************************
 /// \brief Read and deal with incoming command
 /// \return #mxt_rc
-static int handle_cmd(struct mxt_device *mxt, int sockfd)
+static int handle_cmd(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
 {
   int ret;
   uint16_t address;
@@ -263,7 +340,7 @@ static int handle_cmd(struct mxt_device *mxt, int sockfd)
   if (ret)
     return ret;
 
-  ret = readline(mxt, sockfd, &linebuf);
+  ret = readline(mxt, bridge_ctx->sockfd, &linebuf);
   if (ret) {
     mxt_dbg(mxt->ctx, "Error reading or peer closed socket");
     goto free;
@@ -284,14 +361,28 @@ static int handle_cmd(struct mxt_device *mxt, int sockfd)
     mxt_info(mxt->ctx, "Server detached");
     ret = MXT_SUCCESS;
   } else if (sscanf(line, "REA %" SCNu16 " %" SCNu16, &address, &count) == 2) {
-    ret = bridge_rea_cmd(mxt, sockfd, address, count);
+    ret = bridge_rea_cmd(mxt, bridge_ctx, address, count);
   } else if (sscanf(line, "WRI %" SCNu16 "%n", &address, &offset) == 1) {
     /* skip space */
     offset += 1;
 
-    ret = bridge_wri_cmd(mxt, sockfd, address,
+    ret = bridge_wri_cmd(mxt, bridge_ctx, address,
                          line + offset,
                          strlen(line) - offset);
+  } else if (sscanf(line, "RST %" SCNu16 "%n", &address, &offset) == 1) {
+    ret = bridge_handle_reset(mxt, bridge_ctx, address);
+    ret = MXT_SUCCESS;
+  } else if (sscanf(line, "MSGCFG %" SCNu16 "%n", &address, &offset) == 1) {
+    mxt_info(mxt->ctx, "Configuring Messages");
+    bridge_ctx->msgs_enabled = true;
+    const char * const msg = "MSGCFG OK\n";
+
+    ret = write(bridge_ctx->sockfd, msg, strlen(msg));
+    if (ret < 0) {
+      mxt_err(mxt->ctx, "Socket write error: %s (%d)", strerror(errno), errno);
+      ret = mxt_errno_to_rc(errno);
+    }
+    ret = MXT_SUCCESS;
   } else {
     mxt_info(mxt->ctx, "Unrecognised cmd \"%s\"", line);
     ret = MXT_SUCCESS;
@@ -305,7 +396,7 @@ free:
 //******************************************************************************
 /// \brief Main bridge function to handle a single connection
 /// \return #mxt_rc
-static int bridge(struct mxt_device *mxt, int sockfd)
+static int bridge(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
 {
   int ret, pollret;
   struct pollfd fds[2];
@@ -320,10 +411,10 @@ static int bridge(struct mxt_device *mxt, int sockfd)
   if (ret)
     mxt_err(mxt->ctx, "Failure to reset msgs");
 
-  fds[0].fd = sockfd;
+  fds[0].fd = bridge_ctx->sockfd;
   fds[0].events = POLLIN | POLLERR;
 
-  ret = send_chip_attach(mxt, sockfd);
+  ret = send_chip_attach(mxt, bridge_ctx);
   if (ret)
     return ret;
 
@@ -349,14 +440,14 @@ static int bridge(struct mxt_device *mxt, int sockfd)
     }
 
     /* Detect socket disconnect */
-    if (fcntl(sockfd, F_GETFL, &fopts) < 0) {
+    if (fcntl(bridge_ctx->sockfd, F_GETFL, &fopts) < 0) {
       ret = MXT_SUCCESS;
       mxt_dbg(mxt->ctx, "Socket disconnected");
       goto disconnect;
     }
 
     if (fds[0].revents) {
-      ret = handle_cmd(mxt, sockfd);
+      ret = handle_cmd(mxt, bridge_ctx);
       if (ret) {
         mxt_dbg(mxt->ctx, "handle_cmd returned %d", ret);
         goto disconnect;
@@ -365,13 +456,15 @@ static int bridge(struct mxt_device *mxt, int sockfd)
 
     /* If timeout or msg poll fd event */
     if (pollret == 0 || fds[1].revents) {
-      ret = handle_messages(mxt, sockfd);
+      ret = handle_messages(mxt, bridge_ctx);
       if (ret)
         goto disconnect;
     }
   }
 
 disconnect:
+
+  send_chip_detach(mxt, bridge_ctx);
   mxt_info(mxt->ctx, "Disconnected");
   return ret;
 }
@@ -382,7 +475,8 @@ disconnect:
 int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port)
 {
   struct hostent *server;
-  int sockfd;
+  struct bridge_context bridge_ctx;
+  bridge_ctx.msgs_enabled = false;
   int ret;
   struct sockaddr_in serv_addr;
 
@@ -392,8 +486,8 @@ int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port)
     return MXT_ERROR_CONNECTION_FAILURE;
   }
 
-  sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (sockfd < 0) {
+  bridge_ctx.sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  if (bridge_ctx.sockfd < 0) {
     mxt_err(mxt->ctx, "Socket error: %s (%d)", strerror(errno), errno);
     return MXT_ERROR_CONNECTION_FAILURE;
   }
@@ -408,15 +502,15 @@ int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port)
 
   /* Connect */
   mxt_info(mxt->ctx, "Connecting to %s:%u", ip_address, port);
-  ret = connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
+  ret = connect(bridge_ctx.sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
   if (ret < 0) {
     mxt_err(mxt->ctx, "Connect error: %s (%d)", strerror(errno), errno);
     return MXT_ERROR_CONNECTION_FAILURE;
   }
 
-  ret = bridge(mxt, sockfd);
+  ret = bridge(mxt, &bridge_ctx);
 
-  close(sockfd);
+  close(bridge_ctx.sockfd);
   return ret;
 }
 
@@ -425,7 +519,8 @@ int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port)
 int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
 {
   int serversock;
-  int clientsock;
+  struct bridge_context bridge_ctx;
+  bridge_ctx.msgs_enabled = false;
   int ret;
   int one = 1;
   struct sockaddr_in server_addr, client_addr;
@@ -469,8 +564,8 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
 
   /* This string is used by ADB bridge client to signal it can connect */
   printf("AWAITING_CONNECTION\n");
-  clientsock = accept(serversock, (struct sockaddr *) &client_addr, &sin_size);
-  if (clientsock < 0) {
+  bridge_ctx.sockfd = accept(serversock, (struct sockaddr *) &client_addr, &sin_size);
+  if (bridge_ctx.sockfd < 0) {
     mxt_err(mxt->ctx, "Accept error: %s (%d)", strerror(errno), errno);
     close(serversock);
     return MXT_ERROR_CONNECTION_FAILURE;
@@ -478,7 +573,7 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
 
   printf("CONNECTED\n");
 
-  ret = bridge(mxt, clientsock);
+  ret = bridge(mxt, &bridge_ctx);
 
   close(serversock);
 
