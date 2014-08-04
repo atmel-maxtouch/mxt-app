@@ -303,7 +303,7 @@ static bool mxt_app_command(struct mxt_device *mxt, char selection)
     mxt_dd_menu(mxt);
     break;
   case 'q':
-    printf("Quitting the maxtouch application\n");
+    printf("Quit\n");
     exit_loop = true;
     break;
   default:

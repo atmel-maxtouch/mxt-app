@@ -615,10 +615,6 @@ static void mxt_dd_cmd(struct mxt_device *mxt, char selection, const char *csv_f
     if (ret == MXT_SUCCESS)
       mxt_debug_dump(mxt, REFS_MODE, csv_file, frames);
     break;
-  case 'q':
-  case 'Q':
-    printf("Quitting the debug dump utility\n");
-    break;
   default:
     printf("Invalid menu option\n");
     break;
@@ -636,7 +632,7 @@ void mxt_dd_menu(struct mxt_device *mxt)
     printf("\nSelect one of the options:\n\n"
            "Enter D:   (D)elta dump\n"
            "Enter R:   (R)eference dump\n"
-           "Enter Q:   (Q)uit the application\n");
+           "Enter Q:   (Q)uit\n");
 
     if (scanf("%1s", &menu_input) == EOF) {
       fprintf(stderr, "Could not handle the input, exiting");
@@ -644,7 +640,7 @@ void mxt_dd_menu(struct mxt_device *mxt)
     }
 
     if ((menu_input == 'q') || (menu_input == 'Q')) {
-      printf("Quitting the debug dump utility\n");
+      printf("Quit\n");
       return;
     }
 
