@@ -353,7 +353,7 @@ static int open_device_file(struct mxt_device *mxt, int *fd_out)
 /// \return #mxt_rc
 int sysfs_read_register(struct mxt_device *mxt, unsigned char *buf, int start_register, int count)
 {
-  int fd;
+  int fd = -ENODEV;
   int ret;
   int bytes_read;
 
@@ -391,7 +391,7 @@ close:
 /// \return #mxt_rc
 int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf, int start_register, int count)
 {
-  int fd;
+  int fd = -ENODEV;
   int ret;
   int bytes_written;
 
