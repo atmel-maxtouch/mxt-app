@@ -14,6 +14,7 @@ LOCAL_SRC_FILES := \
   sysfs/dmesg.c \
   sysfs/sysinfo.c \
   i2c_dev/i2c_dev_device.c \
+  hidraw/hidraw_device.c \
   usb/usb_device.c
 LOCAL_MODULE := libmaxtouch
 LOCAL_STATIC_LIBRARIES := libusbdroid

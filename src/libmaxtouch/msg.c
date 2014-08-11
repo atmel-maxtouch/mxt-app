@@ -202,6 +202,8 @@ int mxt_flush_msgs(struct mxt_device *mxt)
 {
   int dummy;
 
+  mxt_dbg(mxt->ctx, "Flushing messages");
+
   return mxt_get_msg_count(mxt, &dummy);
 }
 

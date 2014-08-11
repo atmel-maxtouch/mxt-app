@@ -153,6 +153,7 @@ static void print_usage(char *prog_name)
           "    -d usb:BUS-DEVICE          : USB device, eg \"usb:001-003\"\n"
 #endif
           "    -d sysfs:PATH              : sysfs interface\n"
+          "    -d hidraw:PATH             : HIDRAW device, eg \"hidraw:/dev/hidraw0\"\n"
           "\n"
           "Debug options:\n"
           "  -v [--verbose] LEVEL       : set debug level\n",
@@ -404,7 +405,19 @@ int main (int argc, char *argv[])
           }
         }
 #endif
-        else {
+        else if (!strncmp(optarg, "hidraw:", 7)) {
+          ret = mxt_new_conn(&conn, E_HIDRAW);
+          if (ret)
+            return ret;
+
+          conn->hidraw.report_id = HIDRAW_REPORT_ID;
+
+          if (sscanf(optarg, "hidraw:%s", conn->hidraw.node) != 1) {
+            fprintf(stderr, "Invalid device string %s\n", optarg);
+            conn = mxt_unref_conn(conn);
+            return MXT_ERROR_NO_MEM;
+          }
+        } else {
           fprintf(stderr, "Invalid device string %s\n", optarg);
           conn = mxt_unref_conn(conn);
           return MXT_ERROR_BAD_INPUT;

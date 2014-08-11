@@ -446,6 +446,12 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
       return MXT_SUCCESS;
     }
     break;
+
+  case E_HIDRAW:
+    mxt_err(fw->ctx, "Device type not supported");
+
+    return MXT_ERROR_NOT_SUPPORTED;
+    break;
   }
 
   ret = mxt_new_device(fw->ctx, fw->conn, &fw->mxt);

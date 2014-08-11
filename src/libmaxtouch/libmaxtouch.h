@@ -46,6 +46,7 @@ struct mxt_conn_info;
 #ifdef HAVE_LIBUSB
 #include "usb/usb_device.h"
 #endif
+#include "hidraw/hidraw_device.h"
 #include "info_block.h"
 
 /* GEN_COMMANDPROCESSOR_T6 Register offsets from T6 base address */
@@ -118,6 +119,7 @@ enum mxt_device_type {
   E_USB,
 #endif
   E_I2C_DEV,
+  E_HIDRAW,
 };
 
 //******************************************************************************
@@ -149,6 +151,7 @@ struct mxt_conn_info
   union
   {
     struct i2c_dev_conn_info i2c_dev;
+    struct hidraw_conn_info hidraw;
     struct sysfs_conn_info sysfs;
 #ifdef HAVE_LIBUSB
     struct usb_conn_info usb;

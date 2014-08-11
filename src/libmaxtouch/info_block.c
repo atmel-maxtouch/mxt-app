@@ -128,6 +128,7 @@ int mxt_read_info_block(struct mxt_device *mxt)
 
   /* Determine the number of bytes for checksum calculation */
   int num_objects = ((struct mxt_id_info*) info_blk)->num_objects;
+
   size_t crc_area_size = sizeof(struct mxt_id_info)
                          + num_objects * sizeof(struct mxt_object);
 

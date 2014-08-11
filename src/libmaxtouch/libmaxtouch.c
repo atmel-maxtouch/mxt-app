@@ -201,6 +201,10 @@ int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
     break;
 #endif /* HAVE_LIBUSB */
 
+  case E_HIDRAW:
+    ret = hidraw_register(new_dev);
+    break;
+
   default:
     mxt_err(ctx, "Device type not supported");
     ret = MXT_ERROR_NOT_SUPPORTED;
@@ -261,6 +265,10 @@ void mxt_free_device(struct mxt_device *mxt)
     break;
 #endif /* HAVE_LIBUSB */
 
+  case E_HIDRAW:
+    hidraw_release(mxt);
+    break;
+
   default:
     mxt_err(mxt->ctx, "Device type not supported");
   }
@@ -296,6 +304,10 @@ int mxt_read_register(struct mxt_device *mxt, uint8_t *buf,
     break;
 #endif /* HAVE_LIBUSB */
 
+  case E_HIDRAW:
+    ret = hidraw_read_register(mxt, buf, start_register, count);
+    break;
+
   default:
     mxt_err(mxt->ctx, "Device type not supported");
     ret = MXT_ERROR_NOT_SUPPORTED;
@@ -330,6 +342,10 @@ int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf,
     break;
 #endif /* HAVE_LIBUSB */
 
+  case E_HIDRAW:
+    ret = hidraw_write_register(mxt, buf, start_register, count);
+    break;
+
   default:
     mxt_err(mxt->ctx, "Device type not supported");
     ret = MXT_ERROR_NOT_SUPPORTED;
@@ -357,6 +373,7 @@ int mxt_set_debug(struct mxt_device *mxt, bool debug_state)
   case E_USB:
 #endif
   case E_I2C_DEV:
+  case E_HIDRAW:
     /* No need to enable MSG output */
     ret = MXT_SUCCESS;
     break;
@@ -392,6 +409,7 @@ int mxt_get_debug(struct mxt_device *mxt, bool *value)
 #endif /* HAVE_LIBUSB */
 
   case E_I2C_DEV:
+  case E_HIDRAW:
   default:
     ret = MXT_ERROR_NOT_SUPPORTED;
     mxt_err(mxt->ctx, "Device type not supported");
@@ -441,6 +459,7 @@ int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
   switch (mxt->conn->type) {
   case E_SYSFS:
   case E_I2C_DEV:
+  case E_HIDRAW:
     ret = mxt_send_reset_command(mxt, bootloader_mode);
     break;
 
@@ -597,6 +616,7 @@ int mxt_get_msg_count(struct mxt_device *mxt, int *count)
   case E_USB:
 #endif /* HAVE_LIBUSB */
   case E_I2C_DEV:
+  case E_HIDRAW:
     ret = t44_get_msg_count(mxt, count);
     break;
 
@@ -628,6 +648,7 @@ char *mxt_get_msg_string(struct mxt_device *mxt)
   case E_USB:
 #endif /* HAVE_LIBUSB */
   case E_I2C_DEV:
+  case E_HIDRAW:
     msg_string = t44_get_msg_string(mxt);
     break;
 
@@ -666,6 +687,7 @@ int mxt_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf,
   case E_USB:
 #endif /* HAVE_LIBUSB */
   case E_I2C_DEV:
+  case E_HIDRAW:
     ret = t44_get_msg_bytes(mxt, buf, buflen, count);
     break;
 
@@ -701,6 +723,7 @@ int mxt_msg_reset(struct mxt_device *mxt)
   case E_USB:
 #endif /* HAVE_LIBUSB */
   case E_I2C_DEV:
+  case E_HIDRAW:
     ret = t44_msg_reset(mxt);
     break;
 
@@ -769,6 +792,7 @@ int mxt_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count)
     ret = i2c_dev_bootloader_read(mxt, buf, count);
     break;
 
+  case E_HIDRAW:
   default:
     mxt_err(mxt->ctx, "Device type not supported");
     ret = MXT_ERROR_NOT_SUPPORTED;
@@ -796,6 +820,7 @@ int mxt_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int c
     ret = i2c_dev_bootloader_write(mxt, buf, count);
     break;
 
+  case E_HIDRAW:
   default:
     mxt_err(mxt->ctx, "Device type not supported");
     ret = MXT_ERROR_NOT_SUPPORTED;

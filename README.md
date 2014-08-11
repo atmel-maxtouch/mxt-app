@@ -293,8 +293,11 @@ given by the `-q/--query` option and lsusb.
 Devices can be accessed directly via the *i2c-dev* I2C debug interface by giving
 adapter and address on command line.
 
-The i2c-dev interface is documented in the kernel source, in
+The i2c-dev interface is documented in the Linux kernel source, in
     Documentation/i2c/dev-interface
+
+The device must have /dev/i2c-* device support enabled using the
+CONFIG_I2C_CHARDEV kernel configuration option.
 
 It is enabled on a system if files /dev/i2c-x are present.
 
@@ -308,6 +311,23 @@ platform setup.
 
 It is possible to use the `--flash` command with a device already in bootloader
 mode, by specifying the bootloader address.
+
+## HIDRAW
+
+The hidraw backend supports maXTouch devices which connect using USB or HID
+over I2C.
+
+The hidraw interface is documented in the Linux kernel source, in
+    Documentation/hid/hidraw.txt
+
+The device must have /dev/hidraw raw HID device support enabled using the
+CONFIG_HIDRAW kernel configuration option.
+
+To use hidraw, provide a device string such as `-d hidrarw:/dev/hidraw0`.
+
+There is no scanning support.
+
+Bootloading is not supported in this mode.
 
 # DEBUG OPTIONS
 

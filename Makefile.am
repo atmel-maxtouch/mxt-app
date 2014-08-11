@@ -40,7 +40,8 @@ libmaxtouch_la_SOURCES =\
 	src/libmaxtouch/sysfs/sysfs_device.c \
 	src/libmaxtouch/sysfs/sysinfo.c \
 	src/libmaxtouch/sysfs/dmesg.c \
-	src/libmaxtouch/i2c_dev/i2c_dev_device.c
+	src/libmaxtouch/i2c_dev/i2c_dev_device.c \
+	src/libmaxtouch/hidraw/hidraw_device.c
 
 if HAVE_LIBUSB
 libmaxtouch_la_SOURCES += src/libmaxtouch/usb/usb_device.c
