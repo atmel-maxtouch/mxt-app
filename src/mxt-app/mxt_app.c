@@ -71,12 +71,11 @@ static int mxt_init_chip(struct libmaxtouch_ctx *ctx, struct mxt_device **mxt,
 
 #ifdef HAVE_LIBUSB
   if ((*mxt)->conn->type == E_USB && usb_is_bootloader(*mxt)) {
-    mxt_err(ctx, "USB device in bootloader mode");
     mxt_free_device(*mxt);
+    mxt_err(ctx, "USB device in bootloader mode");
     return MXT_ERROR_UNEXPECTED_DEVICE_STATE;
   }
 #endif
-
   ret = mxt_get_info(*mxt);
   if (ret)
     return ret;
@@ -123,7 +122,8 @@ static void print_usage(char *prog_name)
           "  -S [--bridge-server]       : start TCP socket server\n"
           "  -p [--port] PORT           : TCP port (default 4000)\n"
           "\n"
-          "For firmware flash:\n"
+          "Bootloader commands:\n"
+          "  --bootloader-version       : query bootloader version\n"
           "  --flash FIRMWARE           : send FIRMWARE to bootloader\n"
           "  --firmware-version VERSION : check firmware VERSION "
           "before and after flash\n"
@@ -193,6 +193,7 @@ int main (int argc, char *argv[])
 
     static struct option long_options[] = {
       {"backup",           optional_argument, 0, 0},
+      {"bootloader-version", no_argument,     0, 0},
       {"bridge-client",    required_argument, 0, 'C'},
       {"calibrate",        no_argument,       0, 0},
       {"debug-dump",       required_argument, 0, 0},
@@ -333,6 +334,13 @@ int main (int argc, char *argv[])
       } else if (!strcmp(long_options[option_index].name, "reset-bootloader")) {
         if (cmd == CMD_NONE) {
           cmd = CMD_RESET_BOOTLOADER;
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "bootloader-version")) {
+        if (cmd == CMD_NONE) {
+          cmd = CMD_BOOTLOADER_VERSION;
         } else {
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
@@ -596,16 +604,15 @@ int main (int argc, char *argv[])
     mxt_verb(ctx, "format:%s", format ? "true" : "false");
   }
 
-  /* initialise chip, bootloader mode handles this itself */
   if (cmd == CMD_QUERY) {
     ret = mxt_scan(ctx, &conn, true);
     goto free;
-  } else if (cmd != CMD_FLASH) {
+
+  } else if (cmd != CMD_FLASH && cmd != CMD_BOOTLOADER_VERSION) {
     ret = mxt_init_chip(ctx, &mxt, &conn);
     if (ret)
       goto free;
 
-    /*! Turn on kernel dmesg output of MSG */
     mxt_set_debug(mxt, true);
   }
 
@@ -704,6 +711,11 @@ int main (int argc, char *argv[])
     ret = mxt_reset_chip(mxt, true);
     break;
 
+  case CMD_BOOTLOADER_VERSION:
+    mxt_verb(ctx, "CMD_RESET_BOOTLOADER");
+    ret = mxt_bootloader_version(ctx, mxt, conn);
+    break;
+
   case CMD_MESSAGES:
     mxt_verb(ctx, "CMD_MESSAGES");
     mxt_verb(ctx, "msgs_timeout:%d", msgs_timeout);
@@ -783,7 +795,7 @@ int main (int argc, char *argv[])
     break;
   }
 
-  if (cmd != CMD_FLASH) {
+  if (cmd != CMD_FLASH && cmd != CMD_BOOTLOADER_VERSION) {
     mxt_set_debug(mxt, false);
     mxt_free_device(mxt);
     mxt_unref_conn(conn);

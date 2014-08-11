@@ -109,6 +109,7 @@ enum mxt_rc {
   MXT_ERROR_SELFCAP_TUNE = 31,               /*!< Error processing self cap command */
   MXT_MSG_CONTINUE = 32,                     /*!< Continue processing messages */
   MXT_ERROR_RESERVED = 33,                   /*!< Reserved value */
+  MXT_DEVICE_IN_BOOTLOADER = 34,             /*!< Device is in bootloader mode */
 };
 
 //******************************************************************************

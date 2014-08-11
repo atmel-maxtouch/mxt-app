@@ -139,7 +139,10 @@ Server* can access the device.
 `-p [--port] PORT`
 :   TCP port (default 4000)
 
-# BOOTLOADER OPTIONS
+# BOOTLOADER COMMANDS
+
+`--bootloader-version`
+:   Query and print ID and version of bootloader.
 
 `--flash *FIRMWARE*`
 :   Flash *FIRMWARE* to device. The firmware file should be in `.enc` format.
