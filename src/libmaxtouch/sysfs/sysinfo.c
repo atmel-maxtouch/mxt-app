@@ -57,7 +57,7 @@ int get_uptime(unsigned long *uptime)
 {
   FILE *fp;
   int ret;
-  unsigned long upsecs;
+  double upsecs;
   char buf[64];
   char *b;
 
