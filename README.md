@@ -470,6 +470,7 @@ The Android NDK is available from https://developer.android.com/tools/sdk/ndk/
     adb shell /data/local/tmp/mxt-app [command]
 
 If executable permissions have not been set, run:
+
     adb shell chmod 777 /data/local/tmp/mxt-app
 
 ## autotools
