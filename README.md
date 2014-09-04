@@ -90,7 +90,7 @@ by Atmel under NDA.
 :   select object *INSTANCE*
 
 `-r [--register] *REGISTER*`
-:   start at *REGISTER*
+:   start at *REGISTER* (offset in object when used with *TYPE*)
 
 `-T [--type] *TYPE*`
 :   select object *TYPE*

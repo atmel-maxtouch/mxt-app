@@ -113,7 +113,7 @@ static void print_usage(char *prog_name)
           "  -n [--count] COUNT         : read/write COUNT registers\n"
           "  -f [--format]              : format register output\n"
           "  -I [--instance] INSTANCE   : select object INSTANCE\n"
-          "  -r [--register] REGISTER   : start at REGISTER\n"
+          "  -r [--register] REGISTER   : start at REGISTER (offset when used with TYPE)\n"
           "  -T [--type] TYPE           : select object TYPE\n"
           "  --zero                     : zero all configuration settings\n"
           "\n"
