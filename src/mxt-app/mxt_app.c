@@ -106,6 +106,7 @@ static void print_usage(char *prog_name)
           "Configuration file commands:\n"
           "  --load FILE                : upload cfg from FILE in .xcfg or OBP_RAW format\n"
           "  --save FILE                : save cfg to FILE in .xcfg or OBP_RAW format\n"
+	       "  -c [checksum] FILE         : show .xcfg or OBP_RAW file checksum\n"
           "\n"
           "Register read/write commands:\n"
           "  -R [--read]                : read from object\n"
@@ -209,6 +210,7 @@ int main (int argc, char *argv[])
       {"instance",         required_argument, 0, 'I'},
       {"load",             required_argument, 0, 0},
       {"save",             required_argument, 0, 0},
+      {"checksum",   	   required_argument, 0, 'c'},
       {"messages",         optional_argument, 0, 'M'},
       {"count",            required_argument, 0, 'n'},
       {"port",             required_argument, 0, 'p'},
@@ -234,7 +236,7 @@ int main (int argc, char *argv[])
     };
 
     c = getopt_long(argc, argv,
-                    "C:d:D:fghiI:M::m:n:p:qRr:St::T:v:W",
+                    "C:d:D:fghiI:M::m:n:p:qRr:St::T:v:Wc:",
                     long_options, &option_index);
     if (c == -1)
       break;
@@ -443,7 +445,16 @@ int main (int argc, char *argv[])
         return MXT_ERROR_BAD_INPUT;
       }
       break;
-
+    case 'c':
+      if (cmd == CMD_NONE) {
+        cmd = CMD_BRIDGE_CLIENT;
+        strncpy(strbuf, optarg, sizeof(strbuf));
+        strbuf[sizeof(strbuf) - 1] = '\0';
+        return mxt_checkcrc(strbuf);
+      } else {
+        print_usage(argv[0]);
+        return MXT_ERROR_BAD_INPUT;
+      }
     case 'g':
       if (cmd == CMD_NONE) {
         cmd = CMD_GOLDEN_REFERENCES;

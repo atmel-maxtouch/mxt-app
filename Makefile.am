@@ -35,6 +35,7 @@ libmaxtouch_la_SOURCES =\
 	src/libmaxtouch/info_block.c \
 	src/libmaxtouch/log.c \
 	src/libmaxtouch/utilfuncs.c \
+	src/libmaxtouch/checksum.c \
 	src/libmaxtouch/msg.c \
 	src/libmaxtouch/config.c \
 	src/libmaxtouch/sysfs/sysfs_device.c \
