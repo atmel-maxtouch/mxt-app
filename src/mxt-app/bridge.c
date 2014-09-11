@@ -51,8 +51,8 @@
 #define MAX_LINESIZE 10000
 
 struct bridge_context {
-	int sockfd;
-	bool msgs_enabled;
+  int sockfd;
+  bool msgs_enabled;
 };
 
 
@@ -123,21 +123,21 @@ static int handle_messages(struct mxt_device *mxt, struct bridge_context *bridge
     length = snprintf(mxt->msg_string, sizeof(mxt->msg_string), MXT_ADB_CLIENT_MSG_PREFIX);
     for (i = 0; i < count; i++) {
       length += snprintf(mxt->msg_string + length, sizeof(mxt->msg_string) - length,
-          "%02X", databuf[i]);
+                         "%02X", databuf[i]);
     }
 
-      ret = write(bridge_ctx->sockfd, mxt->msg_string, strlen(mxt->msg_string));
-      if (ret < 0) {
-        mxt_err(mxt->ctx, "Write failure: %s (%d)", strerror(errno), errno);
-        return mxt_errno_to_rc(ret);
-      }
-
-      ret = write(bridge_ctx->sockfd, "\n", 1);
-      if (ret < 0) {
-        mxt_err(mxt->ctx, "Write failure: %s (%d)", strerror(errno), errno);
-        return mxt_errno_to_rc(ret);
-      }
+    ret = write(bridge_ctx->sockfd, mxt->msg_string, strlen(mxt->msg_string));
+    if (ret < 0) {
+      mxt_err(mxt->ctx, "Write failure: %s (%d)", strerror(errno), errno);
+      return mxt_errno_to_rc(ret);
     }
+
+    ret = write(bridge_ctx->sockfd, "\n", 1);
+    if (ret < 0) {
+      mxt_err(mxt->ctx, "Write failure: %s (%d)", strerror(errno), errno);
+      return mxt_errno_to_rc(ret);
+    }
+  }
 
   return MXT_SUCCESS;
 }
