@@ -326,7 +326,7 @@ The hidraw interface is documented in the Linux kernel source, in
 The device must have /dev/hidraw raw HID device support enabled using the
 CONFIG_HIDRAW kernel configuration option.
 
-To use hidraw, provide a device string such as `-d hidrarw:/dev/hidraw0`.
+To use hidraw, provide a device string such as `-d hidraw:/dev/hidraw0`.
 
 There is no scanning support.
 
