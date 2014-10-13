@@ -44,7 +44,7 @@ struct mxt_raw_crc
 
   /*! CRC field: higher byte */
   uint8_t CRC_hi;
-};
+} __attribute__((packed));
 
 /*! \brief Object table element struct */
 struct mxt_object
@@ -56,7 +56,7 @@ struct mxt_object
   uint8_t instances_minus_one;   /*!< Number of objects of this obj. type - 1 */
   uint8_t num_report_ids;        /*!< The max number of touches in a screen,
                                   *  max number of sliders in a slider array, etc.*/
-};
+} __attribute__((packed));
 
 /*! \brief ID Information fields in the Information Block*/
 struct mxt_id_info
@@ -73,7 +73,7 @@ struct mxt_id_info
   /*! Number of elements in the object table. The actual number of objects
    * can be different if any object has more than one instance. */
   uint8_t num_objects;
-};
+} __attribute__((packed));
 
 /*! \brief Info block struct holding ID and object table data and their CRC sum.
  *

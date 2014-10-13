@@ -71,6 +71,8 @@ static int calculate_crc(struct mxt_device *mxt, uint32_t read_crc,
   uint32_t calc_crc = 0; /* Checksum calculated by the driver code */
   uint16_t crc_byte_index = 0;
 
+  mxt_verb(mxt->ctx, "Calculating CRC over %d bytes", size);
+
   /* Call the CRC function crc24() iteratively to calculate the CRC,
    * passing it two characters at a time.  */
   while (crc_byte_index < ((size % 2) ? (size - 1) : size)) {
