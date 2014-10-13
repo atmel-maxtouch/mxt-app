@@ -192,6 +192,9 @@ char *sysfs_get_msg_string(struct mxt_device *mxt)
     mxt->sysfs.dmesg_ptr = mxt->sysfs.dmesg_ptr->next;
   }
 
+  if (!strncasecmp("MXT MSG:FF", msg_string, 10))
+    return NULL;
+
   return msg_string;
 }
 
@@ -210,6 +213,9 @@ int sysfs_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf,
   char *message;
 
   message = sysfs_get_msg_string(mxt);
+
+  if (!message)
+    return MXT_ERROR_NO_MESSAGE;
 
   /* Check message begins with prefix */
   if (strncmp(MSG_PREFIX, message, strlen(MSG_PREFIX))) {
