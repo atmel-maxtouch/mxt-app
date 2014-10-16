@@ -104,26 +104,33 @@ static int readline(struct mxt_device *mxt, int fd, struct mxt_buffer *linebuf)
 /// \return #mxt_rc
 static int handle_messages(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
 {
-  int count, i, length;
+  int msg_count, length;
   int ret;
+  int i, j;
 
   unsigned char databuf[20];
 
-  ret = mxt_get_msg_count(mxt, &count);
+  if (!bridge_ctx->msgs_enabled)
+    return MXT_SUCCESS;
+
+  ret = mxt_get_msg_count(mxt, &msg_count);
   if (ret)
     return ret;
 
-
-  if (count > 0 && bridge_ctx->msgs_enabled) {
-
-    ret = mxt_get_msg_bytes(mxt, databuf, sizeof(databuf),&count);
+  for (i = 0; i < msg_count; i++)
+  {
+    int num_bytes;
+    ret = mxt_get_msg_bytes(mxt, databuf, sizeof(databuf), &num_bytes);
     if (ret)
       return ret;
 
-    length = snprintf(mxt->msg_string, sizeof(mxt->msg_string), MXT_ADB_CLIENT_MSG_PREFIX);
-    for (i = 0; i < count; i++) {
-      length += snprintf(mxt->msg_string + length, sizeof(mxt->msg_string) - length,
-                         "%02X", databuf[i]);
+    length = snprintf(mxt->msg_string, sizeof(mxt->msg_string),
+        MXT_ADB_CLIENT_MSG_PREFIX);
+
+    for (j = 0; j < num_bytes; j++) {
+      length += snprintf(mxt->msg_string + length,
+          sizeof(mxt->msg_string) - length,
+          "%02X", databuf[j]);
     }
 
     ret = write(bridge_ctx->sockfd, mxt->msg_string, strlen(mxt->msg_string));
