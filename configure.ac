@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.63])
-AC_INIT([obp-utils], [1.16], [nick.dyer@itdev.co.uk])
+AC_INIT([obp-utils], [1.18], [nick.dyer@itdev.co.uk])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 AC_CONFIG_SRCDIR([src/libmaxtouch/libmaxtouch.c])
 AC_CONFIG_HEADERS([config.h])
