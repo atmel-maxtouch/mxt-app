@@ -433,7 +433,7 @@ static int bridge(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
       numfds = 2;
       timeout = -1;
     } else {
-      timeout = 100; // milliseconds
+      timeout = 25; // milliseconds
     }
 
     pollret = poll(fds, numfds, timeout);
