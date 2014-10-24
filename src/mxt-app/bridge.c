@@ -121,7 +121,9 @@ static int handle_messages(struct mxt_device *mxt, struct bridge_context *bridge
   {
     int num_bytes;
     ret = mxt_get_msg_bytes(mxt, databuf, sizeof(databuf), &num_bytes);
-    if (ret)
+    if (ret == MXT_ERROR_NO_MESSAGE)
+      continue;
+    else if (ret)
       return ret;
 
     length = snprintf(mxt->msg_string, sizeof(mxt->msg_string),
