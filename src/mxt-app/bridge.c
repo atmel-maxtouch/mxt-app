@@ -451,14 +451,14 @@ static int bridge(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
     /* Detect socket disconnect */
     if (fcntl(bridge_ctx->sockfd, F_GETFL, &fopts) < 0) {
       ret = MXT_SUCCESS;
-      mxt_dbg(mxt->ctx, "Socket disconnected");
+      mxt_warn(mxt->ctx, "Socket disconnected");
       goto disconnect;
     }
 
     if (fds[0].revents) {
       ret = handle_cmd(mxt, bridge_ctx);
       if (ret) {
-        mxt_dbg(mxt->ctx, "handle_cmd returned %d", ret);
+        mxt_err(mxt->ctx, "handle_cmd returned %d", ret);
         goto disconnect;
       }
     }
@@ -466,8 +466,10 @@ static int bridge(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
     /* If timeout or msg poll fd event */
     if (pollret == 0 || fds[1].revents) {
       ret = handle_messages(mxt, bridge_ctx);
-      if (ret)
+      if (ret) {
+        mxt_err(mxt->ctx, "handle_messages returned %d", ret);
         goto disconnect;
+      }
     }
   }
 
