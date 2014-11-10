@@ -460,6 +460,10 @@ To enable debug:
 
     ndk-build NDK_DEBUG=1
 
+To enable PIE support (for Android L):
+
+    ndk-build APP_PLATFORM=android-16
+
 Binaries will be placed in libs/
 
 The Android NDK is available from https://developer.android.com/tools/sdk/ndk/
