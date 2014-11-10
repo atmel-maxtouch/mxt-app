@@ -1,6 +1,10 @@
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
+# Bypass PIE security
+# LOCAL_CFLAGS += -fPIE –pie
+# LOCAL_LDFLAGS += -fPIE –pie
+
 LOCAL_CFLAGS += -DHAVE_LIBUSB -DMXT_VERSION=\"$(GIT_VERSION)\"
 LOCAL_C_INCLUDES := $(SRC_PATH)
 LOCAL_SRC_FILES := \
