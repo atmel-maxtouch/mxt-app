@@ -142,7 +142,7 @@ int sysfs_get_msg_count(struct mxt_device *mxt, int *count)
     sp = sp + ep + 1;
 
     // Try to parse dmesg line
-    if (sscanf(buffer+sp, "<%*c>[%lu.%06lu%*s %255[^\n]",
+    if (sscanf(buffer+sp, "< %*c>[%lu.%06lu%*s %255[^\n]",
                &sec, &msec, (char*)&msg) == 3) {
       // Timestamp must be greater than previous messages, slightly
       // complicated by seconds and microseconds
