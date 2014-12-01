@@ -474,6 +474,12 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename)
         *(mem + offset) = (char) data & 0xFF;
         *(mem + offset + 1) = (char) ((data >> 8) & 0xFF);
         break;
+      case 4:
+        *(mem + offset) = (char) data & 0xFF;
+        *(mem + offset + 1) = (char) ((data >> 8) & 0xFF);
+        *(mem + offset + 2) = (char) ((data >> 16) & 0xFF);
+        *(mem + offset + 3) = (char) ((data >> 24) & 0xFF);
+         break;
       default:
         mxt_err(mxt->ctx, "Only 16-bit / 8-bit config values supported!");
         ret = MXT_ERROR_FILE_FORMAT;
