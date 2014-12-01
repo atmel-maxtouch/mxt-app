@@ -601,8 +601,14 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename,
         objcfg->data[offset] = (char) data & 0xFF;
         objcfg->data[offset + 1] = (char) ((data >> 8) & 0xFF);
         break;
+      case 4:
+        objcfg->data[offset] = (char) data & 0xFF;
+        objcfg->data[offset + 1] = (char) ((data >> 8) & 0xFF);
+        objcfg->data[offset + 2] = (char) ((data >> 16) & 0xFF);
+        objcfg->data[offset + 3] = (char) ((data >> 24) & 0xFF);
+        break;
       default:
-        mxt_err(mxt->ctx, "Only 16-bit / 8-bit config values supported!");
+        mxt_err(mxt->ctx, "Only 1, 2 and 4 byte config values are supported");
         ret = MXT_ERROR_FILE_FORMAT;
         goto close;
       }
