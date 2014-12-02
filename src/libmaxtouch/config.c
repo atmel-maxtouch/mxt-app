@@ -262,13 +262,13 @@ static int mxt_save_raw_file(struct libmaxtouch_ctx *ctx,
     goto fprintf_error;
 
   ret = fprintf(fp, "%02X %02X %02X %02X %02X %02X %02X\n"
-          "%06X\n"
-          "%06X\n",
-          id->family, id->variant,
-          id->version, id->build,
-          id->matrix_x_size, id->matrix_y_size,
-          id->num_objects,
-          cfg->info_crc, cfg->config_crc);
+                "%06X\n"
+                "%06X\n",
+                id->family, id->variant,
+                id->version, id->build,
+                id->matrix_x_size, id->matrix_y_size,
+                id->num_objects,
+                cfg->info_crc, cfg->config_crc);
   if (ret < 0)
     goto fprintf_error;
 
@@ -333,20 +333,20 @@ static int mxt_save_xcfg_file(struct libmaxtouch_ctx *ctx,
   }
 
   ret = fprintf(fp, "\n"
-                    "[VERSION_INFO_HEADER]\n"
-                    "FAMILY_ID=%d\n"
-                    "VARIANT=%d\n"
-                    "VERSION=%d\n"
-                    "BUILD=%d\n"
-                    "CHECKSUM=0x%06X\n"
-                    "INFO_BLOCK_CHECKSUM=0x%02X\n"
-                    "[APPLICATION_INFO_HEADER]\n"
-                    "NAME=libmaxtouch\n"
-                    "VERSION=%s\n",
-                    id->family, id->variant,
-                    id->version, id->build,
-                    cfg->config_crc, cfg->info_crc,
-                    MXT_VERSION);
+                "[VERSION_INFO_HEADER]\n"
+                "FAMILY_ID=%d\n"
+                "VARIANT=%d\n"
+                "VERSION=%d\n"
+                "BUILD=%d\n"
+                "CHECKSUM=0x%06X\n"
+                "INFO_BLOCK_CHECKSUM=0x%02X\n"
+                "[APPLICATION_INFO_HEADER]\n"
+                "NAME=libmaxtouch\n"
+                "VERSION=%s\n",
+                id->family, id->variant,
+                id->version, id->build,
+                cfg->config_crc, cfg->info_crc,
+                MXT_VERSION);
   if (ret < 0)
     goto fprintf_error;
 
@@ -366,9 +366,9 @@ static int mxt_save_xcfg_file(struct libmaxtouch_ctx *ctx,
     }
 
     ret = fprintf(fp, "OBJECT_ADDRESS=%d\n"
-                      "OBJECT_SIZE=%d\n",
-                      objcfg->start_position,
-                      objcfg->size);
+                  "OBJECT_SIZE=%d\n",
+                  objcfg->start_position,
+                  objcfg->size);
     if (ret < 0)
       goto fprintf_error;
 

@@ -117,8 +117,7 @@ static int handle_messages(struct mxt_device *mxt, struct bridge_context *bridge
   if (ret)
     return ret;
 
-  for (i = 0; i < msg_count; i++)
-  {
+  for (i = 0; i < msg_count; i++) {
     int num_bytes;
     ret = mxt_get_msg_bytes(mxt, databuf, sizeof(databuf), &num_bytes);
     if (ret == MXT_ERROR_NO_MESSAGE)
@@ -127,12 +126,12 @@ static int handle_messages(struct mxt_device *mxt, struct bridge_context *bridge
       return ret;
 
     length = snprintf(mxt->msg_string, sizeof(mxt->msg_string),
-        MXT_ADB_CLIENT_MSG_PREFIX);
+                      MXT_ADB_CLIENT_MSG_PREFIX);
 
     for (j = 0; j < num_bytes; j++) {
       length += snprintf(mxt->msg_string + length,
-          sizeof(mxt->msg_string) - length,
-          "%02X", databuf[j]);
+                         sizeof(mxt->msg_string) - length,
+                         "%02X", databuf[j]);
     }
 
     ret = write(bridge_ctx->sockfd, mxt->msg_string, strlen(mxt->msg_string));
