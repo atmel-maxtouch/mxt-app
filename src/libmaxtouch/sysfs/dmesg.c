@@ -51,7 +51,8 @@
 /// \param  sec  Seconds value of item
 /// \param  msec Milliseconds value of item
 /// \param  msg  Message string data
-static void dmesg_list_add(struct mxt_device *mxt, unsigned long sec, unsigned long msec, char *msg)
+static void dmesg_list_add(struct mxt_device *mxt, unsigned long sec,
+                           unsigned long msec, char *msg)
 {
   // create new node
   struct dmesg_item* new_node = (struct dmesg_item *)calloc(1, sizeof(struct dmesg_item));
@@ -62,16 +63,9 @@ static void dmesg_list_add(struct mxt_device *mxt, unsigned long sec, unsigned l
   new_node->msg[sizeof(new_node->msg) - 1] = '\0';
   new_node->sec = sec;
   new_node->msec = msec;
-  new_node->next = NULL;
 
-  // find node
-  if (mxt->sysfs.dmesg_head != NULL) {
-    mxt->sysfs.dmesg_tail->next = new_node;
-    mxt->sysfs.dmesg_tail = new_node;
-  } else {
-    mxt->sysfs.dmesg_head = new_node;
-    mxt->sysfs.dmesg_tail = new_node;
-  }
+  new_node->next = mxt->sysfs.dmesg_head;
+  mxt->sysfs.dmesg_head = new_node;
 
   mxt->sysfs.dmesg_count++;
 }
@@ -87,7 +81,6 @@ static void dmesg_list_empty(struct mxt_device *mxt)
   // reset
   struct dmesg_item *old_node = mxt->sysfs.dmesg_head;
   mxt->sysfs.dmesg_head = NULL;
-  mxt->sysfs.dmesg_tail = NULL;
   mxt->sysfs.dmesg_count = 0;
 
   // release memory
@@ -112,68 +105,66 @@ int sysfs_get_msg_count(struct mxt_device *mxt, int *count)
 {
   static char buffer[KLOG_BUF_LEN + 1];
   char msg[BUFFERSIZE];
-  char *msgptr;
-  char *lineptr;
-  int op, sp, ep;
-  unsigned long sec, msec;
+  int ep, sp;
+  unsigned long sec, msec, lastsec = 0, lastmsec = 0;
 
   // Read entire kernel log buffer
-  op = KLOG_READ_ALL;
-  op = klogctl(op, buffer, KLOG_BUF_LEN);
+  ep = KLOG_READ_ALL;
+  ep = klogctl(ep, buffer, KLOG_BUF_LEN);
   // Return if no bytes read
-  if (op < 0) {
-    mxt_info(mxt->ctx, "klogctl error %d (%s)", errno, strerror(errno));
+  if (ep < 0) {
+    mxt_warn(mxt->ctx, "klogctl error %d (%s)", errno, strerror(errno));
     return mxt_errno_to_rc(errno);
   }
 
-  buffer[op] = 0;
-  sp = 0;
+  // null terminate
+  buffer[ep] = 0;
+  sp = ep;
 
   dmesg_list_empty(mxt);
 
   // Search for next new line character
-  while((lineptr = strstr(buffer+sp, "\n" )) != NULL) {
-    // Set up start point for next line
-    ep = lineptr - buffer - sp;
+  while (true) {
+    sp--;
+    while (sp >= 0 && *(buffer + sp) != '\n')
+      sp--;
 
-    if(ep > BUFFERSIZE)
-      ep = BUFFERSIZE;
-
-    sp = sp + ep + 1;
+    if (sp <= 0)
+      break;
 
     // Try to parse dmesg line
-    if (sscanf(buffer+sp, "< %*c>[%lu.%06lu%*s %255[^\n]",
-               &sec, &msec, (char*)&msg) == 3) {
+    if (sscanf(buffer+sp+1, "< %*c>[ %lu.%06lu] %255[^\n]",
+               &sec, &msec, msg) == 3) {
+      if (lastsec == 0) {
+        lastsec = sec;
+        lastmsec = msec;
+      }
+
       // Timestamp must be greater than previous messages, slightly
       // complicated by seconds and microseconds
-      if ((sec > mxt->sysfs.timestamp) ||
-          ((sec == mxt->sysfs.timestamp) && (msec > mxt->sysfs.mtimestamp))) {
-        msg[sizeof(msg) - 1] = '\0';
-        msgptr = strstr(msg, "MXT MSG");
+      if ((mxt->sysfs.dmesg_count > 500) || (sec < mxt->sysfs.timestamp) ||
+          ((sec == mxt->sysfs.timestamp) && (msec == mxt->sysfs.mtimestamp))) {
+        // Set the timestamp to the last message
+        mxt->sysfs.timestamp = lastsec;
+        mxt->sysfs.mtimestamp = lastmsec;
+        break;
+      }
 
-        if (msgptr) {
-          dmesg_list_add(mxt, sec, msec, msgptr);
-        }
+      char* msgptr;
+      msg[sizeof(msg) - 1] = '\0';
+      msgptr = strstr(msg, "MXT MSG");
+      if (msgptr) {
+        dmesg_list_add(mxt, sec, msec, msgptr);
+
+        // Only 500 at a time, otherwise we overrun JNI reference limit.
+        if (mxt->sysfs.dmesg_count > 500)
+          break;
       }
     }
-
-    // Only 500 at a time, otherwise we overrun JNI reference limit.
-    if (mxt->sysfs.dmesg_count > 500)
-      break;
-
-    // end of buffer
-    if(sp >= op)
-      break;
   }
 
-  // Set the timestamp to the last message
-  mxt->sysfs.timestamp = sec;
-  mxt->sysfs.mtimestamp = msec;
-
-  // Reset pointer to first record
-  mxt->sysfs.dmesg_ptr = mxt->sysfs.dmesg_head;
-
   *count = mxt->sysfs.dmesg_count;
+  mxt->sysfs.dmesg_ptr = mxt->sysfs.dmesg_head;
   return MXT_SUCCESS;
 }
 
@@ -242,6 +233,8 @@ int sysfs_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf,
 int sysfs_msg_reset(struct mxt_device *mxt)
 {
   int ret;
+
+  mxt->sysfs.dmesg_head = NULL;
 
   mxt->sysfs.mtimestamp = 0;
   ret = get_uptime(&mxt->sysfs.timestamp);

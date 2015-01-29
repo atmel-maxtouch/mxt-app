@@ -73,6 +73,8 @@ static int print_message_hex(struct mxt_device *mxt, uint8_t *msg,
 /// \return #mxt_rc
 int print_raw_messages(struct mxt_device *mxt, int timeout, uint16_t object_type)
 {
+  mxt_msg_reset(mxt);
+
   mxt_read_messages_sigint(mxt, timeout, &object_type, print_message_hex,
                            (int *)&mxt_sigint_rx);
 

@@ -57,7 +57,6 @@ struct sysfs_device
   int dmesg_count;
   struct dmesg_item *dmesg_head;
   struct dmesg_item *dmesg_ptr;
-  struct dmesg_item *dmesg_tail;
 
   unsigned long timestamp;
   unsigned long mtimestamp;
