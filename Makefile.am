@@ -1,6 +1,6 @@
 EXTRA_DIST = autogen.sh
 
-GIT_VERSION := $(shell build-aux/version.sh)
+GIT_VERSION := $(shell $(top_srcdir)/build-aux/version.sh)
 
 .PHONY: force
 git-version: force
@@ -69,11 +69,12 @@ mxt_app_SOURCES =\
 man1_MANS = man1/mxt-app.1
 
 man1/mxt-app.1: README.md
+	@$(MKDIR_P) man1/
 	-pandoc -s -t man \
 	-V title="MXT-APP" \
 	-V section="1" \
 	-V description="\"mxt-app $(GIT_VERSION)\"" \
-	README.md -o man1/mxt-app.1
+	$(top_srcdir)/README.md -o man1/mxt-app.1
 
 clean-local:
 	-rm man1/mxt-app.1
