@@ -1,13 +1,15 @@
 #!/bin/sh
 
-if [ -d ".git" ]
+TOPDIR=$(dirname $0)/..
+
+if [ -d "$TOPDIR/.git" ]
 then
-  VERSION=`git describe --abbrev=4 --dirty=-mod --always | sed s/^v//`
+  VERSION=`cd $TOPDIR; git describe --abbrev=4 --dirty=-mod --always | sed s/^v//`
 fi
 
 if [ -z $VERSION ]
 then
-  VERSION=`tr -d '\n' < VERSION`
+  VERSION=`tr -d '\n' < $TOPDIR/VERSION`
 fi
 
 echo $VERSION
