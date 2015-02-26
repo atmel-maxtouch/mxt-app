@@ -518,7 +518,6 @@ static int mxt_enter_bootloader_mode(struct flash_context *fw)
   if (fw->conn->type == E_I2C_DEV) {
     fw->appmode_address = fw->conn->i2c_dev.address;
 
-
     fw->conn->i2c_dev.address = lookup_bootloader_addr(fw, fw->appmode_address);
     if (fw->conn->i2c_dev.address == -1) {
       mxt_err(fw->ctx, "No bootloader address!");
@@ -558,25 +557,27 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
   }
 
   ret = mxt_bootloader_init_chip(&fw);
-  if (ret)
+  if (ret && ret != MXT_DEVICE_IN_BOOTLOADER)
     return ret;
 
-  if (strlen(new_version) > 0) {
-    fw.check_version = true;
-    fw.new_version = new_version;
-    mxt_dbg(fw.ctx, "New firmware version is:%s", fw.new_version);
-    ret = mxt_check_firmware_version(&fw);
-    if (ret)
-      return ret;
-  } else {
-    fw.check_version = false;
-    mxt_dbg(fw.ctx, "check_version:%d", fw.check_version);
-  }
+  if (ret != MXT_DEVICE_IN_BOOTLOADER) {
+    if (strlen(new_version) > 0) {
+      fw.check_version = true;
+      fw.new_version = new_version;
+      mxt_dbg(fw.ctx, "New firmware version is:%s", fw.new_version);
+      ret = mxt_check_firmware_version(&fw);
+      if (ret)
+        goto release;
+    } else {
+      fw.check_version = false;
+      mxt_dbg(fw.ctx, "check_version:%d", fw.check_version);
+    }
 
-  ret = mxt_enter_bootloader_mode(&fw);
-  if (ret) {
-    mxt_err(fw.ctx, "Could not enter bootloader mode");
-    return ret;
+    ret = mxt_enter_bootloader_mode(&fw);
+    if (ret) {
+      mxt_err(fw.ctx, "Could not enter bootloader mode");
+      goto release;
+    }
   }
 
   ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
