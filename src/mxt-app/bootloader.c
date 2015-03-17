@@ -58,6 +58,7 @@
 #define MXT_FRAME_CRC_PASS       0x04
 #define MXT_APP_CRC_FAIL         0x40 /* valid 7 6 bit only */
 #define MXT_BOOT_STATUS_MASK     0x3f
+#define MXT_BOOT_ID_MASK         0x1f
 
 #define FIRMWARE_BUFFER_SIZE     1024
 
@@ -171,7 +172,7 @@ recheck:
       return ret;
 
     val = buf[0];
-    bootloader_id = buf[1];
+    bootloader_id = buf[1] & MXT_BOOT_ID_MASK;
     bootloader_version = buf[2];
 
     mxt_info(fw->ctx, "Bootloader ID:%d Version:%d",
@@ -232,7 +233,7 @@ recheck:
       mxt_dbg(fw->ctx, "Bootloader using extended ID mode");
       fw->extended_id_mode = true;
     } else {
-      bootloader_id &= 0x1f;
+      bootloader_id &= MXT_BOOT_ID_MASK;
       mxt_info(fw->ctx, "Bootloader ID:%d", bootloader_id);
       fw->have_bootloader_version = true;
     }
@@ -722,9 +723,10 @@ int mxt_bootloader_version(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, 
     goto release;
 
   if (fw.extended_id_mode)
-    printf("Bootloader ID:%d Version:%d\n", buf[1], buf[2]);
+    printf("Bootloader ID:%d Version:%d\n",
+           (buf[1] & MXT_BOOT_ID_MASK), buf[2]);
   else
-    printf("Bootloader ID:%d\n", (buf[1] & 0x1f));
+    printf("Bootloader ID:%d\n", (buf[1] & MXT_BOOT_ID_MASK));
 
 release:
   mxt_info(fw.ctx, "Reset into app mode");
