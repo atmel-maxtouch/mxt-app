@@ -49,7 +49,7 @@ static const char get_log_level_string(enum mxt_log_level level)
 {
   switch (level) {
   case LOG_SILENT:
-      return 'S';
+    return 'S';
   case LOG_FATAL:
     return 'F';
   case LOG_ERROR:
