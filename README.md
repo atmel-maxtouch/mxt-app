@@ -277,7 +277,7 @@ The sysfs attributes used under this directory are
 :   Optional improved binary interface to retrieve messages
 
 They are provided when using the Atmel kernel driver from github, and may be
-supported by other device.
+supported by other devices.
 
 ## USB
 
