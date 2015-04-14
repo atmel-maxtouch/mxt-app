@@ -299,12 +299,17 @@ adapter and address on command line.
 The i2c-dev interface is documented in the Linux kernel source, in
     Documentation/i2c/dev-interface
 
-The device must have /dev/i2c-* device support enabled using the
-CONFIG_I2C_CHARDEV kernel configuration option.
-
-It is enabled on a system if files /dev/i2c-x are present.
+The I2C debug interface support must be enabled using the `CONFIG_I2C_CHARDEV`
+kernel configuration option. It is enabled on a system if files `/dev/i2c-*`
+are present.
 
 To use i2c-dev, provide a device string such as `-d i2c-dev:1-004a`.
+
+Messages from the maXTouch devices are read by polling. If a kernel driver is
+also present on the system, reading messages on interrupt, then no messages
+will be received by the tool. A workaround is to set T18.COMMAND (byte 1) to 2
+"Force the CHG line high (inactive)" so the kernel driver does not receive an
+interrupt.
 
 There is no scanning support. This is because reading from every possible
 maXTouch address on every I2C bus might adversely affect some unrelated
