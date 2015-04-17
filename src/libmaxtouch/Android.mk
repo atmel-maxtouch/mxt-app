@@ -8,6 +8,7 @@ LOCAL_SRC_FILES := \
   log.c \
   msg.c \
   config.c \
+  checksum.c \
   utilfuncs.c \
   info_block.c \
   sysfs/sysfs_device.c \
