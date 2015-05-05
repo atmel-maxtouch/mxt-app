@@ -42,8 +42,8 @@ static uint32_t convert_crc(struct mxt_raw_crc *crc)
 }
 
 /*!
- * @brief  Information Block Checksum algorithm.
- * @return Calculated Information Block Checksum.
+ * @brief  Checksum algorithm.
+ * @return Calculated checksum.
  */
 static uint32_t crc24(uint32_t crc, uint8_t firstbyte, uint8_t secondbyte)
 {
@@ -62,19 +62,20 @@ static uint32_t crc24(uint32_t crc, uint8_t firstbyte, uint8_t secondbyte)
 }
 
 /*!
- * @brief  Calculates and reports the Information Block Checksum.
+ * @brief  Calculate and verify checksum over a region of memory
  * @return #mxt_rc
  */
-static int calculate_crc(struct mxt_device *mxt, uint32_t read_crc,
-                         uint8_t *base_addr, size_t size)
+int mxt_calculate_crc(struct mxt_device *mxt, uint32_t *crc_result,
+                      uint8_t *base_addr, size_t size)
 {
-  uint32_t calc_crc = 0; /* Checksum calculated by the driver code */
+  static const uint32_t MASK_24_BITS = 0x00FFFFFF;
+  uint32_t calc_crc = 0; /* Calculated checksum */
   uint16_t crc_byte_index = 0;
 
-  mxt_verb(mxt->ctx, "Calculating CRC over %zd bytes", size);
+  mxt_dbg(mxt->ctx, "Calculating CRC over %zd bytes", size);
 
   /* Call the CRC function crc24() iteratively to calculate the CRC,
-   * passing it two characters at a time.  */
+   * passing it two bytes at a time.  */
   while (crc_byte_index < ((size % 2) ? (size - 1) : size)) {
     calc_crc = crc24(calc_crc, *(base_addr + crc_byte_index),
                      *(base_addr + crc_byte_index + 1));
@@ -88,22 +89,10 @@ static int calculate_crc(struct mxt_device *mxt, uint32_t read_crc,
   }
 
   /* Mask 32-bit calculated checksum to 24-bit */
-  calc_crc &= calc_crc & 0x00FFFFFF;
+  calc_crc &= calc_crc & MASK_24_BITS;
 
-  /* A zero CRC indicates a communications error */
-  if (calc_crc == 0) {
-    mxt_err(mxt->ctx, "Information Block Checksum zero");
-    return MXT_ERROR_IO;
-  }
+  *crc_result = calc_crc;
 
-  /* Compare the read checksum with calculated checksum */
-  if (read_crc != calc_crc) {
-    mxt_err(mxt->ctx, "Information Block Checksum error calc=%06X read=%06X",
-            calc_crc, read_crc);
-    return MXT_ERROR_INFO_CHECKSUM_MISMATCH;
-  }
-
-  mxt_dbg(mxt->ctx, "Information Block Checksum verified %06X", calc_crc);
   return MXT_SUCCESS;
 }
 
@@ -158,10 +147,25 @@ int mxt_read_info_block(struct mxt_device *mxt)
   mxt->info.crc = convert_crc((struct mxt_raw_crc*) (info_blk + crc_area_size));
 
   /* Calculate and compare Information Block Checksum */
-  ret = calculate_crc(mxt, mxt->info.crc, info_blk, crc_area_size);
+  uint32_t calc_crc;
+  ret = mxt_calculate_crc(mxt, &calc_crc, info_blk, crc_area_size);
   if (ret)
     return ret;
 
+  /* A zero CRC indicates a communications error */
+  if (calc_crc == 0) {
+    mxt_err(mxt->ctx, "Info checksum zero - possible comms error or zero input");
+    return MXT_ERROR_IO;
+  }
+
+  /* Compare the read checksum with calculated checksum */
+  if (mxt->info.crc != calc_crc) {
+    mxt_err(mxt->ctx, "Info checksum error calc=%06X read=%06X",
+            calc_crc, mxt->info.crc);
+    return MXT_ERROR_CHECKSUM_MISMATCH;
+  }
+
+  mxt_dbg(mxt->ctx, "Info checksum verified %06X", calc_crc);
   return MXT_SUCCESS;
 }
 

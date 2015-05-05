@@ -92,7 +92,7 @@ enum mxt_rc {
   MXT_ERROR_SELF_TEST_AND_GATE = 14,         /*!< Self test AND Gate Fault */
   MXT_ERROR_SELF_TEST_SIGNAL_LIMIT = 15,     /*!< Self test Signal limit fault */
   MXT_ERROR_SELF_TEST_GAIN = 16,             /*!< Self test Gain error */
-  MXT_ERROR_INFO_CHECKSUM_MISMATCH = 17,     /*!< Information block checksum error */
+  MXT_ERROR_CHECKSUM_MISMATCH = 17,          /*!< Information block or config checksum error */
   MXT_ERROR_BOOTLOADER_UNLOCKED = 18,        /*!< Bootloader already unlocked */
   MXT_ERROR_BOOTLOADER_FRAME_CRC_FAIL = 19,  /*!< Bootloader CRC failure (transmission failure) */
   MXT_ERROR_FILE_FORMAT = 20,                /*!< File format error */
@@ -210,6 +210,7 @@ int mxt_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int c
 int mxt_msg_wait(struct mxt_device *mxt, int timeout_ms);
 int mxt_errno_to_rc(int errno_in);
 int mxt_report_all(struct mxt_device *mxt);
+int mxt_checkcrc(struct mxt_device *mxt, char *filename);
 
 #ifdef __cplusplus
 }

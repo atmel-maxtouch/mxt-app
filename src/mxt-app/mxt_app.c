@@ -106,6 +106,7 @@ static void print_usage(char *prog_name)
           "Configuration file commands:\n"
           "  --load FILE                : upload cfg from FILE in .xcfg or OBP_RAW format\n"
           "  --save FILE                : save cfg to FILE in .xcfg or OBP_RAW format\n"
+          "  --checksum FILE            : verify .xcfg or OBP_RAW file config checksum\n"
           "\n"
           "Register read/write commands:\n"
           "  -R [--read]                : read from object\n"
@@ -196,6 +197,7 @@ int main (int argc, char *argv[])
       {"bootloader-version", no_argument,     0, 0},
       {"bridge-client",    required_argument, 0, 'C'},
       {"calibrate",        no_argument,       0, 0},
+      {"checksum",         required_argument, 0, 0},
       {"debug-dump",       required_argument, 0, 0},
       {"device",           required_argument, 0, 'd'},
       {"t68-file",         required_argument, 0, 0},
@@ -341,6 +343,15 @@ int main (int argc, char *argv[])
       } else if (!strcmp(long_options[option_index].name, "bootloader-version")) {
         if (cmd == CMD_NONE) {
           cmd = CMD_BOOTLOADER_VERSION;
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "checksum")) {
+        if (cmd == CMD_NONE) {
+          cmd = CMD_CRC_CHECK;
+          strncpy(strbuf, optarg, sizeof(strbuf));
+          strbuf[sizeof(strbuf) - 1] = '\0';
         } else {
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
@@ -781,6 +792,12 @@ int main (int argc, char *argv[])
   case CMD_SELF_CAP_TUNE_NVRAM:
     mxt_verb(ctx, "CMD_SELF_CAP_TUNE");
     ret = mxt_self_cap_tune(mxt, cmd);
+    break;
+
+  case CMD_CRC_CHECK:
+    mxt_verb(ctx, "CMD_CRC_CHECK");
+    mxt_verb(ctx, "filename:%s", strbuf);
+    ret = mxt_checkcrc(mxt, strbuf);
     break;
 
   case CMD_NONE:

@@ -72,6 +72,9 @@ by Atmel under NDA.
 `--save *FILE*`
 :   Save config to *FILE* in either `OBP_RAW` or `.xcfg` format.
 
+`--checksum *FILE*`
+:   Read the contents of *FILE* and recalculate the configuration checksum.
+
 # REGISTER READ/WRITE COMMANDS
 
 `-R [--read]`
