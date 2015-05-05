@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.63])
-AC_INIT([obp-utils], m4_esyscmd([tr -d '\n' < VERSION]),
+AC_INIT([mxt-app], m4_esyscmd([tr -d '\n' < VERSION]),
         [nick.dyer@itdev.co.uk])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 AC_CONFIG_SRCDIR([src/libmaxtouch/libmaxtouch.c])

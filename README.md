@@ -449,7 +449,7 @@ Bootloading is not supported in this mode.
 
 To download the source code using git:
 
-    git clone https://github.com/atmel-maxtouch/obp-utils.git
+    git clone https://github.com/atmel-maxtouch/mxt-app.git
 
 There are two build harnesses, for Android and autotools:
 
