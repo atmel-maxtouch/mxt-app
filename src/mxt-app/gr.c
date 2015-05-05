@@ -123,7 +123,7 @@ static int mxt_gr_run_command(struct mxt_device *mxt, uint16_t addr, uint8_t cmd
   if (ret)
     return ret;
 
-  ret = mxt_read_messages_sigint(mxt, GR_TIMEOUT, &actual_state, mxt_gr_get_status, (int *)&mxt_sigint_rx);
+  ret = mxt_read_messages_sigint(mxt, GR_TIMEOUT, &actual_state, mxt_gr_get_status);
   if (ret)
     return ret;
 
