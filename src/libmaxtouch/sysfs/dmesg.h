@@ -27,18 +27,8 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-//******************************************************************************
-/// Defines for size of kernel message buffer
-#define KLOG_BUF_SHIFT  17      /* CONFIG_LOG_BUF_SHIFT from our kernel */
-#define KLOG_BUF_LEN    (1 << KLOG_BUF_SHIFT)
-
-#define BUFFERSIZE 256
-
-//******************************************************************************
-/// \brief  Linked list item structure
-struct dmesg_item {
-  unsigned long sec;
-  unsigned long msec;
-  char msg[BUFFERSIZE];
-  struct dmesg_item *next;
-};
+char *dmesg_get_msg_string(struct mxt_device *mxt);
+int dmesg_get_msgs(struct mxt_device *mxt, int *count, bool init_timestamp);
+int dmesg_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen, int *count);
+int dmesg_reset(struct mxt_device *mxt);
+int dmesg_buf_size(void);

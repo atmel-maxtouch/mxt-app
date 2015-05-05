@@ -12,7 +12,6 @@ LOCAL_SRC_FILES := \
   info_block.c \
   sysfs/sysfs_device.c \
   sysfs/dmesg.c \
-  sysfs/sysinfo.c \
   i2c_dev/i2c_dev_device.c \
   hidraw/hidraw_device.c \
   usb/usb_device.c

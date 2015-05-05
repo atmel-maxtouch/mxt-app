@@ -104,7 +104,6 @@ int mxt_read_messages_sigint(struct mxt_device *mxt, int timeout_seconds, void *
   int ret;
   struct sigaction sa;
 
-
   mxt_init_sigint_handler(mxt, &sa);
   ret = mxt_read_messages(mxt, timeout_seconds, context, (msg_func), (int *)&mxt_sigint_rx);
   mxt_release_sigint_handler(mxt, &sa);

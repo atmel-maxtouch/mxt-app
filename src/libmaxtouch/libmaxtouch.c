@@ -35,6 +35,7 @@
 #include <errno.h>
 
 #include "libmaxtouch.h"
+#include "libmaxtouch/sysfs/dmesg.h"
 #include "msg.h"
 
 //******************************************************************************
@@ -606,9 +607,9 @@ int mxt_get_msg_count(struct mxt_device *mxt, int *count)
   switch (mxt->conn->type) {
   case E_SYSFS:
     if (sysfs_has_debug_v2(mxt))
-      ret = sysfs_get_msg_count_v2(mxt, count);
+      ret = sysfs_get_msgs_v2(mxt, count);
     else
-      ret = sysfs_get_msg_count(mxt, count);
+      ret = dmesg_get_msgs(mxt, count, false);
 
     break;
 
@@ -641,7 +642,7 @@ char *mxt_get_msg_string(struct mxt_device *mxt)
     if (sysfs_has_debug_v2(mxt))
       msg_string = sysfs_get_msg_string_v2(mxt);
     else
-      msg_string = sysfs_get_msg_string(mxt);
+      msg_string = dmesg_get_msg_string(mxt);
     break;
 
 #ifdef HAVE_LIBUSB
@@ -680,7 +681,7 @@ int mxt_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf,
     if (sysfs_has_debug_v2(mxt))
       ret = sysfs_get_msg_bytes_v2(mxt, buf, buflen, count);
     else
-      ret = sysfs_get_msg_bytes(mxt, buf, buflen, count);
+      ret = dmesg_get_msg_bytes(mxt, buf, buflen, count);
     break;
 
 #ifdef HAVE_LIBUSB
@@ -715,7 +716,7 @@ int mxt_msg_reset(struct mxt_device *mxt)
     if (sysfs_has_debug_v2(mxt))
       ret = sysfs_msg_reset_v2(mxt);
     else
-      ret = sysfs_msg_reset(mxt);
+      ret = dmesg_reset(mxt);
 
     break;
 

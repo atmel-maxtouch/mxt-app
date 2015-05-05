@@ -40,8 +40,8 @@
 
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/libmaxtouch.h"
-#include "dmesg.h"
 #include "sysfs_device.h"
+#include "dmesg.h"
 
 #define SYSFS_I2C_ROOT "/sys/bus/i2c/drivers/"
 
@@ -518,7 +518,25 @@ int sysfs_set_debug(struct mxt_device *mxt, bool debug_state)
       close(mxt->sysfs.debug_notify_fd);
     }
   } else {
-    ret = write_boolean_file(mxt, make_path(mxt, "debug_enable"), debug_state);
+    ret = MXT_SUCCESS;
+
+    if (debug_state) {
+      // Allocate buffer space
+      mxt->sysfs.debug_msg_buf_size = dmesg_buf_size();
+      mxt->sysfs.debug_msg_buf =
+        (char *)calloc(mxt->sysfs.debug_msg_buf_size, sizeof(char));
+      if (mxt->sysfs.debug_msg_buf == NULL) {
+        mxt_err(mxt->ctx, "Error allocating memory for debug_msg_buf_size");
+        ret = mxt_errno_to_rc(errno);
+      }
+    } else if (mxt->sysfs.debug_msg_buf != NULL) {
+      // Free up the message buffer
+      free(mxt->sysfs.debug_msg_buf);
+      mxt->sysfs.debug_msg_buf = NULL;
+    }
+
+    if (ret == MXT_SUCCESS)
+      ret = write_boolean_file(mxt, make_path(mxt, "debug_enable"), debug_state);
   }
 
   return ret;
@@ -605,7 +623,7 @@ bool sysfs_has_debug_v2(struct mxt_device *mxt)
 /// \param  mxt Device context
 /// \param  count Number of messages retrieved
 /// \return #mxt_rc
-int sysfs_get_msg_count_v2(struct mxt_device *mxt, int *count)
+int sysfs_get_msgs_v2(struct mxt_device *mxt, int *count)
 {
   int num_bytes;
   uint16_t t5_size;

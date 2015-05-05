@@ -51,6 +51,8 @@ struct sysfs_device
   uint16_t debug_v2_msg_count;
   uint16_t debug_v2_msg_ptr;
   uint8_t *debug_v2_msg_buf;
+  char *debug_msg_buf;
+  int debug_msg_buf_size;
   int debug_notify_fd;
   size_t debug_v2_size;
 
@@ -71,13 +73,9 @@ int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf, int s
 int sysfs_set_debug(struct mxt_device *mxt, bool debug_state);
 int sysfs_get_debug(struct mxt_device *mxt, bool *value);
 char *sysfs_get_directory(struct mxt_device *mxt);
-int sysfs_get_msg_count(struct mxt_device *mxt, int *count);
-char *sysfs_get_msg_string(struct mxt_device *mxt);
-int sysfs_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen, int *count);
-int sysfs_msg_reset(struct mxt_device *mxt);
 bool sysfs_has_debug_v2(struct mxt_device *mxt);
 char *sysfs_get_msg_string_v2(struct mxt_device *mxt);
 int sysfs_get_msg_bytes_v2(struct mxt_device *mxt, unsigned char *buf, size_t buflen, int *count);
-int sysfs_get_msg_count_v2(struct mxt_device *mxt, int *count);
+int sysfs_get_msgs_v2(struct mxt_device *mxt, int *count);
 int sysfs_msg_reset_v2(struct mxt_device *mxt);
 int sysfs_get_debug_v2_fd(struct mxt_device *mxt);
