@@ -165,7 +165,7 @@ static void print_usage(char *prog_name)
 /// \brief Main function for mxt-app
 int main (int argc, char *argv[])
 {
-  int ret;
+  int ret = MXT_SUCCESS;
   int c;
   int msgs_timeout = MSG_CONTINUOUS;
   bool msgs_enabled = false;
@@ -811,7 +811,7 @@ int main (int argc, char *argv[])
     break;
   }
 
-  if (msgs_enabled && ret == 0) { 
+  if (msgs_enabled && ret == MXT_SUCCESS) {
     mxt_verb(ctx, "CMD_MESSAGES");
     mxt_verb(ctx, "msgs_timeout:%d", msgs_timeout);
     ret = print_raw_messages(mxt, msgs_timeout, object_type);
