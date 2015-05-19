@@ -94,6 +94,7 @@ static void print_usage(char *prog_name)
           "  -h [--help]                : display this help and exit\n"
           "  -i [--info]                : print device information\n"
           "  -M [--messages] [TIMEOUT]  : print the messages (for TIMEOUT seconds)\n"
+          "  -F [--msg-filter] TYPE     : message filtering by object TYPE\n"
           "  --reset                    : reset device\n"
           "  --reset-bootloader         : reset device in bootloader mode\n"
           "  --calibrate                : send calibrate command\n"
@@ -176,6 +177,7 @@ int main (int argc, char *argv[])
   uint16_t count = 0;
   struct mxt_conn_info *conn = NULL;
   uint16_t object_type = 0;
+  uint16_t msg_object_type = 0;
   uint8_t instance = 0;
   uint8_t verbose = 2;
   uint16_t t37_frames = 1;
@@ -213,6 +215,7 @@ int main (int argc, char *argv[])
       {"load",             required_argument, 0, 0},
       {"save",             required_argument, 0, 0},
       {"messages",         optional_argument, 0, 'M'},
+      {"msg-filter",       required_argument, 0, 'F'},
       {"count",            required_argument, 0, 'n'},
       {"port",             required_argument, 0, 'p'},
       {"query",            no_argument,       0, 'q'},
@@ -237,7 +240,7 @@ int main (int argc, char *argv[])
     };
 
     c = getopt_long(argc, argv,
-                    "C:d:D:fghiI:M::m:n:p:qRr:St::T:v:W",
+                    "C:d:D:fghiI:M::F:m:n:p:qRr:St::T:v:W",
                     long_options, &option_index);
     if (c == -1)
       break;
@@ -488,6 +491,12 @@ int main (int argc, char *argv[])
         msgs_timeout = strtol(optarg, NULL, 0);
       break;
 
+    case 'F':
+      if (optarg) {
+        msg_object_type = strtol(optarg, NULL, 0);
+      }
+      break;
+
     case 'n':
       if (optarg) {
         count = strtol(optarg, NULL, 0);
@@ -665,14 +674,11 @@ int main (int argc, char *argv[])
       if (ret)
         fprintf(stderr, "Write error\n");
     }
-    // Reset object type to prevent filtering on message read
-    object_type = 0;
     break;
 
   case CMD_READ:
     mxt_verb(ctx, "Read command");
     ret = mxt_read_object(mxt, object_type, instance, address, count, format);
-    object_type = 0;
     break;
 
   case CMD_INFO:
@@ -814,7 +820,11 @@ int main (int argc, char *argv[])
   if (msgs_enabled && ret == MXT_SUCCESS) {
     mxt_verb(ctx, "CMD_MESSAGES");
     mxt_verb(ctx, "msgs_timeout:%d", msgs_timeout);
-    ret = print_raw_messages(mxt, msgs_timeout, object_type);
+    // Support message filtering with -T
+    if (cmd == CMD_MESSAGES && !msg_object_type) {
+      msg_object_type = object_type;
+    }
+    ret = print_raw_messages(mxt, msgs_timeout, msg_object_type);
   }
 
   if (cmd != CMD_FLASH && cmd != CMD_BOOTLOADER_VERSION) {
