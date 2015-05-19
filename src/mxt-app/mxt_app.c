@@ -168,6 +168,7 @@ int main (int argc, char *argv[])
   int ret;
   int c;
   int msgs_timeout = MSG_CONTINUOUS;
+  bool msgs_enabled = false;
   uint8_t backup_cmd = BACKUPNV_COMMAND;
   unsigned char self_test_cmd = SELF_TEST_ALL;
   uint16_t address = 0;
@@ -479,15 +480,12 @@ int main (int argc, char *argv[])
       break;
 
     case 'M':
+      msgs_enabled = true;
       if (cmd == CMD_NONE) {
         cmd = CMD_MESSAGES;
-        if (optarg)
-          msgs_timeout = strtol(optarg, NULL, 0);
-
-      } else {
-        print_usage(argv[0]);
-        return MXT_ERROR_BAD_INPUT;
       }
+      if (optarg)
+        msgs_timeout = strtol(optarg, NULL, 0);
       break;
 
     case 'n':
@@ -667,11 +665,14 @@ int main (int argc, char *argv[])
       if (ret)
         fprintf(stderr, "Write error\n");
     }
+    // Reset object type to prevent filtering on message read
+    object_type = 0;
     break;
 
   case CMD_READ:
     mxt_verb(ctx, "Read command");
     ret = mxt_read_object(mxt, object_type, instance, address, count, format);
+    object_type = 0;
     break;
 
   case CMD_INFO:
@@ -728,9 +729,7 @@ int main (int argc, char *argv[])
     break;
 
   case CMD_MESSAGES:
-    mxt_verb(ctx, "CMD_MESSAGES");
-    mxt_verb(ctx, "msgs_timeout:%d", msgs_timeout);
-    ret = print_raw_messages(mxt, msgs_timeout, object_type);
+    // Messages handled after switch
     break;
 
   case CMD_BACKUP:
@@ -810,6 +809,12 @@ int main (int argc, char *argv[])
 
     ret = mxt_menu(mxt);
     break;
+  }
+
+  if (msgs_enabled && ret == 0) { 
+    mxt_verb(ctx, "CMD_MESSAGES");
+    mxt_verb(ctx, "msgs_timeout:%d", msgs_timeout);
+    ret = print_raw_messages(mxt, msgs_timeout, object_type);
   }
 
   if (cmd != CMD_FLASH && cmd != CMD_BOOTLOADER_VERSION) {
