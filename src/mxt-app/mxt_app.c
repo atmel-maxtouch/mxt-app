@@ -166,7 +166,7 @@ static void print_usage(char *prog_name)
 /// \brief Main function for mxt-app
 int main (int argc, char *argv[])
 {
-  int ret = MXT_SUCCESS;
+  int ret;
   int c;
   int msgs_timeout = MSG_CONTINUOUS;
   bool msgs_enabled = false;
@@ -177,7 +177,7 @@ int main (int argc, char *argv[])
   uint16_t count = 0;
   struct mxt_conn_info *conn = NULL;
   uint16_t object_type = 0;
-  uint16_t msg_object_type = 0;
+  uint16_t msg_filter_type = 0;
   uint8_t instance = 0;
   uint8_t verbose = 2;
   uint16_t t37_frames = 1;
@@ -240,7 +240,7 @@ int main (int argc, char *argv[])
     };
 
     c = getopt_long(argc, argv,
-                    "C:d:D:fghiI:M::F:m:n:p:qRr:St::T:v:W",
+                    "C:d:D:fF:ghiI:M::m:n:p:qRr:St::T:v:W",
                     long_options, &option_index);
     if (c == -1)
       break;
@@ -493,7 +493,7 @@ int main (int argc, char *argv[])
 
     case 'F':
       if (optarg) {
-        msg_object_type = strtol(optarg, NULL, 0);
+        msg_filter_type = strtol(optarg, NULL, 0);
       }
       break;
 
@@ -817,14 +817,14 @@ int main (int argc, char *argv[])
     break;
   }
 
-  if (msgs_enabled && ret == MXT_SUCCESS) {
+  if (cmd == CMD_MESSAGES || (msgs_enabled && ret == MXT_SUCCESS)) {
     mxt_verb(ctx, "CMD_MESSAGES");
     mxt_verb(ctx, "msgs_timeout:%d", msgs_timeout);
     // Support message filtering with -T
-    if (cmd == CMD_MESSAGES && !msg_object_type) {
-      msg_object_type = object_type;
-    }
-    ret = print_raw_messages(mxt, msgs_timeout, msg_object_type);
+    if (cmd == CMD_MESSAGES && !msg_filter_type)
+      msg_filter_type = object_type;
+
+    ret = print_raw_messages(mxt, msgs_timeout, msg_filter_type);
   }
 
   if (cmd != CMD_FLASH && cmd != CMD_BOOTLOADER_VERSION) {

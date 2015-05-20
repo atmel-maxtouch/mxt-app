@@ -40,7 +40,10 @@ by Atmel under NDA.
 `-M [--messages] [*timeout*]`
 :   Prints the messages until *timeout* seconds have passed. If no *timeout*
     is provided, continue until user presses Ctrl-C. Zero timeout reads once.
-    Provide `-T [--type]` option to filter by a specific object.
+    Provide `-F [--msg-filter]` option to filter by a specific object.
+
+`-F [--msg-filter] *TYPE*`
+:   Filters messages by object *TYPE*. 
 
 `--reset`
 :   Reset device.
