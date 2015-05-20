@@ -591,7 +591,7 @@ int main (int argc, char *argv[])
     }
   }
 
-  struct mxt_device *mxt;
+  struct mxt_device *mxt = NULL;
   struct libmaxtouch_ctx *ctx;
 
   ret = mxt_new(&ctx);
@@ -621,17 +621,11 @@ int main (int argc, char *argv[])
 
   } else if (cmd != CMD_FLASH && cmd != CMD_BOOTLOADER_VERSION) {
     ret = mxt_init_chip(ctx, &mxt, &conn);
-    if (ret) {
-      if (cmd == CMD_CRC_CHECK) {
-        /* Can perform CRC check for XCFG files with no chip */
-        mxt_verb(ctx, "CMD_CRC_CHECK");
-        mxt_verb(ctx, "filename:%s", strbuf);
-        ret = mxt_checkcrc(ctx, NULL, strbuf);
-      }
+    if (ret && cmd != CMD_CRC_CHECK )
       goto free;
-    }
 
-    mxt_set_debug(mxt, true);
+    if (mxt)
+      mxt_set_debug(mxt, true);
   }
 
   switch (cmd) {
@@ -819,7 +813,7 @@ int main (int argc, char *argv[])
     break;
   }
 
-  if (cmd != CMD_FLASH && cmd != CMD_BOOTLOADER_VERSION) {
+  if (cmd != CMD_FLASH && cmd != CMD_BOOTLOADER_VERSION && mxt) {
     mxt_set_debug(mxt, false);
     mxt_free_device(mxt);
     mxt_unref_conn(conn);

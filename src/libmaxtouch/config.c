@@ -42,8 +42,12 @@
 
 #define OBP_RAW_MAGIC      "OBP_RAW V1"
 
-#define CONFIG_RAW  0x01
-#define CONFIG_XCFG 0x10
+//******************************************************************************
+/// \brief Config file types
+enum mxt_config_type {
+ CONFIG_RAW,
+ CONFIG_XCFG
+};
 
 //******************************************************************************
 /// \brief Configuration data for a single object
@@ -63,7 +67,7 @@ struct mxt_config {
   struct mxt_object_config *head;
   uint32_t info_crc;
   uint32_t config_crc;
-  uint8_t config_type;
+  enum mxt_config_type config_type;
 };
 
 //******************************************************************************
@@ -897,7 +901,7 @@ int mxt_checkcrc(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, char *file
   uint16_t obj_idx = 0;
 
   int start_pos = INT_MAX;
-  int end_pos = 0;
+  uint16_t end_pos = 0;
 
   /* Get the mxt_config and object configurations */
   ret = mxt_get_config_from_file(ctx, filename, &cfg);
@@ -906,7 +910,7 @@ int mxt_checkcrc(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, char *file
 
   if (mxt == NULL && cfg.config_type == CONFIG_RAW) {
     mxt_err(ctx, "RAW config format only supported with chip present.");
-    ret = MXT_ERROR_FILE_FORMAT;
+    ret = MXT_ERROR_NO_DEVICE;
     goto free;
   }
 
@@ -918,14 +922,13 @@ int mxt_checkcrc(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, char *file
         if (start_pos > objcfg->start_position)
           start_pos = objcfg->start_position;
 
-        if (end_pos < (int)(objcfg->start_position + objcfg->size))
+        if (end_pos < (objcfg->start_position + objcfg->size))
           end_pos = objcfg->start_position + objcfg->size;
       }
 
       objcfg = objcfg->next;
     }
-  }
-  else {
+  } else {
     for (obj_idx = 0; obj_idx < mxt->info.id->num_objects; obj_idx++) {
       struct mxt_object *object = &mxt->info.objects[obj_idx];
       if (is_type_used_for_crc(object->type)) {
@@ -955,9 +958,9 @@ int mxt_checkcrc(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, char *file
   while (objcfg) {
     if (is_type_used_for_crc(objcfg->type)) {
       uint16_t off = objcfg->start_position;
-      if (cfg.config_type != CONFIG_XCFG) {
+      if (cfg.config_type != CONFIG_XCFG)
         off = mxt_get_object_address(mxt, objcfg->type, objcfg->instance);
-      }
+
       memcpy(buffer + off, objcfg->data, objcfg->size);
     }
 
