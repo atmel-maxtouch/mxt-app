@@ -43,7 +43,7 @@ by Atmel under NDA.
     Provide `-F [--msg-filter]` option to filter by a specific object.
 
 `-F [--msg-filter] *TYPE*`
-:   Filters messages by object *TYPE*. 
+:   Filters messages by object *TYPE*.
 
 `--reset`
 :   Reset device.
