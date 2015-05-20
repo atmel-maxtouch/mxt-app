@@ -65,14 +65,14 @@ static uint32_t crc24(uint32_t crc, uint8_t firstbyte, uint8_t secondbyte)
  * @brief  Calculate and verify checksum over a region of memory
  * @return #mxt_rc
  */
-int mxt_calculate_crc(struct mxt_device *mxt, uint32_t *crc_result,
+int mxt_calculate_crc(struct libmaxtouch_ctx *ctx, uint32_t *crc_result,
                       uint8_t *base_addr, size_t size)
 {
   static const uint32_t MASK_24_BITS = 0x00FFFFFF;
   uint32_t calc_crc = 0; /* Calculated checksum */
   uint16_t crc_byte_index = 0;
 
-  mxt_dbg(mxt->ctx, "Calculating CRC over %zd bytes", size);
+  mxt_dbg(ctx, "Calculating CRC over %zd bytes", size);
 
   /* Call the CRC function crc24() iteratively to calculate the CRC,
    * passing it two bytes at a time.  */
@@ -148,7 +148,7 @@ int mxt_read_info_block(struct mxt_device *mxt)
 
   /* Calculate and compare Information Block Checksum */
   uint32_t calc_crc;
-  ret = mxt_calculate_crc(mxt, &calc_crc, info_blk, crc_area_size);
+  ret = mxt_calculate_crc(mxt->ctx, &calc_crc, info_blk, crc_area_size);
   if (ret)
     return ret;
 

@@ -621,8 +621,15 @@ int main (int argc, char *argv[])
 
   } else if (cmd != CMD_FLASH && cmd != CMD_BOOTLOADER_VERSION) {
     ret = mxt_init_chip(ctx, &mxt, &conn);
-    if (ret)
+    if (ret) {
+      if (cmd == CMD_CRC_CHECK) {
+        /* Can perform CRC check for XCFG files with no chip */
+        mxt_verb(ctx, "CMD_CRC_CHECK");
+        mxt_verb(ctx, "filename:%s", strbuf);
+        ret = mxt_checkcrc(ctx, NULL, strbuf);
+      }
       goto free;
+    }
 
     mxt_set_debug(mxt, true);
   }
@@ -797,7 +804,7 @@ int main (int argc, char *argv[])
   case CMD_CRC_CHECK:
     mxt_verb(ctx, "CMD_CRC_CHECK");
     mxt_verb(ctx, "filename:%s", strbuf);
-    ret = mxt_checkcrc(mxt, strbuf);
+    ret = mxt_checkcrc(ctx, mxt, strbuf);
     break;
 
   case CMD_NONE:
