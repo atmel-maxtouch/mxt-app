@@ -558,7 +558,7 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
   }
 
   ret = mxt_bootloader_init_chip(&fw);
-  if (ret && ret != MXT_DEVICE_IN_BOOTLOADER)
+  if (ret && (ret != MXT_DEVICE_IN_BOOTLOADER))
     return ret;
 
   if (ret != MXT_DEVICE_IN_BOOTLOADER) {
