@@ -928,7 +928,8 @@ int usb_rediscover_device(struct mxt_device *mxt, bool *device_list)
           /* Old device still connected, fine */
           mxt_dbg(mxt->ctx, "USB device still there at %03d-%03d",
                   usb_bus, usb_device);
-          return MXT_SUCCESS;
+          ret = MXT_SUCCESS;
+          goto free_device_list;
         } else if (device_list[usb_device] == false) {
           /* Found a new device on bus. We make the assumption that it is the
            * device that just reset. It might be another device with the same
@@ -936,7 +937,8 @@ int usb_rediscover_device(struct mxt_device *mxt, bool *device_list)
           mxt->conn->usb.device = usb_device;
           mxt_info(mxt->ctx, "Found new device on bus at address %03d-%03d",
                    usb_bus, usb_device);
-          return MXT_SUCCESS;
+          ret = MXT_SUCCESS;
+          goto free_device_list;
         }
       }
     } else {
@@ -945,8 +947,11 @@ int usb_rediscover_device(struct mxt_device *mxt, bool *device_list)
     }
   }
 
+  ret = MXT_ERROR_NO_DEVICE;
+
+free_device_list:
   libusb_free_device_list(devs, 1);
-  return MXT_ERROR_NO_DEVICE;
+  return ret;
 }
 
 //******************************************************************************
