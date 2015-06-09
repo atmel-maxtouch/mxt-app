@@ -916,7 +916,7 @@ int mxt_checkcrc(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, char *file
 
   /* Find limits of CRC region */
   struct mxt_object_config *objcfg = cfg.head;
-  if (cfg.config_type == CONFIG_XCFG) {
+  if (mxt == NULL && cfg.config_type == CONFIG_XCFG) {
     while (objcfg) {
       if (is_type_used_for_crc(objcfg->type)) {
         if (start_pos > objcfg->start_position)
