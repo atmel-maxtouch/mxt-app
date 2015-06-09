@@ -94,6 +94,7 @@ static void print_usage(char *prog_name)
           "  -h [--help]                : display this help and exit\n"
           "  -i [--info]                : print device information\n"
           "  -M [--messages] [TIMEOUT]  : print the messages (for TIMEOUT seconds)\n"
+          "  -F [--msg-filter] TYPE     : message filtering by object TYPE\n"
           "  --reset                    : reset device\n"
           "  --reset-bootloader         : reset device in bootloader mode\n"
           "  --calibrate                : send calibrate command\n"
@@ -168,6 +169,7 @@ int main (int argc, char *argv[])
   int ret;
   int c;
   int msgs_timeout = MSG_CONTINUOUS;
+  bool msgs_enabled = false;
   uint8_t backup_cmd = BACKUPNV_COMMAND;
   unsigned char self_test_cmd = SELF_TEST_ALL;
   uint16_t address = 0;
@@ -175,6 +177,7 @@ int main (int argc, char *argv[])
   uint16_t count = 0;
   struct mxt_conn_info *conn = NULL;
   uint16_t object_type = 0;
+  uint16_t msg_filter_type = 0;
   uint8_t instance = 0;
   uint8_t verbose = 2;
   uint16_t t37_frames = 1;
@@ -212,6 +215,7 @@ int main (int argc, char *argv[])
       {"load",             required_argument, 0, 0},
       {"save",             required_argument, 0, 0},
       {"messages",         optional_argument, 0, 'M'},
+      {"msg-filter",       required_argument, 0, 'F'},
       {"count",            required_argument, 0, 'n'},
       {"port",             required_argument, 0, 'p'},
       {"query",            no_argument,       0, 'q'},
@@ -236,7 +240,7 @@ int main (int argc, char *argv[])
     };
 
     c = getopt_long(argc, argv,
-                    "C:d:D:fghiI:M::m:n:p:qRr:St::T:v:W",
+                    "C:d:D:fF:ghiI:M::m:n:p:qRr:St::T:v:W",
                     long_options, &option_index);
     if (c == -1)
       break;
@@ -479,14 +483,17 @@ int main (int argc, char *argv[])
       break;
 
     case 'M':
+      msgs_enabled = true;
       if (cmd == CMD_NONE) {
         cmd = CMD_MESSAGES;
-        if (optarg)
-          msgs_timeout = strtol(optarg, NULL, 0);
+      }
+      if (optarg)
+        msgs_timeout = strtol(optarg, NULL, 0);
+      break;
 
-      } else {
-        print_usage(argv[0]);
-        return MXT_ERROR_BAD_INPUT;
+    case 'F':
+      if (optarg) {
+        msg_filter_type = strtol(optarg, NULL, 0);
       }
       break;
 
@@ -728,9 +735,7 @@ int main (int argc, char *argv[])
     break;
 
   case CMD_MESSAGES:
-    mxt_verb(ctx, "CMD_MESSAGES");
-    mxt_verb(ctx, "msgs_timeout:%d", msgs_timeout);
-    ret = print_raw_messages(mxt, msgs_timeout, object_type);
+    // Messages handled after switch
     break;
 
   case CMD_BACKUP:
@@ -810,6 +815,16 @@ int main (int argc, char *argv[])
 
     ret = mxt_menu(mxt);
     break;
+  }
+
+  if (cmd == CMD_MESSAGES || (msgs_enabled && ret == MXT_SUCCESS)) {
+    mxt_verb(ctx, "CMD_MESSAGES");
+    mxt_verb(ctx, "msgs_timeout:%d", msgs_timeout);
+    // Support message filtering with -T
+    if (cmd == CMD_MESSAGES && !msg_filter_type)
+      msg_filter_type = object_type;
+
+    ret = print_raw_messages(mxt, msgs_timeout, msg_filter_type);
   }
 
   if (cmd != CMD_FLASH && cmd != CMD_BOOTLOADER_VERSION) {
