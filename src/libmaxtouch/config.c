@@ -908,25 +908,25 @@ int mxt_checkcrc(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, char *file
   if (ret)
     goto free;
 
-  if (mxt == NULL && cfg.config_type == CONFIG_RAW) {
-    mxt_err(ctx, "RAW config format only supported with chip present.");
-    ret = MXT_ERROR_NO_DEVICE;
-    goto free;
-  }
-
   /* Find limits of CRC region */
   struct mxt_object_config *objcfg = cfg.head;
-  if (mxt == NULL && cfg.config_type == CONFIG_XCFG) {
-    while (objcfg) {
-      if (is_type_used_for_crc(objcfg->type)) {
-        if (start_pos > objcfg->start_position)
-          start_pos = objcfg->start_position;
+  if (mxt == NULL) {
+    if (cfg.config_type == CONFIG_RAW) {
+      mxt_err(ctx, "RAW config format only supported with chip present");
+      ret = MXT_ERROR_NO_DEVICE;
+      goto free;
+    } else {
+      while (objcfg) {
+        if (is_type_used_for_crc(objcfg->type)) {
+          if (start_pos > objcfg->start_position)
+            start_pos = objcfg->start_position;
 
-        if (end_pos < (objcfg->start_position + objcfg->size))
-          end_pos = objcfg->start_position + objcfg->size;
+          if (end_pos < (objcfg->start_position + objcfg->size))
+            end_pos = objcfg->start_position + objcfg->size;
+        }
+
+        objcfg = objcfg->next;
       }
-
-      objcfg = objcfg->next;
     }
   } else {
     for (obj_idx = 0; obj_idx < mxt->info.id->num_objects; obj_idx++) {
