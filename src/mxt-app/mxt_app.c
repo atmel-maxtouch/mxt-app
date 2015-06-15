@@ -598,7 +598,7 @@ int main (int argc, char *argv[])
     }
   }
 
-  struct mxt_device *mxt;
+  struct mxt_device *mxt = NULL;
   struct libmaxtouch_ctx *ctx;
 
   ret = mxt_new(&ctx);
@@ -628,10 +628,11 @@ int main (int argc, char *argv[])
 
   } else if (cmd != CMD_FLASH && cmd != CMD_BOOTLOADER_VERSION) {
     ret = mxt_init_chip(ctx, &mxt, &conn);
-    if (ret)
+    if (ret && cmd != CMD_CRC_CHECK )
       goto free;
 
-    mxt_set_debug(mxt, true);
+    if (mxt)
+      mxt_set_debug(mxt, true);
   }
 
   switch (cmd) {
@@ -802,7 +803,7 @@ int main (int argc, char *argv[])
   case CMD_CRC_CHECK:
     mxt_verb(ctx, "CMD_CRC_CHECK");
     mxt_verb(ctx, "filename:%s", strbuf);
-    ret = mxt_checkcrc(mxt, strbuf);
+    ret = mxt_checkcrc(ctx, mxt, strbuf);
     break;
 
   case CMD_NONE:
@@ -827,7 +828,7 @@ int main (int argc, char *argv[])
     ret = print_raw_messages(mxt, msgs_timeout, msg_filter_type);
   }
 
-  if (cmd != CMD_FLASH && cmd != CMD_BOOTLOADER_VERSION) {
+  if (cmd != CMD_FLASH && cmd != CMD_BOOTLOADER_VERSION && mxt) {
     mxt_set_debug(mxt, false);
     mxt_free_device(mxt);
     mxt_unref_conn(conn);

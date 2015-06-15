@@ -31,6 +31,7 @@
 #include <stdint.h>
 
 struct mxt_device;
+struct libmaxtouch_ctx;
 
 #define MXT_INSTANCES(o) ((uint16_t)((o).instances_minus_one) + 1)
 #define MXT_SIZE(o) ((uint16_t)((o).size_minus_one) + 1)
@@ -280,4 +281,4 @@ uint16_t mxt_get_start_position(struct mxt_object obj, uint8_t instance);
 int mxt_get_firmware_version(struct mxt_device *dev, char *version_str);
 uint16_t mxt_report_id_to_type(struct mxt_device *dev, int report_id);
 uint8_t mxt_get_object_instances(struct mxt_device *mxt, uint16_t object_type);
-int mxt_calculate_crc(struct mxt_device *mxt, uint32_t *crc_result, uint8_t *base_addr, size_t size);
+int mxt_calculate_crc(struct libmaxtouch_ctx *ctx, uint32_t *crc_result, uint8_t *base_addr, size_t size);
