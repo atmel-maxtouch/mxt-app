@@ -795,7 +795,7 @@ static int mxt_get_config_from_file(struct mxt_device *mxt,
         return ret;
     }
   } else {
-    ret = MXT_ERROR_NO_MEM;
+    ret = MXT_INTERNAL_ERROR;
     mxt_err(mxt->ctx, "Config is null");
   }
   return ret;
