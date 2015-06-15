@@ -156,9 +156,8 @@ static int mxt_write_device_config(struct mxt_device *mxt,
       mxt_warn(mxt->ctx, "Skipping volatile T%d", objcfg->type);
 
     obj_addr = mxt_get_object_address(mxt, objcfg->type, objcfg->instance);
-    if (obj_addr == OBJECT_NOT_FOUND) {
+    if (obj_addr == OBJECT_NOT_FOUND)
       return MXT_ERROR_OBJECT_NOT_FOUND;
-    }
 
     /* Read object config. This is done to retain any device configuration
      * remaining in trailing bytes not specified in the file. */
@@ -807,7 +806,7 @@ static int mxt_get_config_from_file(struct libmaxtouch_ctx *ctx,
         return ret;
     }
   } else {
-    ret = MXT_ERROR_NO_MEM;
+    ret = MXT_INTERNAL_ERROR;
     mxt_err(ctx, "Config is null");
   }
   return ret;
