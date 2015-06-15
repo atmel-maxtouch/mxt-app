@@ -45,8 +45,8 @@
 //******************************************************************************
 /// \brief Config file types
 enum mxt_config_type {
- CONFIG_RAW,
- CONFIG_XCFG
+  CONFIG_RAW,
+  CONFIG_XCFG
 };
 
 //******************************************************************************
@@ -128,13 +128,67 @@ static void mxt_free_config(struct mxt_config *cfg)
 }
 
 //******************************************************************************
+/// \brief Write configuration for a single object
+static int mxt_write_object_config(struct mxt_device *mxt,
+                                   const struct mxt_object_config *objcfg)
+{
+  uint8_t obj_buf[MXT_OBJECT_SIZE_MAX];
+  uint16_t obj_addr;
+  uint16_t device_size;
+  uint16_t num_bytes;
+  int ret;
+
+  if (mxt_object_is_volatile(objcfg->type))
+    return MXT_ERROR_OBJECT_IS_VOLATILE;
+
+  obj_addr = mxt_get_object_address(mxt, objcfg->type, objcfg->instance);
+  if (obj_addr == OBJECT_NOT_FOUND)
+    return MXT_ERROR_OBJECT_NOT_FOUND;
+
+  /* Read object config. This is done to retain any device configuration
+   * remaining in trailing bytes not specified in the file. */
+  memset(obj_buf, 0, sizeof(obj_buf));
+  ret = mxt_read_register(mxt, obj_buf, obj_addr,
+                          mxt_get_object_size(mxt, objcfg->type));
+  if (ret)
+    return ret;
+
+  device_size = mxt_get_object_size(mxt, objcfg->type);
+
+  if (device_size > objcfg->size) {
+    mxt_warn(mxt->ctx, "Extending config by %d bytes in T%u",
+             device_size - objcfg->size, objcfg->type);
+    num_bytes = objcfg->size;
+  } else if (objcfg->size > device_size) {
+    /* Either we are in fallback mode due to wrong
+     * config or config from a later fw version,
+     * or the file is corrupt or hand-edited */
+    mxt_warn(mxt->ctx, "Discarding %u bytes in T%u",
+             objcfg->size - device_size, objcfg->type);
+    num_bytes = device_size;
+  } else {
+    num_bytes = device_size;
+  }
+
+  /* Update bytes from config */
+  memcpy(obj_buf, objcfg->data, num_bytes);
+
+  /* Write object */
+  ret = mxt_write_register(mxt, obj_buf, obj_addr, device_size);
+  if (ret) {
+    mxt_err(mxt->ctx, "Config write error, ret=%d", ret);
+    return ret;
+  }
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
 /// \brief Write configuration to chip
 static int mxt_write_device_config(struct mxt_device *mxt,
                                    struct mxt_config *cfg)
 {
   struct mxt_object_config *objcfg = cfg->head;
-  uint8_t obj_buf[MXT_OBJECT_SIZE_MAX];
-  uint16_t obj_addr;
   int ret;
 
   /* The Info Block CRC is calculated over mxt_id_info and the object table
@@ -152,45 +206,13 @@ static int mxt_write_device_config(struct mxt_device *mxt,
     mxt_verb(mxt->ctx, "T%d instance %d size %d",
              objcfg->type, objcfg->instance, objcfg->size);
 
-    if (mxt_object_is_volatile(objcfg->type))
+    ret = mxt_write_object_config(mxt, objcfg);
+    if (ret == MXT_ERROR_OBJECT_NOT_FOUND)
+      mxt_warn(mxt->ctx, "T%d not present", objcfg->type);
+    else if (ret == MXT_ERROR_OBJECT_IS_VOLATILE)
       mxt_warn(mxt->ctx, "Skipping volatile T%d", objcfg->type);
-
-    obj_addr = mxt_get_object_address(mxt, objcfg->type, objcfg->instance);
-    if (obj_addr == OBJECT_NOT_FOUND)
-      return MXT_ERROR_OBJECT_NOT_FOUND;
-
-    /* Read object config. This is done to retain any device configuration
-     * remaining in trailing bytes not specified in the file. */
-    memset(obj_buf, 0, sizeof(obj_buf));
-    ret = mxt_read_register(mxt, obj_buf, obj_addr,
-                            mxt_get_object_size(mxt, objcfg->type));
-    if (ret)
+    else if (ret)
       return ret;
-
-    uint16_t device_size = mxt_get_object_size(mxt, objcfg->type);
-    uint16_t num_bytes = device_size;
-
-    if (device_size > objcfg->size) {
-      mxt_warn(mxt->ctx, "Extending config by %d bytes in T%u",
-               device_size - objcfg->size, objcfg->type);
-      num_bytes = objcfg->size;
-    } else if (objcfg->size > device_size) {
-      /* Either we are in fallback mode due to wrong
-       * config or config from a later fw version,
-       * or the file is corrupt or hand-edited */
-      mxt_warn(mxt->ctx, "Discarding %u bytes in T%u",
-               objcfg->size - device_size, objcfg->type);
-    }
-
-    /* Update bytes from config */
-    memcpy(obj_buf, objcfg->data, num_bytes);
-
-    /* Write object */
-    ret = mxt_write_register(mxt, obj_buf, obj_addr, device_size);
-    if (ret) {
-      mxt_err(mxt->ctx, "Config write error, ret=%d", ret);
-      return ret;
-    }
 
     objcfg = objcfg->next;
   }
