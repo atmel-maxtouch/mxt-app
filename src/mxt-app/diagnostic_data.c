@@ -525,13 +525,13 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   ctx.hawkeye = fopen(csv_file,"w");
   if (!ctx.hawkeye) {
     mxt_err(ctx.lc, "Failed to open file!");
-    ret = -1;
+    ret = MXT_ERROR_IO;
     goto free;
   }
 
   ret = mxt_generate_hawkeye_header(&ctx);
   if (ret)
-    return ret;
+    goto close;
 
   mxt_info(ctx.lc, "Reading %u frames", frames);
 
@@ -539,17 +539,21 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
 
   for (ctx.frame = 1; ctx.frame <= frames; ctx.frame++) {
     ret = mxt_read_diagnostic_data_frame(&ctx);
+    if (ret)
+      goto close;
 
-    mxt_hawkeye_output(&ctx);
+    ret = mxt_hawkeye_output(&ctx);
+    if (ret)
+      goto close;
   }
-
-  fclose(ctx.hawkeye);
 
   t2 = time(NULL);
   mxt_info(ctx.lc, "%u frames in %d seconds", frames, (int)(t2-t1));
 
   ret = MXT_SUCCESS;
 
+close:
+  fclose(ctx.hawkeye);
 free:
   free(ctx.data_buf);
   ctx.data_buf = NULL;
