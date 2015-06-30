@@ -409,53 +409,19 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
   case SELF_CAP_REFS:
     ctx->self_cap = true;
 
-    if (id->family == 164) {
-      switch (id->variant) {
-      case 5:
-      case 9:
-        // mXT336T
-        ctx->y_size = 14;
-        ctx->x_size = 24;
-        break;
-
-      case 2:
-      case 7:
-        // mXT640T
-        ctx->y_size = 20;
-        ctx->x_size = 32;
-        break;
-
-      case 11:
-      case 12:
-        // mXT1066T
-        ctx->y_size = 26;
-        ctx->x_size = 41;
-        break;
-
-      case 3:
-      case 4:
-      case 13:
-      case 14:
-      case 15:
-      case 16:
-        // mXT2952T
-        ctx->y_size = 72;
-        ctx->x_size = 41;
-        break;
-
-      default:
-        goto self_cap_unsupported;
-      }
-    } else {
-      goto self_cap_unsupported;
+    if (id->family != 164) {
+      mxt_err(ctx->lc, "Self cap data not available");
+      return MXT_ERROR_NOT_SUPPORTED;
     }
 
     if (ctx->t111_instances == 0) {
-      goto self_cap_unsupported;
-    } else {
-      ctx->passes = ctx->t111_instances;
+      mxt_err(ctx->lc, "T111 not found");
+      return MXT_ERROR_OBJECT_NOT_FOUND;
     }
 
+    ctx->passes = ctx->t111_instances;
+    ctx->y_size = id->matrix_y_size;
+    ctx->x_size = id->matrix_x_size;
     ctx->data_values = ctx->y_size * ((ctx->x_size > ctx->y_size) ? 3 : 2);
     ctx->pages_per_pass = (ctx->data_values*2 +(ctx->page_size - 1)) /
                  ctx->page_size;
@@ -491,10 +457,6 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
   }
 
   return MXT_SUCCESS;
-
-self_cap_unsupported:
-  mxt_err(ctx->lc, "Self cap data not available");
-  return MXT_ERROR_NOT_SUPPORTED;
 }
 
 //******************************************************************************
