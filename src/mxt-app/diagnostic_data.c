@@ -49,6 +49,15 @@
 #define MAX_FILENAME_LENGTH     255
 
 //******************************************************************************
+/// \brief T37 Diagnostic Data object
+struct t37_diagnostic_data
+{
+  uint8_t mode;
+  uint8_t page;
+  uint8_t data[];
+};
+
+//******************************************************************************
 /// \brief Retrieve and store object information for debug data operation
 /// \return #mxt_rc
 static int get_objects_addr(struct t37_ctx *ctx)
@@ -84,12 +93,10 @@ static int mxt_debug_dump_page(struct t37_ctx *ctx)
   int failures;
   int ret;
   uint8_t read_command = 1;
-  uint8_t read_mode;
-  uint8_t read_page;
   uint8_t page_up_cmd = PAGE_UP;
 
-  if (ctx->page == 0) {
-    mxt_verb(ctx->lc, "Writing mode command");
+  if (ctx->pass == 0 && ctx->page == 0) {
+    mxt_dbg(ctx->lc, "Writing mode command %02X", ctx->mode);
     ret = mxt_write_register(ctx->mxt, &ctx->mode, ctx->diag_cmd_addr, 1);
     if (ret)
       return ret;
@@ -120,28 +127,21 @@ static int mxt_debug_dump_page(struct t37_ctx *ctx)
     }
   }
 
-  ret = mxt_read_register(ctx->mxt, &read_mode, ctx->t37_addr, 1);
-  if (ret) {
-    mxt_err(ctx->lc, "Failed to read current mode");
-    return ret;
-  }
-
-  ret = mxt_read_register(ctx->mxt, &read_page, ctx->t37_addr + 1, 1);
-  if (ret) {
-    mxt_err(ctx->lc, "Failed to read page number");
-    return ret;
-  }
-
-  if ((read_mode != ctx->mode) || (read_page != ctx->page)) {
-    mxt_err(ctx->lc, "Bad page/mode in diagnostic data read");
-    return MXT_ERROR_UNEXPECTED_DEVICE_STATE;
-  }
-
-  ret = mxt_read_register(ctx->mxt, ctx->page_buf,
-                          ctx->t37_addr + 2, ctx->page_size);
+  ret = mxt_read_register(ctx->mxt, (uint8_t *)ctx->page_buf,
+                          ctx->t37_addr, ctx->t37_size);
   if (ret) {
     mxt_err(ctx->lc, "Failed to read page");
     return ret;
+  }
+
+  if (ctx->page_buf->mode != ctx->mode) {
+    mxt_err(ctx->lc, "Bad mode in diagnostic data read");
+    return MXT_ERROR_UNEXPECTED_DEVICE_STATE;
+  }
+
+  if (ctx->page_buf->page != (ctx->pages * ctx->pass + ctx->page)) {
+    mxt_err(ctx->lc, "Bad page in diagnostic data read");
+    return MXT_ERROR_UNEXPECTED_DEVICE_STATE;
   }
 
   return MXT_SUCCESS;
@@ -235,16 +235,20 @@ static int mxt_debug_insert_data_self_cap(struct t37_ctx *ctx)
 {
   int i;
   int ofs;
+  int pass_ofs = (ctx->y_size + ctx->x_size) * ctx->pass;
+  uint16_t val;
 
   for (i = 0; i < ctx->page_size; i += 2) {
     int data_pos = ctx->page * ctx->page_size/2 + i/2;
 
-    if (data_pos > ctx->num_data_values)
+    ofs = pass_ofs + data_pos;
+
+    if (ofs > ctx->num_data_values)
       return MXT_SUCCESS;
 
-    ofs = data_pos;
+    val = (ctx->page_buf->data[i+1] << 8) | ctx->page_buf->data[i];
 
-    ctx->data_buf[ofs] = (ctx->page_buf[i+1] << 8) | ctx->page_buf[i];
+    ctx->data_buf[ofs] = val;
   }
 
   return MXT_SUCCESS;
@@ -265,7 +269,7 @@ static int mxt_debug_insert_data(struct t37_ctx *ctx)
       return MXT_INTERNAL_ERROR;
     }
 
-    value = (ctx->page_buf[i+1] << 8) | ctx->page_buf[i];
+    value = (ctx->page_buf->data[i+1] << 8) | ctx->page_buf->data[i];
 
     ofs = ctx->y_ptr + ctx->x_ptr * ctx->y_size;
 
@@ -469,7 +473,7 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
   mxt_dbg(ctx->lc, "Number of values: %d", ctx->num_data_values);
 
   /* allocate page/data buffers */
-  ctx->page_buf = (uint8_t *)calloc(ctx->page_size, sizeof(uint8_t));
+  ctx->page_buf = (struct t37_diagnostic_data *)calloc(1, ctx->t37_size);
   if (!ctx->page_buf) {
     mxt_err(ctx->lc, "calloc failure");
     return MXT_ERROR_NO_MEM;
@@ -483,8 +487,6 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
     return MXT_ERROR_NO_MEM;
   }
 
-  memset(ctx->data_buf, 0, ctx->num_data_values * sizeof(uint16_t));
-
   return MXT_SUCCESS;
 
 self_cap_unsupported:
@@ -497,7 +499,6 @@ self_cap_unsupported:
 /// \return #mxt_rc
 int mxt_debug_dump_frame(struct t37_ctx* ctx)
 {
-  int page;
   int ret;
 
   /* iterate through stripes */
@@ -513,9 +514,7 @@ int mxt_debug_dump_frame(struct t37_ctx* ctx)
       ctx->y_ptr = 0;
     }
 
-    for (page = 0; page < ctx->pages; page++) {
-      ctx->page = ctx->pages * ctx->pass + page;
-
+    for (ctx->page = 0; ctx->page < ctx->pages; ctx->page++) {
       mxt_dbg(ctx->lc, "Frame %d Pass %d Page %d", ctx->frame, ctx->pass,
               ctx->page);
 

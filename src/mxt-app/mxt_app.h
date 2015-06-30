@@ -91,6 +91,8 @@ typedef enum mxt_app_cmd_t {
 /// \brief Signal handler semaphore
 volatile sig_atomic_t mxt_sigint_rx;
 
+struct t37_diagnostic_data;
+
 //******************************************************************************
 /// \brief T37 Diagnostic Data context object
 struct t37_ctx {
@@ -122,7 +124,7 @@ struct t37_ctx {
   int x_ptr;
   int y_ptr;
 
-  uint8_t *page_buf;
+  struct t37_diagnostic_data *page_buf;
   uint16_t *data_buf;
 
   FILE *hawkeye;
