@@ -194,6 +194,7 @@ static int scan_driver_directory(struct libmaxtouch_ctx *ctx,
   struct dirent *pEntry;
   int adapter;
   unsigned int address;
+  unsigned char acpi[PATH_MAX];
   int ret;
 
   length = strlen(path) + strlen(dir->d_name) + 1;
@@ -218,7 +219,10 @@ static int scan_driver_directory(struct libmaxtouch_ctx *ctx,
     if (sscanf(pEntry->d_name, "%d-%x", &adapter, &address) == 2) {
       ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname);
 
-      // If found or error finish
+      if (ret != MXT_ERROR_NO_DEVICE) goto close;
+    } else if (sscanf(pEntry->d_name, "i2c-%s", acpi) == 1) {
+      ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname);
+
       if (ret != MXT_ERROR_NO_DEVICE) goto close;
     }
   }
