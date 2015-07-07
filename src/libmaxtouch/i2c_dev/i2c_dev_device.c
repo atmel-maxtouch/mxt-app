@@ -103,8 +103,6 @@ int i2c_dev_read_register(struct mxt_device *mxt, unsigned char *buf, int start_
   int ret;
   char register_buf[2];
 
-  mxt_dbg(mxt->ctx, "start_register:%d count:%d", start_register, count);
-
   ret = open_and_set_slave_address(mxt, &fd);
   if (ret)
     return ret;

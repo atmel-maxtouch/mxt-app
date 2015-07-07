@@ -290,6 +290,9 @@ int mxt_read_register(struct mxt_device *mxt, uint8_t *buf,
 {
   int ret;
 
+  mxt_verb(mxt->ctx, "%s start_register:%d count:%d", __func__,
+           start_register, count);
+
   switch (mxt->conn->type) {
   case E_SYSFS:
     ret = sysfs_read_register(mxt, buf, start_register, count);
@@ -327,6 +330,9 @@ int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf,
                        int start_register, int count)
 {
   int ret;
+
+  mxt_verb(mxt->ctx, "%s start_register:%d count:%d", __func__,
+           start_register, count);
 
   switch (mxt->conn->type) {
   case E_SYSFS:
