@@ -90,7 +90,7 @@ int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn,
   int ret;
 
   ctx->query = query;
-  ctx->query_found_device = false;
+  ctx->scan_count = 0;
 
   /* Scan the I2C bus first because it will return quicker */
   ret = sysfs_scan(ctx, conn);
@@ -105,7 +105,7 @@ int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn,
     /* Clear query flag in case of context re-use */
     ctx->query = false;
 
-    if (ctx->query_found_device) {
+    if (ctx->scan_count) {
       return MXT_SUCCESS;
     }
   }

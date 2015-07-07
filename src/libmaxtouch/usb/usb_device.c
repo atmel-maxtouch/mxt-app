@@ -787,12 +787,12 @@ int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
       usb_bus = libusb_get_bus_number(devs[i]);
       usb_device = libusb_get_device_address(devs[i]);
 
+      ctx->scan_count++;
+
       if (ctx->query) {
         printf("usb:%03u-%03u Atmel %04X:%04X\n",
                usb_bus, usb_device,
                desc.idVendor, desc.idProduct);
-
-        ctx->query_found_device = true;
       } else {
         struct mxt_conn_info *new_conn;
         ret = mxt_new_conn(&new_conn, E_USB);

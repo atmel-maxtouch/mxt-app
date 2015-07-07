@@ -157,11 +157,11 @@ static int scan_sysfs_directory(struct libmaxtouch_ctx *ctx,
 
   /* If device found, store it and return success */
   if (mem_access_found && (debug_found || debug_v2_found)) {
+    ctx->scan_count++;
+
     if (ctx->query) {
       printf("sysfs:%s Atmel %s interface\n", pszDirname,
              debug_v2_found ? "Debug V2" : "Debug");
-
-      ctx->query_found_device = true;
     } else {
       ret = sysfs_new_connection(ctx, conn, pszDirname);
       mxt_dbg(ctx, "Found %s", pszDirname);
