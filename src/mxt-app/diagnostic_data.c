@@ -50,8 +50,7 @@
 
 //******************************************************************************
 /// \brief T37 Diagnostic Data object
-struct t37_diagnostic_data
-{
+struct t37_diagnostic_data {
   uint8_t mode;
   uint8_t page;
   uint8_t data[];
@@ -306,7 +305,7 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
   int y;
   int pass;
   int ofs;
-  int16_t value;
+  int32_t value;
   int ret;
 
   ret = mxt_print_timestamp(ctx->hawkeye, false);
@@ -319,20 +318,21 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
     return MXT_ERROR_IO;
 
   if (ctx->self_cap) {
-    for (pass = 0; pass < ctx->passes; pass++)
-    {
+    for (pass = 0; pass < ctx->passes; pass++) {
       int pass_ofs = (ctx->y_size + ctx->x_size) * pass;
 
       for (y = 0; y < ctx->y_size; y++) {
         value = (int16_t)ctx->data_buf[pass_ofs + y];
-        ret = fprintf(ctx->hawkeye, "%d,", value);
+        ret = fprintf(ctx->hawkeye, "%d,",
+                      (ctx->mode == SELF_CAP_DELTAS) ? (int16_t)value : value);
         if (ret < 0)
           return MXT_ERROR_IO;
       }
 
       for (x = 0; x < ctx->x_size; x++) {
         value = (int16_t)ctx->data_buf[pass_ofs + ctx->y_size + x];
-        ret = fprintf(ctx->hawkeye, "%d,", value);
+        ret = fprintf(ctx->hawkeye, "%d,",
+                      (ctx->mode == SELF_CAP_DELTAS) ? (int16_t)value : value);
         if (ret < 0)
           return MXT_ERROR_IO;
       }
@@ -343,9 +343,10 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
       for (y = 0; y < ctx->y_size; y++) {
         ofs = y + x * ctx->y_size;
 
-        value = (int16_t)ctx->data_buf[ofs];
+        value = ctx->data_buf[ofs];
 
-        ret = fprintf(ctx->hawkeye, "%d,", value);
+        ret = fprintf(ctx->hawkeye, "%d,",
+                      (ctx->mode == DELTAS_MODE) ? (int16_t)value : value);
         if (ret < 0)
           return MXT_ERROR_IO;
       }
@@ -410,7 +411,7 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
       ctx->data_values = ctx->x_size * ctx->y_size;
       ctx->passes = 1;
       ctx->pages_per_pass = (ctx->data_values*2 + (ctx->page_size - 1)) /
-                   ctx->page_size;
+                            ctx->page_size;
     }
 
     ctx->stripe_width = ctx->y_size / ctx->passes;
