@@ -100,7 +100,7 @@ done
 
 # Generate HTML documentation
 pandoc --smart \
-  --css=../github-pandoc.css \
+  --css=github-pandoc.css \
   --self-contained \
   -t html -o $OUTDIR/README.html \
   -V title="mxt-app v$VERSION user manual" \
