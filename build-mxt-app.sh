@@ -17,7 +17,7 @@ then
 fi
 
 VERSION=$(build-aux/version.sh)
-OUTDIR=../mxt-app-$VERSION
+OUTDIR=mxt-app-$VERSION
 
 rm -rf $OUTDIR
 mkdir $OUTDIR
