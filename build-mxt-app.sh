@@ -3,9 +3,6 @@
 set -e
 set -x
 
-TIMESTAMP=$(date +"%s")
-TAG=${1:-origin/master}
-
 if [ "$1" == "master" ]
 then
   git clean -xfd
