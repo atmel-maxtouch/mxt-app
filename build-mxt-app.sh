@@ -90,8 +90,8 @@ do
     git clean -xfd
     ./autogen.sh $AUTOGEN_OPTIONS
     make DESTDIR=`pwd`/out CFLAGS="$CFLAGS $EXTRA_CFLAGS" $LDFLAGS $TARGET
-    mkdir -p -v $OUTDIR/chromebook-$ARCH
-    cp -v out/usr/local/bin/mxt-app $OUTDIR/chromebook-$ARCH/$BINARY_NAME
+    mkdir -p -v $OUTDIR/gnueabi/$ARCH
+    cp -v out/usr/local/bin/mxt-app $OUTDIR/gnueabi/$ARCH/$BINARY_NAME
   done
 done
 
