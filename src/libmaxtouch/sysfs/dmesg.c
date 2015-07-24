@@ -167,7 +167,7 @@ int dmesg_get_msgs(struct mxt_device *mxt, int *count, bool init_timestamp)
           lastmsec = msec;
         }
 
-	// Only 500 at a time, otherwise we overrun JNI reference limit.
+        // Only 500 at a time, otherwise we overrun JNI reference limit.
         // Timestamp must be greater than previous messages, slightly
         // complicated by seconds and microseconds
         if ((mxt->sysfs.dmesg_count > MAX_DMESG_COUNT) ||

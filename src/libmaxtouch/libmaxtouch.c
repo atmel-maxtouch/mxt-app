@@ -132,8 +132,7 @@ int mxt_new_conn(struct mxt_conn_info **conn, enum mxt_device_type type)
 
 //******************************************************************************
 /// \brief Take a reference to the connection object
-struct mxt_conn_info *mxt_ref_conn(struct mxt_conn_info *conn)
-{
+struct mxt_conn_info *mxt_ref_conn(struct mxt_conn_info *conn) {
   if (conn == NULL)
     return NULL;
 
@@ -143,8 +142,7 @@ struct mxt_conn_info *mxt_ref_conn(struct mxt_conn_info *conn)
 
 //******************************************************************************
 /// \brief Free connection object
-struct mxt_conn_info *mxt_unref_conn(struct mxt_conn_info *conn)
-{
+struct mxt_conn_info *mxt_unref_conn(struct mxt_conn_info *conn) {
   if (conn == NULL)
     return NULL;
 
