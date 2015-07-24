@@ -159,30 +159,30 @@ int dmesg_get_msgs(struct mxt_device *mxt, int *count, bool init_timestamp)
           mxt->sysfs.mtimestamp = msec;
           mxt_verb(mxt->ctx, "%s - init [%5lu.%06lu]", __func__, sec, msec);
           break;
-        } else if (lastsec == 0) {
+        }
+
+        // Store time of last message in buffer
+        if (lastsec == 0) {
           lastsec = sec;
           lastmsec = msec;
-        } else {
-          // Timestamp must be greater than previous messages, slightly
-          // complicated by seconds and microseconds
-          if ((mxt->sysfs.dmesg_count > MAX_DMESG_COUNT) || (sec < mxt->sysfs.timestamp) ||
-              ((sec == mxt->sysfs.timestamp) && (msec == mxt->sysfs.mtimestamp))) {
-            mxt->sysfs.timestamp = lastsec;
-            mxt->sysfs.mtimestamp = lastmsec;
-            break;
-          }
-
-          char* msgptr;
-          msg[sizeof(msg) - 1] = '\0';
-          msgptr = strstr(msg, "MXT MSG");
-          if (msgptr) {
-            dmesg_list_add(mxt, sec, msec, msgptr);
-
-            // Only 500 at a time, otherwise we overrun JNI reference limit.
-            if (mxt->sysfs.dmesg_count > MAX_DMESG_COUNT)
-              break;
-          }
         }
+
+	// Only 500 at a time, otherwise we overrun JNI reference limit.
+        // Timestamp must be greater than previous messages, slightly
+        // complicated by seconds and microseconds
+        if ((mxt->sysfs.dmesg_count > MAX_DMESG_COUNT) ||
+            (sec == mxt->sysfs.timestamp && msec <= mxt->sysfs.mtimestamp) ||
+            (sec < mxt->sysfs.timestamp)) {
+          mxt->sysfs.timestamp = lastsec;
+          mxt->sysfs.mtimestamp = lastmsec;
+          break;
+        }
+
+        char* msgptr;
+        msg[sizeof(msg) - 1] = '\0';
+        msgptr = strstr(msg, "MXT MSG");
+        if (msgptr)
+          dmesg_list_add(mxt, sec, msec, msgptr);
       }
     }
 
