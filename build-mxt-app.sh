@@ -3,9 +3,6 @@
 set -e
 set -x
 
-TIMESTAMP=$(date +"%s")
-TAG=${1:-origin/master}
-
 if [ "$1" == "master" ]
 then
   git clean -xfd
@@ -57,7 +54,7 @@ do
         ;;
     esac
 
-    git clean -xfd
+    ndk-build clean
     ndk-build -B NDK_DEBUG=$DEBUG APP_PLATFORM=$APP_PLATFORM
 
     for ARCH in $(ls libs)
@@ -90,11 +87,11 @@ do
     esac
 
     # Build and copy binaries using autotool toolchain
-    git clean -xfd
     ./autogen.sh $AUTOGEN_OPTIONS
+    make clean
     make DESTDIR=`pwd`/out CFLAGS="$CFLAGS $EXTRA_CFLAGS" $LDFLAGS $TARGET
-    mkdir -p -v $OUTDIR/chromebook-$ARCH
-    cp -v out/usr/local/bin/mxt-app $OUTDIR/chromebook-$ARCH/$BINARY_NAME
+    mkdir -p -v $OUTDIR/gnueabi/$ARCH
+    cp -v out/usr/local/bin/mxt-app $OUTDIR/gnueabi/$ARCH/$BINARY_NAME
   done
 done
 
