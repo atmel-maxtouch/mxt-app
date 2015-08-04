@@ -47,6 +47,8 @@ struct mxt_conn_info;
 /* Deep sleep retry delay 25 ms */
 #define I2C_RETRY_DELAY 25000
 
+#define I2C_DEV_MAX_BLOCK 255
+
 //******************************************************************************
 /// \brief  Register i2c-dev device
 /// \return #mxt_rc
@@ -97,11 +99,15 @@ static int open_and_set_slave_address(struct mxt_device *mxt, int *fd_out)
 //******************************************************************************
 /// \brief  Read register from MXT chip
 /// \return #mxt_rc
-int i2c_dev_read_register(struct mxt_device *mxt, unsigned char *buf, int start_register, int count)
+int i2c_dev_read_register(struct mxt_device *mxt, unsigned char *buf,
+                          int start_register, size_t count, size_t *bytes_read)
 {
   int fd = -ENODEV;
   int ret;
   char register_buf[2];
+
+  if (count > I2C_DEV_MAX_BLOCK)
+    count = I2C_DEV_MAX_BLOCK;
 
   ret = open_and_set_slave_address(mxt, &fd);
   if (ret)
@@ -120,10 +126,18 @@ int i2c_dev_read_register(struct mxt_device *mxt, unsigned char *buf, int start_
     }
   }
 
-  if (read(fd, buf, count) != count) {
+  ssize_t read_rc;
+  read_rc = read(fd, buf, count);
+  if (read_rc < 0) {
     mxt_err(mxt->ctx, "Error %s (%d) reading from i2c", strerror(errno), errno);
     ret = mxt_errno_to_rc(errno);
+    goto close;
+  } else if (read_rc == 0) {
+    /* end of file */
+    ret = MXT_ERROR_IO;
+    goto close;
   } else {
+    *bytes_read = (size_t)read_rc;
     ret = MXT_SUCCESS;
   }
 
@@ -135,7 +149,8 @@ close:
 //******************************************************************************
 /// \brief  Write register to MXT chip
 /// \return #mxt_rc
-int i2c_dev_write_register(struct mxt_device *mxt, unsigned char const *val, int start_register, int datalength)
+int i2c_dev_write_register(struct mxt_device *mxt, unsigned char const *val,
+                           int start_register, size_t datalength)
 {
   int fd = -ENODEV;
   int count;

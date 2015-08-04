@@ -166,19 +166,21 @@ static int hidraw_write_read_cmd(struct mxt_device *mxt, uint16_t start_register
 //******************************************************************************
 /// \brief  Read packet from MXT chip
 /// \return #mxt_rc
-static int hidraw_read_response(struct mxt_device *mxt, struct hid_packet *read_pkt, int count)
+static int hidraw_read_response(struct mxt_device *mxt, struct hid_packet *read_pkt,
+                                size_t count)
 {
-  int ret = 0;
-  int t_count = 0;
+  ssize_t ret = 0;
+  size_t t_count = 0;
   int timeout = 0;
 
   do {
-    if ((ret = read(mxt->conn->hidraw.fd, read_pkt + t_count, count)) != count) {
+    ret = read(mxt->conn->hidraw.fd, read_pkt + t_count, count);
+    if ((size_t)ret != count) {
       mxt_dbg(mxt->ctx, "Error %s (%d) reading from hidraw",
               strerror(errno), errno);
       ret = mxt_errno_to_rc(errno);
     } else {
-      t_count += ret;
+      t_count += (size_t)ret;
     }
     usleep(HIDRAW_READ_RETRY_DELAY_US);
   } while (timeout++ <= HIDRAW_TIMEOUT_DELAY_US && t_count != count);
@@ -193,7 +195,8 @@ static int hidraw_read_response(struct mxt_device *mxt, struct hid_packet *read_
 //******************************************************************************
 /// \brief  Read packet from MXT chip
 /// \return #mxt_rc
-static int hidraw_read_packet(struct mxt_device *mxt, struct hid_packet *read_pkt, uint16_t start_register, int count)
+static int hidraw_read_packet(struct mxt_device *mxt, struct hid_packet *read_pkt,
+                              uint16_t start_register, size_t count)
 {
   int pkt_count = count + 3;
   int ret = 0;
@@ -213,7 +216,9 @@ static int hidraw_read_packet(struct mxt_device *mxt, struct hid_packet *read_pk
 //******************************************************************************
 /// \brief  Read register from MXT chip
 /// \return #mxt_rc
-int hidraw_read_register(struct mxt_device *mxt, unsigned char *buf, uint16_t start_register, int count)
+int hidraw_read_register(struct mxt_device *mxt, unsigned char *buf,
+                         uint16_t start_register, size_t count,
+                         size_t *bytes_transferred)
 {
 
   int ret;
@@ -226,7 +231,7 @@ int hidraw_read_register(struct mxt_device *mxt, unsigned char *buf, uint16_t st
   if (ret)
     return ret;
 
-  int bytes_read = 0;
+  size_t bytes_read = 0;
   while (bytes_read < count) {
     ret = hidraw_read_packet(mxt, &read_pkt,
                              start_register + bytes_read,
@@ -240,6 +245,8 @@ int hidraw_read_register(struct mxt_device *mxt, unsigned char *buf, uint16_t st
 
     bytes_read += ret;
   }
+
+  *bytes_transferred = bytes_read;
 
   close(mxt->conn->hidraw.fd);
   mxt->conn->hidraw.fd = 0;

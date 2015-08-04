@@ -355,11 +355,11 @@ static int open_device_file(struct mxt_device *mxt, int *fd_out)
 //******************************************************************************
 /// \brief  Read register from MXT chip
 /// \return #mxt_rc
-int sysfs_read_register(struct mxt_device *mxt, unsigned char *buf, int start_register, int count)
+int sysfs_read_register(struct mxt_device *mxt, unsigned char *buf,
+                        int start_register, size_t count, size_t *bytes_read)
 {
   int fd = -ENODEV;
   int ret;
-  int bytes_read;
 
   ret = open_device_file(mxt, &fd);
   if (ret)
@@ -371,16 +371,16 @@ int sysfs_read_register(struct mxt_device *mxt, unsigned char *buf, int start_re
     goto close;
   }
 
-  bytes_read = 0;
-  while (bytes_read < count) {
-    ret = read(fd, buf + bytes_read, count - bytes_read);
+  *bytes_read = 0;
+  while (*bytes_read < count) {
+    ret = read(fd, buf + *bytes_read, count - *bytes_read);
     if (ret < 0) {
       mxt_err(mxt->ctx, "read error %s (%d)", strerror(errno), errno);
       ret = mxt_errno_to_rc(errno);
       goto close;
     }
 
-    bytes_read += ret;
+    *bytes_read += ret;
   }
 
   ret = MXT_SUCCESS;
@@ -393,11 +393,12 @@ close:
 //******************************************************************************
 /// \brief  Write register to MXT chip
 /// \return #mxt_rc
-int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf, int start_register, int count)
+int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf,
+                         int start_register, size_t count)
 {
   int fd = -ENODEV;
   int ret;
-  int bytes_written;
+  size_t bytes_written;
 
   ret = open_device_file(mxt, &fd);
   if (ret)
