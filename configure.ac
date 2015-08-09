@@ -4,7 +4,7 @@
 AC_PREREQ([2.63])
 AC_INIT([mxt-app], m4_esyscmd([tr -d '\n' < VERSION]),
         [nick.dyer@itdev.co.uk])
-AM_INIT_AUTOMAKE([foreign subdir-objects])
+AM_INIT_AUTOMAKE([foreign subdir-objects -Wall])
 AC_CONFIG_SRCDIR([src/libmaxtouch/libmaxtouch.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
