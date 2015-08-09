@@ -1,3 +1,5 @@
+ACLOCAL_AMFLAGS = -I m4
+
 EXTRA_DIST = autogen.sh
 
 GIT_VERSION := $(shell $(top_srcdir)/build-aux/version.sh)
