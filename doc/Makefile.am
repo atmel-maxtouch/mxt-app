@@ -11,6 +11,5 @@ doxygen.cfg: $(srcdir)/doxygen.cfg.in
 doxygen: doxygen.cfg
 	doxygen doxygen.cfg 1>doxygen.log
 
-clean: clean-local
 clean-local:
 	-rm -Rf html
