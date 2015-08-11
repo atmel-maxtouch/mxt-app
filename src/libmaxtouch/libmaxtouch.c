@@ -326,7 +326,7 @@ int mxt_read_register(struct mxt_device *mxt, uint8_t *buf,
   size_t received;
   size_t off = 0;
 
-  mxt_verb(mxt->ctx, "%s start_register:%d count:%d", __func__,
+  mxt_verb(mxt->ctx, "%s start_register:%d count:%zu", __func__,
            start_register, count);
 
   while (off < count) {
@@ -351,7 +351,7 @@ int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf,
 {
   int ret;
 
-  mxt_verb(mxt->ctx, "%s start_register:%d count:%d", __func__,
+  mxt_verb(mxt->ctx, "%s start_register:%d count:%zu", __func__,
            start_register, count);
 
   switch (mxt->conn->type) {

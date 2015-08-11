@@ -185,7 +185,7 @@ static int hidraw_read_response(struct mxt_device *mxt, struct hid_packet *read_
     usleep(HIDRAW_READ_RETRY_DELAY_US);
   } while (timeout++ <= HIDRAW_TIMEOUT_DELAY_US && t_count != count);
 
-  mxt_dbg(mxt->ctx, "No. bytes requested: %d, No. of bytes read: %d",
+  mxt_dbg(mxt->ctx, "No. bytes requested: %zu, No. of bytes read: %zu",
           count, t_count);
   mxt_log_buffer(mxt->ctx, LOG_VERBOSE, "RD PKT RX:",
                  (const unsigned char *) read_pkt, count);
@@ -224,7 +224,7 @@ int hidraw_read_register(struct mxt_device *mxt, unsigned char *buf,
   int ret;
   struct hid_packet read_pkt = { 0 };
 
-  mxt_dbg(mxt->ctx, "%s - start_register:%d No. bytes requested:%d",
+  mxt_dbg(mxt->ctx, "%s - start_register:%d No. bytes requested:%zu",
           __func__, start_register, count);
 
   ret = hidraw_open(mxt);
