@@ -283,31 +283,29 @@ void mxt_free_device(struct mxt_device *mxt)
 //******************************************************************************
 /// \brief  Read register from MXT chip
 /// \return #mxt_rc
-int mxt_read_register(struct mxt_device *mxt, uint8_t *buf,
-                      int start_register, int count)
+static int mxt_read_register_block(struct mxt_device *mxt, uint8_t *buf,
+                                   int start_register, int count,
+                                   size_t *bytes)
 {
   int ret;
 
-  mxt_verb(mxt->ctx, "%s start_register:%d count:%d", __func__,
-           start_register, count);
-
   switch (mxt->conn->type) {
   case E_SYSFS:
-    ret = sysfs_read_register(mxt, buf, start_register, count);
+    ret = sysfs_read_register(mxt, buf, start_register, count, bytes);
     break;
 
   case E_I2C_DEV:
-    ret = i2c_dev_read_register(mxt, buf, start_register, count);
+    ret = i2c_dev_read_register(mxt, buf, start_register, count, bytes);
     break;
 
 #ifdef HAVE_LIBUSB
   case E_USB:
-    ret = usb_read_register(mxt, buf, start_register, count);
+    ret = usb_read_register(mxt, buf, start_register, count, bytes);
     break;
 #endif /* HAVE_LIBUSB */
 
   case E_HIDRAW:
-    ret = hidraw_read_register(mxt, buf, start_register, count);
+    ret = hidraw_read_register(mxt, buf, start_register, count, bytes);
     break;
 
   default:
@@ -315,17 +313,41 @@ int mxt_read_register(struct mxt_device *mxt, uint8_t *buf,
     ret = MXT_ERROR_NOT_SUPPORTED;
   }
 
-  if (ret == MXT_SUCCESS)
-    mxt_log_buffer(mxt->ctx, LOG_VERBOSE, "RX:", buf, count);
-
   return ret;
+}
+
+//******************************************************************************
+/// \brief  Read registers from MXT chip, in blocks
+/// \return #mxt_rc
+int mxt_read_register(struct mxt_device *mxt, uint8_t *buf,
+                      int start_register, size_t count)
+{
+  int ret;
+  size_t received;
+  size_t off = 0;
+
+  mxt_verb(mxt->ctx, "%s start_register:%d count:%d", __func__,
+           start_register, count);
+
+  while (off < count) {
+    ret = mxt_read_register_block(mxt, buf + off, start_register + off,
+                                  count - off, &received);
+    if (ret)
+      return ret;
+
+    off += received;
+  }
+
+  mxt_log_buffer(mxt->ctx, LOG_VERBOSE, "RX:", buf, count);
+
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
 /// \brief  Write register to MXT chip
 /// \return #mxt_rc
 int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf,
-                       int start_register, int count)
+                       int start_register, size_t count)
 {
   int ret;
 

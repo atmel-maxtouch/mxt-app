@@ -204,11 +204,11 @@ static int usb_transfer(struct mxt_device *mxt, void *cmd, int cmd_size,
 }
 
 //******************************************************************************
-/// \brief  Read a packet of data from the MXT chip
+/// \brief  Read register from MXT chip
 /// \return #mxt_rc
-static int read_data(struct mxt_device *mxt, unsigned char *buf,
-                     uint16_t start_register, size_t count,
-                     int *bytes_transferred)
+int usb_read_register(struct mxt_device *mxt, unsigned char *buf,
+                      uint16_t start_register, size_t count,
+                      size_t *bytes_transferred)
 {
   unsigned char pkt[mxt->usb.ep1_in_max_packet_size];
   size_t cmd_size;
@@ -1018,28 +1018,6 @@ retry:
   if (ret) {
     mxt_err(mxt->ctx, "Failed to re-connect to chip after reset");
     return ret;
-  }
-
-  return MXT_SUCCESS;
-}
-
-//******************************************************************************
-/// \brief  Read register from MXT chip
-/// \return #mxt_rc
-int usb_read_register(struct mxt_device *mxt, unsigned char *buf,
-                      uint16_t start_register, size_t count)
-{
-  int ret;
-  int received;
-  size_t off = 0;
-
-  while (off < count) {
-    ret = read_data(mxt, buf + off, start_register + off,
-                    count - off, &received);
-    if (ret)
-      return ret;
-
-    off += received;
   }
 
   return MXT_SUCCESS;

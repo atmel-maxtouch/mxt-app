@@ -191,8 +191,8 @@ int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn, stru
 void mxt_set_log_fn(struct libmaxtouch_ctx *ctx, void (*log_fn)(struct libmaxtouch_ctx *ctx, enum mxt_log_level level, const char *format, va_list args));
 void mxt_free_device(struct mxt_device *mxt);
 int mxt_get_info(struct mxt_device *mxt);
-int mxt_read_register(struct mxt_device *mxt, uint8_t *buf, int start_register, int count);
-int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf, int start_register, int count);
+int mxt_read_register(struct mxt_device *mxt, uint8_t *buf, int start_register, size_t count);
+int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf, int start_register, size_t count);
 int mxt_set_debug(struct mxt_device *mxt, bool debug_state);
 int mxt_get_debug(struct mxt_device *mxt, bool *value);
 int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode);

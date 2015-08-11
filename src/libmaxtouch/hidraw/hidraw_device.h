@@ -41,6 +41,6 @@ struct hidraw_conn_info
 
 int hidraw_register(struct mxt_device *mxt);
 int hidraw_read(struct mxt_device *mxt);
-int hidraw_read_register(struct mxt_device *mxt, unsigned char *buf, uint16_t start_register, int count);
+int hidraw_read_register(struct mxt_device *mxt, unsigned char *buf, uint16_t start_register, size_t count, size_t *bytes_transferred);
 int hidraw_write_register(struct mxt_device *mxt, unsigned char const *val, uint16_t start_register, int datalength);
 void hidraw_release(struct mxt_device *mxt);
