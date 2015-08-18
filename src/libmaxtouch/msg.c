@@ -170,6 +170,7 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
       return ret;
 
     while (count--) {
+      len = 0;
       ret = mxt_get_msg_bytes(mxt, buf, sizeof(buf), &len);
       if (ret && ret != MXT_ERROR_NO_MESSAGE)
         return ret;
