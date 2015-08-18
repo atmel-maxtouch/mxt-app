@@ -102,6 +102,9 @@ struct mxt_info
 
   /*! Raw info block data */
   uint8_t *raw_info;
+
+  /*! Number of valid report IDs */
+  uint8_t max_report_id;
 };
 
 /*!

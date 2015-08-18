@@ -176,7 +176,7 @@ int mxt_read_info_block(struct mxt_device *mxt)
 int mxt_calc_report_ids(struct mxt_device *mxt)
 {
   /* Report ID zero is reserved - start from one */
-  int num_report_ids = 1;
+  mxt->info.max_report_id = 1;
   int report_id_count = 1;
 
   int i;
@@ -188,11 +188,12 @@ int mxt_calc_report_ids(struct mxt_device *mxt)
   /* Calculate the number of report IDs */
   for (i = 0; i < mxt->info.id->num_objects; i++) {
     obj = mxt->info.objects[i];
-    num_report_ids += MXT_INSTANCES(obj) * obj.num_report_ids;
+    mxt->info.max_report_id += MXT_INSTANCES(obj) * obj.num_report_ids;
   }
 
   /* Allocate memory for report ID look-up table */
-  mxt->report_id_map = calloc(num_report_ids, sizeof(struct mxt_report_id_map));
+  mxt->report_id_map = calloc(mxt->info.max_report_id,
+                              sizeof(struct mxt_report_id_map));
   if (mxt->report_id_map == NULL) {
     mxt_err(mxt->ctx, "calloc failure");
     return MXT_ERROR_NO_MEM;
@@ -379,9 +380,12 @@ uint16_t mxt_get_start_position(struct mxt_object obj, uint8_t instance)
  * @brief  Look up object type from report ID
  * @param  mxt Maxtouch Device
  * @param  report_id Report ID
- * @return Object type number
+ * @return Object type number, or OBJECT_NOT_FOUND
  */
 uint16_t mxt_report_id_to_type(struct mxt_device *mxt, int report_id)
 {
+  if (report_id > mxt->info.max_report_id)
+    return OBJECT_NOT_FOUND;
+
   return (mxt->report_id_map[report_id].object_type);
 }
