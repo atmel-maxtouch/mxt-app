@@ -374,7 +374,10 @@ int sysfs_read_register(struct mxt_device *mxt, unsigned char *buf,
   *bytes_read = 0;
   while (*bytes_read < count) {
     ret = read(fd, buf + *bytes_read, count - *bytes_read);
-    if (ret < 0) {
+    if (ret == 0) {
+      ret = MXT_ERROR_IO;
+      goto close;
+    } else if (ret < 0) {
       mxt_err(mxt->ctx, "read error %s (%d)", strerror(errno), errno);
       ret = mxt_errno_to_rc(errno);
       goto close;
@@ -413,7 +416,10 @@ int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf,
   bytes_written = 0;
   while (bytes_written < count) {
     ret = write(fd, buf+bytes_written, count - bytes_written);
-    if (ret < 0) {
+    if (ret == 0) {
+      ret = MXT_ERROR_IO;
+      goto close;
+    } else if (ret < 0) {
       mxt_err(mxt->ctx, "Error %s (%d) writing to register", strerror(errno), errno);
       ret = mxt_errno_to_rc(errno);
       goto close;
