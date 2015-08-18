@@ -114,6 +114,7 @@ static int print_touch_object_limits(struct mxt_device *mxt, uint16_t t25_addr,
   uint8_t buf[4];
   uint16_t upsiglim;
   uint16_t losiglim;
+  bool enabled;
   int instance;
   int ret;
 
@@ -124,21 +125,26 @@ static int print_touch_object_limits(struct mxt_device *mxt, uint16_t t25_addr,
     if (ret)
       return ret;
 
+    enabled = buf[0] & 0x01;
+
     mxt_info(mxt->ctx, "%s[%d] %s",
              mxt_get_object_name(object_type),
              instance,
-             buf[0] & 0x01 ? "enabled":"disabled");
+             enabled ? "enabled":"disabled");
 
-    ret = mxt_read_register(mxt, (uint8_t *)&buf,
-                            t25_addr + 2 + *touch_object * 4, 4);
-    if (ret)
-      return ret;
 
-    upsiglim = (uint16_t)((buf[1] << 8u) | buf[0]);
-    losiglim = (uint16_t)((buf[3] << 8u) | buf[2]);
+    if (enabled) {
+      ret = mxt_read_register(mxt, (uint8_t *)&buf,
+                              t25_addr + 2 + *touch_object * 4, 4);
+      if (ret)
+        return ret;
 
-    mxt_info(mxt->ctx, "  UPSIGLIM:%d", upsiglim);
-    mxt_info(mxt->ctx, "  LOSIGLIM:%d", losiglim);
+      upsiglim = (uint16_t)((buf[1] << 8u) | buf[0]);
+      losiglim = (uint16_t)((buf[3] << 8u) | buf[2]);
+
+      mxt_info(mxt->ctx, "  UPSIGLIM:%d", upsiglim);
+      mxt_info(mxt->ctx, "  LOSIGLIM:%d", losiglim);
+    }
 
     (*touch_object)++;
   }
@@ -319,9 +325,8 @@ uint8_t self_test_menu(struct mxt_device *mxt)
       break;
     }
 
-    if (cmd > 0) {
+    if (cmd > 0)
       run_self_tests(mxt, cmd);
-    }
   }
 
   return MXT_SUCCESS;
