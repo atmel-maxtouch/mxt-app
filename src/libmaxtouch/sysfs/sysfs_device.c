@@ -322,7 +322,10 @@ void sysfs_release(struct mxt_device *mxt)
 {
   if (mxt) {
     free(mxt->sysfs.temp_path);
+    mxt->sysfs.temp_path = NULL;
+
     free(mxt->sysfs.debug_v2_msg_buf);
+    mxt->sysfs.debug_v2_msg_buf = NULL;
   }
 }
 
@@ -540,7 +543,7 @@ int sysfs_set_debug(struct mxt_device *mxt, bool debug_state)
         mxt_err(mxt->ctx, "Error allocating memory for debug_msg_buf_size");
         ret = mxt_errno_to_rc(errno);
       }
-    } else if (mxt->sysfs.debug_msg_buf != NULL) {
+    } else if (mxt->sysfs.debug_msg_buf) {
       // Free up the message buffer
       free(mxt->sysfs.debug_msg_buf);
       mxt->sysfs.debug_msg_buf = NULL;
@@ -618,6 +621,7 @@ int sysfs_get_msg_bytes_v2(struct mxt_device *mxt, unsigned char *buf,
 int sysfs_msg_reset_v2(struct mxt_device *mxt)
 {
   free(mxt->sysfs.debug_v2_msg_buf);
+  mxt->sysfs.debug_v2_msg_buf = NULL;
   return 0;
 }
 
@@ -656,7 +660,10 @@ int sysfs_get_msgs_v2(struct mxt_device *mxt, int *count)
 
   mxt->sysfs.debug_v2_size = filestat.st_size;
 
-  free(mxt->sysfs.debug_v2_msg_buf);
+  if (mxt->sysfs.debug_v2_msg_buf) {
+    free(mxt->sysfs.debug_v2_msg_buf);
+    mxt->sysfs.debug_v2_msg_buf = NULL;
+  }
 
   mxt->sysfs.debug_v2_msg_buf = calloc(mxt->sysfs.debug_v2_size, sizeof(uint8_t));
 
