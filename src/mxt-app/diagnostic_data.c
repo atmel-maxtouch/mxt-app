@@ -110,6 +110,7 @@ static int mxt_get_t37_page(struct t37_ctx *ctx)
   failures = 0;
 
   while (read_command) {
+    usleep(500);
     ret = mxt_read_register(ctx->mxt, &read_command, ctx->diag_cmd_addr, 1);
     if (ret) {
       mxt_err(ctx->lc, "Failed to read the status of diagnostic mode command");
