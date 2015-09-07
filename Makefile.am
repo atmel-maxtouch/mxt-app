@@ -67,6 +67,7 @@ mxt_app_SOURCES =\
 	src/mxt-app/self_cap.c \
 	src/mxt-app/signal.c
 
+if ENABLE_MAN
 man1_MANS = man1/mxt-app.1
 
 man1/mxt-app.1: README.md
@@ -76,6 +77,7 @@ man1/mxt-app.1: README.md
 	-V section="1" \
 	-V description="\"mxt-app $(GIT_VERSION)\"" \
 	$(top_srcdir)/README.md -o man1/mxt-app.1
+endif
 
 clean-local:
 	-rm man1/mxt-app.1

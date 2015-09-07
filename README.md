@@ -500,7 +500,11 @@ To cross-compile:
 
 To enable debug:
 
-    ./autogen.sh --enable-debug && make
+    ./autogen.sh --enable-debug
+
+To enable generation of the man page using pandoc:
+
+    ./autogen.sh --enable-man
 
 ## Version numbering
 

@@ -31,6 +31,13 @@ esac],
 
 AM_CONDITIONAL(DEBUG, test x"$debug" = x"true")
 
+# Handle generation of man page
+AC_ARG_ENABLE(man,
+AS_HELP_STRING([--enable-man],
+               [generate the man page, default: no]),
+               enable_man=true, enable_man=false)
+AM_CONDITIONAL(ENABLE_MAN, test x"$enable_man" = x"true")
+
 # Checks for header files.
 AC_HEADER_STDBOOL
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h netinet/in.h stdint.h stdlib.h])
