@@ -1030,7 +1030,7 @@ int usb_write_register(struct mxt_device *mxt, unsigned char const *buf,
                        uint16_t start_register, size_t count)
 {
   int ret;
-  int sent;
+  int sent = 0;
   size_t off = 0;
 
   while (off < count) {
