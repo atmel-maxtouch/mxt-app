@@ -2,7 +2,7 @@ ACLOCAL_AMFLAGS = -I m4
 
 SUBDIRS = doc
 
-EXTRA_DIST = autogen.sh build-aux/version.sh
+EXTRA_DIST = autogen.sh build-aux/version.sh README.md
 
 GIT_VERSION := $(shell $(top_srcdir)/build-aux/version.sh)
 
