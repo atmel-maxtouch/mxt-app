@@ -2,7 +2,7 @@ ACLOCAL_AMFLAGS = -I m4
 
 SUBDIRS = doc
 
-EXTRA_DIST = autogen.sh
+EXTRA_DIST = autogen.sh build-aux/version.sh
 
 GIT_VERSION := $(shell $(top_srcdir)/build-aux/version.sh)
 
@@ -95,7 +95,11 @@ man1/mxt-app.1: README.md
 endif
 
 clean-local:
+	-rm git-version
 	-rm man1/mxt-app.1
+
+dist-hook:
+	echo $(VERSION) > $(distdir)/VERSION
 
 indent:
 	astyle --style=linux --indent=spaces=2 \
