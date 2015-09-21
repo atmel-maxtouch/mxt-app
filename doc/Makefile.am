@@ -12,4 +12,5 @@ doxygen: doxygen.cfg
 	doxygen doxygen.cfg 1>doxygen.log
 
 clean-local:
+	-rm doxygen.log
 	-rm -Rf html
