@@ -35,8 +35,8 @@ AM_CONDITIONAL(DEBUG, test x"$debug" = x"true")
 AC_ARG_ENABLE(man,
 AS_HELP_STRING([--enable-man],
                [generate the man page, default: no]),
-               enable_man=true, enable_man=false)
-AM_CONDITIONAL(ENABLE_MAN, test x"$enable_man" = x"true")
+               enable_man=${enableval}, enable_man=no)
+AM_CONDITIONAL(ENABLE_MAN, test x"$enable_man" = x"yes")
 
 # Checks for header files.
 AC_HEADER_STDBOOL
