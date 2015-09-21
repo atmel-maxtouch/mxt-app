@@ -16,8 +16,8 @@ fi
 VERSION=$(build-aux/version.sh)
 OUTDIR=mxt-app-$VERSION
 
-rm -rf $OUTDIR
-mkdir $OUTDIR
+rm -rf "$OUTDIR"
+mkdir "$OUTDIR"
 
 # Build both normal and debug versions
 for DEBUG in 0 1
@@ -57,12 +57,12 @@ do
     ndk-build clean
     ndk-build -B NDK_DEBUG=$DEBUG APP_PLATFORM=$APP_PLATFORM
 
-    for ARCH in $(ls libs)
+    for ARCH in $(basename -a libs/*)
     do
       # Copy Android binaries
       ANDROID_OUTDIR="$OUTDIR/android/$ARCH"
-      mkdir -p -v $ANDROID_OUTDIR
-      cp -v $LIBDIR/$ARCH/mxt-app $ANDROID_OUTDIR/$BINARY_NAME$PIE_SUFFIX
+      mkdir -p -v "$ANDROID_OUTDIR"
+      cp -v "$LIBDIR/$ARCH/mxt-app" "$ANDROID_OUTDIR/$BINARY_NAME$PIE_SUFFIX"
     done
   done
 
@@ -87,11 +87,11 @@ do
     esac
 
     # Build and copy binaries using autotool toolchain
-    ./autogen.sh $AUTOGEN_OPTIONS
+    ./autogen.sh "$AUTOGEN_OPTIONS"
     make clean
-    make DESTDIR=`pwd`/out CFLAGS="$CFLAGS $EXTRA_CFLAGS" $LDFLAGS $TARGET
-    mkdir -p -v $OUTDIR/gnueabi/$ARCH
-    cp -v out/usr/local/bin/mxt-app $OUTDIR/gnueabi/$ARCH/$BINARY_NAME
+    make DESTDIR="$(pwd)/out" CFLAGS="$CFLAGS $EXTRA_CFLAGS" $LDFLAGS $TARGET
+    mkdir -p -v "$OUTDIR/gnueabi/$ARCH"
+    cp -v "out/usr/local/bin/mxt-app" "$OUTDIR/gnueabi/$ARCH/$BINARY_NAME"
   done
 done
 
@@ -99,12 +99,12 @@ done
 pandoc --smart \
   --css=github-pandoc.css \
   --self-contained \
-  -t html -o $OUTDIR/README.html \
+  -t html -o "$OUTDIR/README.html" \
   -V title="mxt-app v$VERSION user manual" \
   -V date="$(date +"%Y-%m-%d")" \
   README.md
 
 # Generate changelog from git commit log
-gitlog-to-changelog > $OUTDIR/CHANGELOG.txt
+gitlog-to-changelog > "$OUTDIR/CHANGELOG.txt"
 
-zip -r mxt-app-$VERSION.zip mxt-app-$VERSION
+zip -r "mxt-app-$VERSION.zip" "mxt-app-$VERSION"
