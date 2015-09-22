@@ -1,8 +1,6 @@
 ACLOCAL_AMFLAGS = -I m4
 
-SUBDIRS = doc
-
-EXTRA_DIST = autogen.sh build-aux/version.sh README.md
+EXTRA_DIST = autogen.sh build-aux/version.sh README.md doc/doxygen.cfg
 
 GIT_VERSION := $(shell $(top_srcdir)/build-aux/version.sh)
 
@@ -82,6 +80,10 @@ mxt_app_SOURCES =\
 	src/mxt-app/self_cap.c \
 	src/mxt-app/signal.c
 
+.PHONY: doc
+doc: doc/doxygen.cfg
+	doxygen doc/doxygen.cfg
+
 if ENABLE_MAN
 man1_MANS = man1/mxt-app.1
 
@@ -97,6 +99,7 @@ endif
 clean-local:
 	-rm git-version
 	-rm man1/mxt-app.1
+	-rm -Rf doc/html
 
 dist-hook:
 	echo $(VERSION) > $(distdir)/VERSION
