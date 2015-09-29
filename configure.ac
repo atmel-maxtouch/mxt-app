@@ -65,6 +65,6 @@ AC_CHECK_FUNCS([strerror])
 AC_CHECK_FUNCS([strncasecmp])
 AC_CHECK_FUNCS([tolower])
 
-AC_CONFIG_FILES([Makefile doc/Makefile])
+AC_CONFIG_FILES([Makefile])
 
 AC_OUTPUT
