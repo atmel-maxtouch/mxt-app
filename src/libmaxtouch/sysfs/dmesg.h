@@ -31,4 +31,5 @@ char *dmesg_get_msg_string(struct mxt_device *mxt);
 int dmesg_get_msgs(struct mxt_device *mxt, int *count, bool init_timestamp);
 int dmesg_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen, int *count);
 int dmesg_reset(struct mxt_device *mxt);
-int dmesg_buf_size(void);
+int dmesg_alloc_buffer(struct mxt_device *mxt);
+void dmesg_free_buffer(struct mxt_device *mxt);

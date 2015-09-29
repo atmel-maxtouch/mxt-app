@@ -536,25 +536,15 @@ int sysfs_set_debug(struct mxt_device *mxt, bool debug_state)
       close(mxt->sysfs.debug_notify_fd);
     }
   } else {
-    ret = MXT_SUCCESS;
-
     if (debug_state) {
-      // Allocate buffer space
-      mxt->sysfs.debug_msg_buf_size = dmesg_buf_size();
-      mxt->sysfs.debug_msg_buf =
-        (char *)calloc(mxt->sysfs.debug_msg_buf_size, sizeof(char));
-      if (mxt->sysfs.debug_msg_buf == NULL) {
-        mxt_err(mxt->ctx, "Error allocating memory for debug_msg_buf_size");
-        ret = mxt_errno_to_rc(errno);
-      }
-    } else if (mxt->sysfs.debug_msg_buf) {
-      // Free up the message buffer
-      free(mxt->sysfs.debug_msg_buf);
-      mxt->sysfs.debug_msg_buf = NULL;
+      ret = dmesg_alloc_buffer(mxt);
+      if (ret)
+        return ret;
+    } else {
+      dmesg_free_buffer(mxt);
     }
 
-    if (ret == MXT_SUCCESS)
-      ret = write_boolean_file(mxt, make_path(mxt, "debug_enable"), debug_state);
+    ret = write_boolean_file(mxt, make_path(mxt, "debug_enable"), debug_state);
   }
 
   return ret;

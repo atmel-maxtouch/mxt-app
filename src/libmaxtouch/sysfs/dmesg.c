@@ -34,12 +34,12 @@
 #include <errno.h>
 #include <sys/klog.h>
 
-#ifndef KLOG_READ_ALL
-#define KLOG_READ_ALL         (3)
+#ifndef SYSLOG_ACTION_READ_ALL
+#define SYSLOG_ACTION_READ_ALL	(3)
 #endif
 
-#ifndef KLOG_GET_BUFFER_SIZE
-#define KLOG_GET_BUFFER_SIZE  (10)
+#ifndef SYSLOG_ACTION_SIZE_BUFFER
+#define SYSLOG_ACTION_SIZE_BUFFER  (10)
 #endif
 
 #define MAX_DMESG_COUNT       (500)
@@ -128,8 +128,8 @@ int dmesg_get_msgs(struct mxt_device *mxt, int *count, bool init_timestamp)
   unsigned long sec, msec, lastsec = 0, lastmsec = 0;
 
   // Read entire kernel log buffer
-  ep = KLOG_READ_ALL;
-  ep = klogctl(ep, mxt->sysfs.debug_msg_buf, mxt->sysfs.debug_msg_buf_size);
+  ep = klogctl(SYSLOG_ACTION_READ_ALL, mxt->sysfs.debug_msg_buf,
+               mxt->sysfs.debug_msg_buf_size);
   // Return if no bytes read
   if (ep < 0) {
     mxt_warn(mxt->ctx, "klogctl error %d (%s)", errno, strerror(errno));
@@ -280,8 +280,32 @@ int dmesg_reset(struct mxt_device *mxt)
 }
 
 //******************************************************************************
-/// \brief Get total size of the kernel log buffer
-int dmesg_buf_size()
+/// \brief Allocate kernel log buffer
+int dmesg_alloc_buffer(struct mxt_device *mxt)
 {
-  return klogctl(KLOG_GET_BUFFER_SIZE, NULL, 0);
+  int size;
+
+  size = klogctl(SYSLOG_ACTION_SIZE_BUFFER, NULL, 0);
+  if (size == -1) {
+    mxt_warn(mxt->ctx, "klogctl error %d (%s)", errno, strerror(errno));
+    return mxt_errno_to_rc(errno);
+  }
+
+  // Allocate buffer space
+  mxt->sysfs.debug_msg_buf_size = size;
+  mxt->sysfs.debug_msg_buf = (char *)calloc(size, sizeof(char));
+  if (mxt->sysfs.debug_msg_buf == NULL) {
+    mxt_err(mxt->ctx, "Error allocating debug_msg_buf");
+    return mxt_errno_to_rc(errno);
+  }
+
+  return 0;
+}
+
+//******************************************************************************
+/// \brief Allocate kernel log buffer
+void dmesg_free_buffer(struct mxt_device *mxt)
+{
+  free(mxt->sysfs.debug_msg_buf);
+  mxt->sysfs.debug_msg_buf = NULL;
 }
