@@ -37,6 +37,7 @@
 #include <stdbool.h>
 #include <malloc.h>
 #include <stdio.h>
+#include <libgen.h>
 
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/libmaxtouch.h"
@@ -87,7 +88,7 @@ static void sysfs_reopen_notify_fd(struct mxt_device *mxt)
 /// \return #mxt_rc
 static int sysfs_new_connection(struct libmaxtouch_ctx *ctx,
                                 struct mxt_conn_info **conn,
-                                const char *dirname)
+                                const char *dirname, bool acpi)
 {
   int ret;
   struct mxt_conn_info *c;
@@ -98,6 +99,8 @@ static int sysfs_new_connection(struct libmaxtouch_ctx *ctx,
 
   c->sysfs.path = (char *)calloc(strlen(dirname) + 1, sizeof(char));
   memcpy(c->sysfs.path, dirname, strlen(dirname) + 1);
+
+  c->sysfs.acpi = acpi;
 
   *conn = c;
   return MXT_SUCCESS;
@@ -116,7 +119,8 @@ int sysfs_get_debug_v2_fd(struct mxt_device *mxt)
 static int scan_sysfs_directory(struct libmaxtouch_ctx *ctx,
                                 struct mxt_conn_info **conn,
                                 struct dirent *i2c_dir,
-                                const char *dirname)
+                                const char *dirname,
+                                bool acpi)
 {
   char *pszDirname;
   size_t length;
@@ -163,7 +167,7 @@ static int scan_sysfs_directory(struct libmaxtouch_ctx *ctx,
       printf("sysfs:%s Atmel %s interface\n", pszDirname,
              debug_v2_found ? "Debug V2" : "Debug");
     } else {
-      ret = sysfs_new_connection(ctx, conn, pszDirname);
+      ret = sysfs_new_connection(ctx, conn, pszDirname, acpi);
       mxt_dbg(ctx, "Found %s", pszDirname);
       goto close;
     }
@@ -217,11 +221,11 @@ static int scan_driver_directory(struct libmaxtouch_ctx *ctx,
       continue;
 
     if (sscanf(pEntry->d_name, "%d-%x", &adapter, &address) == 2) {
-      ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname);
+      ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname, false);
 
       if (ret != MXT_ERROR_NO_DEVICE) goto close;
     } else if (sscanf(pEntry->d_name, "i2c-%s", acpi) == 1) {
-      ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname);
+      ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname, true);
 
       if (ret != MXT_ERROR_NO_DEVICE) goto close;
     }
@@ -724,4 +728,28 @@ char *sysfs_get_directory(struct mxt_device *mxt)
   }
 
   return mxt->conn->sysfs.path;
+}
+
+//******************************************************************************
+/// \brief  Get I2C adapter and address
+/// \param  conn mxt connection info
+/// \param  adapter OUT i2c adapter number
+/// \param  address OUT i2c address
+/// \return #mxt_rc
+int sysfs_get_i2c_address(struct libmaxtouch_ctx *ctx,
+                          struct mxt_conn_info *conn,
+                          int *adapter, int *address)
+{
+  int ret;
+
+  if (conn->sysfs.acpi)
+    return MXT_ERROR_NOT_SUPPORTED;
+
+  ret = scanf(basename(conn->sysfs.path), "%d-%x", adapter, address);
+  if (ret != 2) {
+    mxt_err(ctx, "Couldn't parse sysfs path for adapter/address");
+    return MXT_INTERNAL_ERROR;
+  }
+
+  return MXT_SUCCESS;
 }

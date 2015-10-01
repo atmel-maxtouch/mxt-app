@@ -298,12 +298,115 @@ free:
 }
 
 //******************************************************************************
+/// \brief Output version information
+static int bridge_info_version(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
+{
+  char *outstr;
+  int ret;
+
+  ret = asprintf(&outstr, "INFO VERSION mxt-app %s%s\n",
+                 MXT_VERSION, ENABLE_DEBUG ? " DEBUG":"");
+  if (ret == -1) {
+    mxt_err(mxt->ctx, "asprintf failed");
+    return MXT_ERROR_NO_MEM;
+  }
+
+  ret = write(bridge_ctx->sockfd, outstr, strlen(outstr));
+  if (ret < 0) {
+    mxt_err(mxt->ctx, "Socket write error: %s (%d)", strerror(errno), errno);
+    ret = mxt_errno_to_rc(errno);
+  }
+
+  free(outstr);
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief Output connection information
+static int bridge_info_connection(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
+{
+  uint16_t idProduct = 0;
+  uint16_t idVendor = 0;
+  int i2c_address = 0;
+  int i2c_adapter;
+  const char *typestring = "UNKNOWN";
+  char *outstr;
+  int ret;
+
+  switch (mxt->conn->type) {
+    case E_I2C_DEV:
+      i2c_address = mxt->conn->i2c_dev.address;
+      typestring = "I2C";
+      break;
+
+#ifdef HAVE_LIBUSB
+    case E_USB:
+      idProduct = mxt->usb.desc.idProduct;
+      idVendor = mxt->usb.desc.idVendor;
+      typestring = "USB";
+      break;
+#endif
+
+    case E_SYSFS:
+      ret = sysfs_get_i2c_address(mxt->ctx, mxt->conn,
+                                  &i2c_adapter, &i2c_address);
+      if (ret)
+        i2c_address = 0;
+
+      typestring = "I2C";
+      break;
+
+    case E_HIDRAW:
+      typestring = "HIDI2C";
+      break;
+  }
+
+  ret = asprintf(&outstr, "INFO CONNECTION %s %X %04X %04X\n",
+         typestring, i2c_address, idProduct, idVendor);
+  if (ret == -1) {
+    mxt_err(mxt->ctx, "asprintf failed");
+    return MXT_ERROR_NO_MEM;
+  }
+
+  ret = write(bridge_ctx->sockfd, outstr, strlen(outstr));
+  if (ret < 0) {
+    mxt_err(mxt->ctx, "Socket write error: %s (%d)", strerror(errno), errno);
+    ret = mxt_errno_to_rc(errno);
+  }
+
+  free(outstr);
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief Handle info command
+/// \return #mxt_rc
+static int bridge_info_cmd(struct mxt_device *mxt, struct bridge_context *bridge_ctx,
+                           char *info)
+{
+  int ret;
+
+  if (!strcmp(info, "CONNECTION")) {
+    ret = bridge_info_connection(mxt, bridge_ctx);
+  } else if (!strcmp(info, "VERSION")) {
+    ret = bridge_info_version(mxt, bridge_ctx);
+  } else {
+    mxt_warn(mxt->ctx, "%s unknown: \"%s\"", __func__, info);
+    ret = MXT_SUCCESS;
+  }
+
+  return ret;
+}
+
+//******************************************************************************
 /// \brief Send chip attach message
 /// \return #mxt_rc
 static int send_chip_attach(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
 {
   int ret;
   const char * const msg = "CAT\n";
+
+  mxt_dbg(mxt->ctx, "Sending chip attach");
 
   ret = write(bridge_ctx->sockfd, msg, strlen(msg));
   if (ret < 0) {
@@ -338,6 +441,9 @@ static int send_chip_detach(struct mxt_device *mxt,
 static int handle_cmd(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
 {
   int ret;
+  const char * const unknown_cmd = "UNKNOWN COMMAND\n";
+  const char * const msgcfg_ok = "MSGCFG OK\n";
+  const char * const info_cmd = "INFO ";
   uint16_t address;
   uint16_t count;
   struct mxt_buffer linebuf;
@@ -383,16 +489,23 @@ static int handle_cmd(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
   } else if (sscanf(line, "MSGCFG %" SCNu16 "%n", &address, &offset) == 1) {
     mxt_info(mxt->ctx, "Configuring Messages");
     bridge_ctx->msgs_enabled = true;
-    const char * const msg = "MSGCFG OK\n";
 
-    ret = write(bridge_ctx->sockfd, msg, strlen(msg));
+    ret = write(bridge_ctx->sockfd, msgcfg_ok, strlen(msgcfg_ok));
     if (ret < 0) {
       mxt_err(mxt->ctx, "Socket write error: %s (%d)", strerror(errno), errno);
       ret = mxt_errno_to_rc(errno);
     }
     ret = MXT_SUCCESS;
+  } else if (!strncmp(line, info_cmd, strlen(info_cmd))) {
+    ret = bridge_info_cmd(mxt, bridge_ctx, line + strlen(info_cmd));
   } else {
-    mxt_info(mxt->ctx, "Unrecognised cmd \"%s\"", line);
+    ret = write(bridge_ctx->sockfd, unknown_cmd, strlen(unknown_cmd));
+    if (ret < 0) {
+      mxt_err(mxt->ctx, "Socket write error: %s (%d)", strerror(errno), errno);
+      ret = mxt_errno_to_rc(errno);
+    }
+
+    mxt_warn(mxt->ctx, "UNKNOWN: \"%s\"", line);
     ret = MXT_SUCCESS;
   }
 
@@ -412,8 +525,6 @@ static int bridge(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
   int debug_ng_fd = 0;
   int numfds = 1;
   int timeout;
-
-  mxt_info(mxt->ctx, "Connected");
 
   ret = mxt_msg_reset(mxt);
   if (ret)

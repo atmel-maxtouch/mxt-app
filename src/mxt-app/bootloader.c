@@ -31,7 +31,6 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <string.h>
-#include <libgen.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -421,12 +420,10 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
     if (ret)
       return ret;
 
-    ret = sscanf(basename(fw->conn->sysfs.path), "%d-%x",
-                 &fw->i2c_adapter, &fw->appmode_address);
-    if (ret != 2) {
-      mxt_err(fw->ctx, "Couldn't parse sysfs path for adapter/address");
-      return MXT_INTERNAL_ERROR;
-    }
+    ret = sysfs_get_i2c_address(fw->ctx, fw->conn,
+                                &fw->i2c_adapter, &fw->appmode_address);
+    if (ret)
+      return ret;
 
     new_conn->i2c_dev.adapter = fw->i2c_adapter;
     new_conn->i2c_dev.address = fw->appmode_address;

@@ -19,7 +19,7 @@ AM_CFLAGS = \
 	-Wpointer-arith -Wsign-compare -Wchar-subscripts -Wstrict-prototypes \
 	-Wwrite-strings -Wshadow -Wformat-security -Wtype-limits \
 	-DMXT_VERSION=\"$(GIT_VERSION)\" \
-	-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
+	-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -D_GNU_SOURCE=1
 
 AM_LDFLAGS = \
 	-Wl,--gc-sections \

@@ -35,6 +35,7 @@ struct dmesg_item;
 struct sysfs_conn_info
 {
   char *path;
+  bool acpi;
 };
 
 //******************************************************************************
@@ -79,3 +80,4 @@ int sysfs_get_msg_bytes_v2(struct mxt_device *mxt, unsigned char *buf, size_t bu
 int sysfs_get_msgs_v2(struct mxt_device *mxt, int *count);
 int sysfs_msg_reset_v2(struct mxt_device *mxt);
 int sysfs_get_debug_v2_fd(struct mxt_device *mxt);
+int sysfs_get_i2c_address(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn, int *adapter, int *address);
