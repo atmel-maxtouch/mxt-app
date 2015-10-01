@@ -29,7 +29,7 @@
 //------------------------------------------------------------------------------
 
 #ifdef ANDROID
-#include <libusbdroid/code/src/LibUSBDroid/jni/libusb.h>
+#include <LibUSBDroid/jni/libusb.h>
 #else
 #include <libusb-1.0/libusb.h>
 #endif
