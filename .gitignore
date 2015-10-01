@@ -1,4 +1,5 @@
 /aclocal.m4
+/ar-lib
 /config.guess
 /config.h
 /config.h.in
@@ -30,3 +31,4 @@ Makefile.in
 /.libs/
 .reviewboardrc
 doc/html
+doc/doxygen_sqlite3.db
