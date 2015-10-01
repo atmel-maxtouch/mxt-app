@@ -1,14 +1,14 @@
 LOCAL_PATH := $(call my-dir)
 
-SRC_PATH := $(LOCAL_PATH)/../src
+TOP_DIR := $(LOCAL_PATH)/..
 
 GIT_VERSION = $(shell sh -c 'build-aux/version.sh')
 
-subdirs := $(addprefix $(SRC_PATH)/,$(addsuffix /Android.mk, \
-    libmaxtouch \
-    jni \
-    mxt-app \
-    libusbdroid \
+subdirs := $(addprefix $(TOP_DIR)/,$(addsuffix /Android.mk, \
+    src/libmaxtouch \
+    src/jni \
+    src/mxt-app \
+    lib/libusbdroid \
   ))
 
 include $(subdirs)

@@ -55,7 +55,7 @@ do
     esac
 
     ndk-build clean
-    ndk-build -B NDK_DEBUG=$DEBUG APP_PLATFORM=$APP_PLATFORM
+    ndk-build -B NDK_DEBUG=$DEBUG APP_PLATFORM=$APP_PLATFORM V=1
 
     for ARCH in $(basename -a libs/*)
     do
