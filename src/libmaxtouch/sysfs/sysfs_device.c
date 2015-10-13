@@ -735,7 +735,7 @@ int sysfs_get_i2c_address(struct libmaxtouch_ctx *ctx,
   if (conn->sysfs.acpi)
     return MXT_ERROR_NOT_SUPPORTED;
 
-  ret = scanf(basename(conn->sysfs.path), "%d-%x", adapter, address);
+  ret = sscanf(basename(conn->sysfs.path), "%d-%x", adapter, address);
   if (ret != 2) {
     mxt_err(ctx, "Couldn't parse sysfs path for adapter/address");
     return MXT_INTERNAL_ERROR;
