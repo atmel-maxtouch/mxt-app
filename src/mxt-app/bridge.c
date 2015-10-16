@@ -443,6 +443,8 @@ static int handle_cmd(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
   int ret;
   const char * const unknown_cmd = "UNKNOWN COMMAND\n";
   const char * const msgcfg_ok = "MSGCFG OK\n";
+  const char * const msgcfg_err = "MSGCFG ERR\n";
+  const char * msgcfg_response;
   const char * const info_cmd = "INFO ";
   uint16_t address;
   uint16_t count;
@@ -488,13 +490,22 @@ static int handle_cmd(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
     ret = MXT_SUCCESS;
   } else if (sscanf(line, "MSGCFG %" SCNu16 "%n", &address, &offset) == 1) {
     mxt_info(mxt->ctx, "Configuring Messages");
-    bridge_ctx->msgs_enabled = true;
 
-    ret = write(bridge_ctx->sockfd, msgcfg_ok, strlen(msgcfg_ok));
+    ret = mxt_msg_reset(mxt);
+    if (ret) {
+      mxt_warn(mxt->ctx, "Failure to reset msgs");
+      msgcfg_response = msgcfg_err;
+    } else {
+      bridge_ctx->msgs_enabled = true;
+      msgcfg_response = msgcfg_ok;
+    }
+
+    ret = write(bridge_ctx->sockfd, msgcfg_response, strlen(msgcfg_response));
     if (ret < 0) {
       mxt_err(mxt->ctx, "Socket write error: %s (%d)", strerror(errno), errno);
       ret = mxt_errno_to_rc(errno);
     }
+
     ret = MXT_SUCCESS;
   } else if (!strncmp(line, info_cmd, strlen(info_cmd))) {
     ret = bridge_info_cmd(mxt, bridge_ctx, line + strlen(info_cmd));
@@ -525,10 +536,6 @@ static int bridge(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
   int debug_ng_fd = 0;
   int numfds = 1;
   int timeout;
-
-  ret = mxt_msg_reset(mxt);
-  if (ret)
-    mxt_err(mxt->ctx, "Failure to reset msgs");
 
   fds[0].fd = bridge_ctx->sockfd;
   fds[0].events = POLLIN | POLLERR;

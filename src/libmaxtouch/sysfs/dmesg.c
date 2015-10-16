@@ -287,7 +287,7 @@ int dmesg_alloc_buffer(struct mxt_device *mxt)
 
   size = klogctl(SYSLOG_ACTION_SIZE_BUFFER, NULL, 0);
   if (size == -1) {
-    mxt_warn(mxt->ctx, "klogctl error %d (%s)", errno, strerror(errno));
+    mxt_err(mxt->ctx, "klogctl error %d (%s)", errno, strerror(errno));
     return mxt_errno_to_rc(errno);
   }
 
