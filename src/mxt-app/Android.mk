@@ -17,7 +17,7 @@ LOCAL_SRC_FILES := \
   self_cap.c \
   signal.c
 LOCAL_LDLIBS := -llog
-LOCAL_STATIC_LIBRARIES := maxtouch
+LOCAL_STATIC_LIBRARIES := maxtouch libusbdroid
 LOCAL_MODULE := mxt-app
 
 include $(BUILD_EXECUTABLE)
