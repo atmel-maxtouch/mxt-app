@@ -79,7 +79,13 @@ static int self_test_handle_messages(struct mxt_device *mxt, uint8_t *msg,
       ret = MXT_ERROR_SELF_TEST_PIN_FAULT;
       break;
     case SELF_TEST_PIN_FAULT_2:
-      mxt_err(mxt->ctx, "FAIL: Pin fault 2");
+      if (msg[3] == 0 && msg[4] == 0)
+        mxt_err(mxt->ctx, "FAIL: Pin fault SEQ_NUM=%d driven shield line failed");
+      else if (msg[3] > 0)
+        mxt_err(mxt->ctx, "FAIL: Pin fault SEQ_NUM=%d X%d", msg[2], msg[3] - 1);
+      else if (msg[4] > 0)
+        mxt_err(mxt->ctx, "FAIL: Pin fault SEQ_NUM=%d Y%d", msg[2], msg[4] - 1);
+
       ret = MXT_ERROR_SELF_TEST_PIN_FAULT;
       break;
     case SELF_TEST_AND_GATE:
@@ -87,7 +93,7 @@ static int self_test_handle_messages(struct mxt_device *mxt, uint8_t *msg,
       ret = MXT_ERROR_SELF_TEST_AND_GATE;
       break;
     case SELF_TEST_SIGNAL_LIMIT:
-      mxt_err(mxt->ctx, "FAIL: Signal limit fault");
+      mxt_err(mxt->ctx, "FAIL: Signal limit fault in T%d[%d]", msg[2], msg[3]);
       ret = MXT_ERROR_SELF_TEST_SIGNAL_LIMIT;
       break;
     case SELF_TEST_GAIN:
