@@ -227,6 +227,9 @@ deltas. Self capacitance measurements are only available on some devices.
 `--self-cap-refs`
 :   Capture self cap references.
 
+`--active-stylus-deltas`
+:   Capture active stylus deltas.
+
 # T68 SERIAL DATA COMMANDS
 
 `--t68-file *FILE*`
