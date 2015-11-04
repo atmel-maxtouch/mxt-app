@@ -146,6 +146,7 @@ static void print_usage(char *prog_name)
           "  --self-cap-deltas          : capture self cap deltas\n"
           "  --self-cap-refs            : capture self cap references\n"
           "  --active-stylus-deltas     : capture active stylus deltas\n"
+          "  --active-stylus-refs       : capture active stylus references\n"
           "\n"
           "Device connection options:\n"
           "  -q [--query]               : scan for devices\n"
@@ -231,6 +232,7 @@ int main (int argc, char *argv[])
       {"self-cap-deltas",  no_argument,       0, 0},
       {"self-cap-refs",    no_argument,       0, 0},
       {"active-stylus-deltas",    no_argument,       0, 0},
+      {"active-stylus-refs",    no_argument,       0, 0},
       {"bridge-server",    no_argument,       0, 'S'},
       {"test",             optional_argument, 0, 't'},
       {"type",             required_argument, 0, 'T'},
@@ -383,6 +385,8 @@ int main (int argc, char *argv[])
         t37_mode = SELF_CAP_DELTAS;
       } else if (!strcmp(long_options[option_index].name, "active-stylus-deltas")) {
         t37_mode = AST_DELTAS;
+      } else if (!strcmp(long_options[option_index].name, "active-stylus-refs")) {
+        t37_mode = AST_REFS;
       } else if (!strcmp(long_options[option_index].name, "version")) {
         printf("mxt-app %s%s\n", MXT_VERSION, ENABLE_DEBUG ? " DEBUG":"");
         return MXT_SUCCESS;

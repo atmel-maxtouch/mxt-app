@@ -225,6 +225,9 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
       case AST_DELTAS:
         mode = "delta";
         break;
+      case AST_REFS:
+        mode = "ref";
+        break;
       }
 
       for (y = 0; y < ctx->y_size; y++) {
@@ -502,6 +505,7 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
     break;
 
   case AST_DELTAS:
+  case AST_REFS:
     ctx->self_cap = false;
     ctx->active_stylus = true;
 
