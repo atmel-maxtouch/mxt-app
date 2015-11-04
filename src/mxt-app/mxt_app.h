@@ -42,6 +42,7 @@
 #define SELF_CAP_DELTAS   0xF7
 #define SELF_CAP_REFS     0xF8
 #define AST_DELTAS        0xFB
+#define AST_REFS          0xFC
 
 /* T25 Self Test Commands */
 #define SELF_TEST_ANALOG       0x01

@@ -219,11 +219,14 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
     }
   } else if (ctx->active_stylus) {
     for (pass = 0; pass < ctx->passes; pass++) {
-      const char * mode;
+      const char *mode;
       switch (ctx->mode) {
       default:
       case AST_DELTAS:
         mode = "delta";
+        break;
+      case AST_REFS:
+        mode = "ref";
         break;
       }
 
@@ -249,10 +252,10 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
 
         if ( x < ctx->x_size/2) {
           x_real = x;
-          set = "0"; // scan 0
+          set = "0";
         } else {
           x_real = x - ctx->x_size/2;
-          set = "1"; // scan 1
+          set = "1";
         }
 
         ret = fprintf(ctx->hawkeye, "AST_%s_X%s_%d,", mode, set, x_real);
@@ -481,7 +484,7 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
       return MXT_ERROR_OBJECT_NOT_FOUND;
     }
 
-    // read Ymax Y values, plus Ymax or 2Ymax X values
+    // Read Ymax Y values, plus Ymax or 2Ymax X values
     ctx->passes = ctx->t111_instances;
     ctx->y_size = id->matrix_y_size;
     ctx->x_size = ctx->y_size * ((id->matrix_x_size > ctx->y_size) ? 2 : 1);
@@ -492,6 +495,7 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
     break;
 
   case AST_DELTAS:
+  case AST_REFS:
     ctx->self_cap = false;
     ctx->active_stylus = true;
 
@@ -505,9 +509,9 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
       return MXT_ERROR_OBJECT_NOT_FOUND;
     }
 
-    // read Ymax Y values, plus Ymax or 2Ymax X values
+    // Read Ymax Y values, plus Ymax or 2Ymax X values
     ctx->passes = ctx->t107_instances;
-    ctx->y_size = 2 * id->matrix_y_size;    // two scans per axis
+    ctx->y_size = 2 * id->matrix_y_size;    // Two scans per axis
     ctx->x_size = ctx->y_size * ((id->matrix_x_size > ctx->y_size) ? 2 : 1);
     ctx->data_values = (ctx->y_size + ctx->x_size) * ctx->passes;
     ctx->pages_per_pass = ((ctx->y_size + ctx->x_size)*sizeof(uint16_t) +(ctx->page_size - 1)) /
@@ -650,8 +654,7 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   for (ctx.frame = 1; ctx.frame <= frames; ctx.frame++) {
     if (ctx.self_cap) {
       ret = mxt_read_diagnostic_data_self_cap(&ctx);
-    }
-    else if (ctx.active_stylus){
+    } else if (ctx.active_stylus) {
       ret = mxt_read_diagnostic_data_ast(&ctx);
     } else {
       ret = mxt_read_diagnostic_data_frame(&ctx);
