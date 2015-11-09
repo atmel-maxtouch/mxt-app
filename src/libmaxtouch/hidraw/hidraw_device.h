@@ -32,8 +32,7 @@
 
 //******************************************************************************
 /// \brief Device information for hidraw-dev backend
-struct hidraw_conn_info
-{
+struct hidraw_conn_info {
   char node[20];
   uint8_t report_id;
   int fd;

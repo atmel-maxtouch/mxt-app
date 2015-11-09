@@ -38,8 +38,7 @@ struct libmaxtouch_ctx;
 #define MXT_OBJECT_SIZE_MAX 256
 
 /*! \brief Checksum element struct */
-struct mxt_raw_crc
-{
+struct mxt_raw_crc {
   /*! CRC field */
   uint16_t CRC;
 
@@ -48,8 +47,7 @@ struct mxt_raw_crc
 } __attribute__((packed));
 
 /*! \brief Object table element struct */
-struct mxt_object
-{
+struct mxt_object {
   uint8_t type;                  /*!< Object type ID */
   uint8_t start_pos_lsb;         /*!< LSByte of the start address of the obj config structure */
   uint8_t start_pos_msb;         /*!< MSByte of the start address of the obj config structure */
@@ -60,8 +58,7 @@ struct mxt_object
 } __attribute__((packed));
 
 /*! \brief ID Information fields in the Information Block*/
-struct mxt_id_info
-{
+struct mxt_id_info {
   uint8_t family;           /*!< Device family */
   uint8_t variant;          /*!< Device variant */
 
@@ -89,8 +86,7 @@ struct mxt_id_info
  * CRC_hi the upper 8.
  *
  */
-struct mxt_info
-{
+struct mxt_info {
   /*! Pointer to the struct containing ID Information. */
   struct mxt_id_info *id;
 
@@ -114,10 +110,9 @@ struct mxt_info
  * report id's to object type / instance (array index = report id).  Note
  * that the report ID number 0 is reserved.
  */
-struct mxt_report_id_map
-{
-   uint16_t object_type;  /*!< Object type */
-   uint8_t instance;      /*!< Instance number */
+struct mxt_report_id_map {
+  uint16_t object_type;  /*!< Object type */
+  uint8_t instance;      /*!< Instance number */
 };
 
 /*! Object types */
@@ -263,8 +258,7 @@ struct mxt_report_id_map
   f(SPT_PROTOTYPE_T239, 239) \
   f(RESERVED_T255, 255)
 
-enum mxt_object_type
-{
+enum mxt_object_type {
   OBJECT_LIST(F_ENUM)
 };
 

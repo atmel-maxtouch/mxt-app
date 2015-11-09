@@ -48,7 +48,7 @@
 
 #define T109_CMD_OFFSET                 3
 #define T109_CMD_TUNE                   1
-#define T109_CMD_STORE_TO_NVM		2
+#define T109_CMD_STORE_TO_NVM           2
 #define T109_CMD_STORE_TO_CONFIG_RAM    4
 
 //******************************************************************************
@@ -79,7 +79,7 @@ static int mxt_self_cap_command(struct mxt_device *mxt, uint8_t *msg,
 
 //******************************************************************************
 /// \brief Run self cap tuning procedure without updating the config
-///	checksum
+/// checksum
 /// \return #mxt_rc
 int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd)
 {

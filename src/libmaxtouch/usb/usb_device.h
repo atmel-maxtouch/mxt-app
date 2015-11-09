@@ -38,23 +38,20 @@
 
 //******************************************************************************
 /// \brief USB library context
-struct usb_context
-{
+struct usb_context {
   libusb_context *libusb_ctx;
 };
 
 //******************************************************************************
 /// \brief USB library context
-struct usb_conn_info
-{
+struct usb_conn_info {
   int bus;
   int device;
 };
 
 //******************************************************************************
 /// \brief USB device information
-struct usb_device
-{
+struct usb_device {
   bool device_connected;
   bool bridge_chip;
   libusb_device *device;

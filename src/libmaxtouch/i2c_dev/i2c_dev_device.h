@@ -30,16 +30,14 @@
 
 //******************************************************************************
 /// \brief Device information for i2c-dev backend
-struct i2c_dev_conn_info
-{
+struct i2c_dev_conn_info {
   int adapter;
   int address;
 };
 
 //******************************************************************************
 /// \brief Device information for i2c-dev backend
-struct i2c_dev_device
-{
+struct i2c_dev_device {
 };
 
 int i2c_dev_open(struct mxt_device *mxt);

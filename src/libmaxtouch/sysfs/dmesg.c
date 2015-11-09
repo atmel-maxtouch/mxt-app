@@ -35,11 +35,11 @@
 #include <sys/klog.h>
 
 #ifndef SYSLOG_ACTION_READ_ALL
-#define SYSLOG_ACTION_READ_ALL	(3)
+#define SYSLOG_ACTION_READ_ALL      (3)
 #endif
 
 #ifndef SYSLOG_ACTION_SIZE_BUFFER
-#define SYSLOG_ACTION_SIZE_BUFFER  (10)
+#define SYSLOG_ACTION_SIZE_BUFFER   (10)
 #endif
 
 #define MAX_DMESG_COUNT       (500)

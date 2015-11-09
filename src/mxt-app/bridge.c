@@ -334,35 +334,35 @@ static int bridge_info_connection(struct mxt_device *mxt, struct bridge_context 
   int ret;
 
   switch (mxt->conn->type) {
-    case E_I2C_DEV:
-      i2c_address = mxt->conn->i2c_dev.address;
-      typestring = "I2C";
-      break;
+  case E_I2C_DEV:
+    i2c_address = mxt->conn->i2c_dev.address;
+    typestring = "I2C";
+    break;
 
 #ifdef HAVE_LIBUSB
-    case E_USB:
-      idProduct = mxt->usb.desc.idProduct;
-      idVendor = mxt->usb.desc.idVendor;
-      typestring = "USB";
-      break;
+  case E_USB:
+    idProduct = mxt->usb.desc.idProduct;
+    idVendor = mxt->usb.desc.idVendor;
+    typestring = "USB";
+    break;
 #endif
 
-    case E_SYSFS:
-      ret = sysfs_get_i2c_address(mxt->ctx, mxt->conn,
-                                  &i2c_adapter, &i2c_address);
-      if (ret)
-        i2c_address = 0;
+  case E_SYSFS:
+    ret = sysfs_get_i2c_address(mxt->ctx, mxt->conn,
+                                &i2c_adapter, &i2c_address);
+    if (ret)
+      i2c_address = 0;
 
-      typestring = "I2C";
-      break;
+    typestring = "I2C";
+    break;
 
-    case E_HIDRAW:
-      typestring = "HIDI2C";
-      break;
+  case E_HIDRAW:
+    typestring = "HIDI2C";
+    break;
   }
 
   ret = asprintf(&outstr, "INFO CONNECTION %s %X %04X %04X\n",
-         typestring, i2c_address, idProduct, idVendor);
+                 typestring, i2c_address, idProduct, idVendor);
   if (ret == -1) {
     mxt_err(mxt->ctx, "asprintf failed");
     return MXT_ERROR_NO_MEM;

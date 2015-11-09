@@ -32,16 +32,14 @@ struct dmesg_item;
 
 //******************************************************************************
 /// \brief sysfs device connection information
-struct sysfs_conn_info
-{
+struct sysfs_conn_info {
   char *path;
   bool acpi;
 };
 
 //******************************************************************************
 /// \brief sysfs device
-struct sysfs_device
-{
+struct sysfs_device {
   struct sysfs_conn_info conn;
   char *mem_access_path;
   char *temp_path;
