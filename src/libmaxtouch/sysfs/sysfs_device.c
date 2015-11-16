@@ -88,7 +88,7 @@ static void sysfs_reopen_notify_fd(struct mxt_device *mxt)
 /// \return #mxt_rc
 static int sysfs_new_connection(struct libmaxtouch_ctx *ctx,
                                 struct mxt_conn_info **conn,
-                                const char *dirname, bool acpi)
+                                const char *dir, bool acpi)
 {
   int ret;
   struct mxt_conn_info *c;
@@ -97,8 +97,8 @@ static int sysfs_new_connection(struct libmaxtouch_ctx *ctx,
   if (ret)
     return ret;
 
-  c->sysfs.path = (char *)calloc(strlen(dirname) + 1, sizeof(char));
-  memcpy(c->sysfs.path, dirname, strlen(dirname) + 1);
+  c->sysfs.path = (char *)calloc(strlen(dir) + 1, sizeof(char));
+  memcpy(c->sysfs.path, dir, strlen(dir) + 1);
 
   c->sysfs.acpi = acpi;
 
@@ -119,7 +119,7 @@ int sysfs_get_debug_v2_fd(struct mxt_device *mxt)
 static int scan_sysfs_directory(struct libmaxtouch_ctx *ctx,
                                 struct mxt_conn_info **conn,
                                 struct dirent *i2c_dir,
-                                const char *dirname,
+                                const char *dir,
                                 bool acpi)
 {
   char *pszDirname;
@@ -131,14 +131,14 @@ static int scan_sysfs_directory(struct libmaxtouch_ctx *ctx,
   bool debug_v2_found = false;
   int ret;
 
-  length = strlen(dirname) + strlen(i2c_dir->d_name) + 2;
+  length = strlen(dir) + strlen(i2c_dir->d_name) + 2;
 
   if ((pszDirname = (char *)calloc(length, sizeof(char))) == NULL) {
     ret = MXT_ERROR_NO_MEM;
     goto free;
   }
 
-  snprintf(pszDirname, length, "%s/%s", dirname, i2c_dir->d_name);
+  snprintf(pszDirname, length, "%s/%s", dir, i2c_dir->d_name);
 
   pDirectory = opendir(pszDirname);
   if (!pDirectory) {
