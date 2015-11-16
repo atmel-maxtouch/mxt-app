@@ -186,6 +186,7 @@ int main (int argc, char *argv[])
   uint16_t port = 4000;
   uint8_t t68_datatype = 1;
   unsigned char databuf[BUF_SIZE];
+  unsigned char *p_databuf = databuf;
   char strbuf2[BUF_SIZE];
   char strbuf[BUF_SIZE];
   strbuf[0] = '\0';
@@ -660,21 +661,25 @@ int main (int argc, char *argv[])
       goto free;
     }
 
-    if (optind != (argc - 1)) {
-      fprintf(stderr, "Must give hex input\n");
-      ret = MXT_ERROR_BAD_INPUT;
-      goto free;
+    /* Parse unprocessed arguments */
+    c = optind;
+    while (c < argc && !ret) {
+      ret = mxt_convert_hex(argv[c], p_databuf, &count, sizeof(databuf) - (p_databuf - databuf));
+
+      if (ret || count == 0) {
+        fprintf(stderr, "Hex convert error\n");
+        ret = MXT_ERROR_BAD_INPUT;
+      }
+      p_databuf += count;
+      ++c;
     }
 
-    ret = mxt_convert_hex(argv[optind], databuf, &count, sizeof(databuf));
-    if (ret || count == 0) {
-      fprintf(stderr, "Hex convert error\n");
-      ret = MXT_ERROR_BAD_INPUT;
-    } else {
-      ret = mxt_write_register(mxt, databuf, address, count);
+    if (!ret) {
+      ret = mxt_write_register(mxt, databuf, address, (p_databuf - databuf));
       if (ret)
         fprintf(stderr, "Write error\n");
     }
+
     break;
 
   case CMD_READ:
