@@ -33,5 +33,6 @@
 void mxt_print_info_block(struct mxt_device *dev);
 const char *mxt_get_object_name(uint8_t objtype);
 int mxt_read_object(struct mxt_device *dev, uint16_t object_type, uint8_t instance, uint16_t offset, size_t count, bool format);
+int mxt_handle_write_cmd(struct mxt_device *mxt, const uint16_t type, uint16_t count, struct libmaxtouch_ctx *ctx, const uint8_t inst, unsigned char databuf[], const int buff_size, int argc, char *argv[]);
 int mxt_convert_hex(char *hex, unsigned char *databuf, uint16_t *count, unsigned int buf_size);
 int mxt_print_timestamp(FILE *stream, bool date);

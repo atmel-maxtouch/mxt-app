@@ -34,6 +34,7 @@
 #include <inttypes.h>
 #include <time.h>
 #include <sys/time.h>
+#include <getopt.h>
 
 #include "libmaxtouch.h"
 #include "utilfuncs.h"
@@ -186,6 +187,59 @@ int mxt_read_object(struct mxt_device *mxt, uint16_t object_type,
 
 free:
   free(databuf);
+  return ret;
+}
+
+
+//******************************************************************************
+/// \brief Handles parsing of the write parameters
+/// \return #mxt_rc
+int mxt_handle_write_cmd(struct mxt_device *mxt, const uint16_t type,
+                         uint16_t count, struct libmaxtouch_ctx *ctx,
+                         const uint8_t inst, unsigned char databuf[],
+                         const int buff_size, int argc, char *argv[])
+
+{
+  uint16_t address = 0;
+  uint16_t obj_add = 0;
+  unsigned char *p_databuf = databuf;
+  int ret = MXT_SUCCESS;
+
+
+  if (type > 0) {
+    obj_add = mxt_get_object_address(mxt, type, inst);
+    if (obj_add == OBJECT_NOT_FOUND) {
+      fprintf(stderr, "No such object\n");
+      return MXT_ERROR_OBJECT_NOT_FOUND;
+    }
+
+    mxt_verb(ctx, "T%u address:%u offset:%u", type, obj_add, address);
+    address = obj_add + address;
+
+    if (count == 0) {
+      count = mxt_get_object_size(mxt, type);
+    }
+  } else if (count == 0) {
+    fprintf(stderr, "Not enough arguments!\n");
+    return MXT_ERROR_BAD_INPUT;
+  }
+
+  /* Parse unprocessed arguments */
+  while (optind < argc && !ret) {
+    ret = mxt_convert_hex(argv[optind++], p_databuf, &count, buff_size - (p_databuf - databuf));
+
+    if (ret || count == 0) {
+      fprintf(stderr, "Hex convert error\n");
+      ret = MXT_ERROR_BAD_INPUT;
+    }
+    p_databuf += count;
+  }
+
+  if (!ret) {
+    ret = mxt_write_register(mxt, databuf, address, (p_databuf - databuf));
+    if (ret)
+      fprintf(stderr, "Write error\n");
+  }
   return ret;
 }
 

@@ -46,6 +46,7 @@
 
 #define BUF_SIZE 1024
 
+
 //******************************************************************************
 /// \brief Initialize mXT device and read the info block
 /// \return #mxt_rc
@@ -173,7 +174,6 @@ int main (int argc, char *argv[])
   uint8_t backup_cmd = BACKUPNV_COMMAND;
   unsigned char self_test_cmd = SELF_TEST_ALL;
   uint16_t address = 0;
-  uint16_t object_address = 0;
   uint16_t count = 0;
   struct mxt_conn_info *conn = NULL;
   uint16_t object_type = 0;
@@ -186,7 +186,6 @@ int main (int argc, char *argv[])
   uint16_t port = 4000;
   uint8_t t68_datatype = 1;
   unsigned char databuf[BUF_SIZE];
-  unsigned char *p_databuf = databuf;
   char strbuf2[BUF_SIZE];
   char strbuf[BUF_SIZE];
   strbuf[0] = '\0';
@@ -639,47 +638,10 @@ int main (int argc, char *argv[])
   switch (cmd) {
   case CMD_WRITE:
     mxt_verb(ctx, "Write command");
-
-    if (object_type > 0) {
-      object_address = mxt_get_object_address(mxt, object_type, instance);
-      if (object_address == OBJECT_NOT_FOUND) {
-        fprintf(stderr, "No such object\n");
-        ret = MXT_ERROR_OBJECT_NOT_FOUND;
-        break;
-      }
-
-      mxt_verb(ctx, "T%u address:%u offset:%u", object_type,
-               object_address, address);
-      address = object_address + address;
-
-      if (count == 0) {
-        count = mxt_get_object_size(mxt, object_type);
-      }
-    } else if (count == 0) {
-      fprintf(stderr, "Not enough arguments!\n");
-      ret = MXT_ERROR_BAD_INPUT;
+    ret = mxt_handle_write_cmd(mxt, object_type, count, ctx, instance, databuf,
+                               sizeof(databuf), argc, argv);
+    if (ret == MXT_ERROR_BAD_INPUT)
       goto free;
-    }
-
-    /* Parse unprocessed arguments */
-    c = optind;
-    while (c < argc && !ret) {
-      ret = mxt_convert_hex(argv[c], p_databuf, &count, sizeof(databuf) - (p_databuf - databuf));
-
-      if (ret || count == 0) {
-        fprintf(stderr, "Hex convert error\n");
-        ret = MXT_ERROR_BAD_INPUT;
-      }
-      p_databuf += count;
-      ++c;
-    }
-
-    if (!ret) {
-      ret = mxt_write_register(mxt, databuf, address, (p_databuf - databuf));
-      if (ret)
-        fprintf(stderr, "Write error\n");
-    }
-
     break;
 
   case CMD_READ:
