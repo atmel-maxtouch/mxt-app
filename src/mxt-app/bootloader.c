@@ -73,6 +73,7 @@ struct flash_context {
   bool have_bootloader_version;
   bool extended_id_mode;
   FILE *fp;
+  long file_size;
   char curr_version[MXT_FW_VER_LEN];
   int i2c_adapter;
   int appmode_address;
@@ -267,6 +268,8 @@ static int get_hex_value(struct flash_context *fw, unsigned char *ptr)
 static int send_frames(struct flash_context *fw)
 {
   unsigned char buffer[FIRMWARE_BUFFER_SIZE];
+  unsigned char last_percent = 100;
+  unsigned char cur_percent = 0;
   int ret;
   int i;
   int frame_size = 0;
@@ -361,10 +364,20 @@ static int send_frames(struct flash_context *fw)
       mxt_verb(fw->ctx, "CRC pass");
       frame++;
       bytes_sent += frame_size;
-      if (frame % 20 == 0) {
-        mxt_info(fw->ctx, "Sent %d frames, %d bytes", frame, bytes_sent);
-      } else {
-        mxt_verb(fw->ctx, "Sent %d frames, %d bytes", frame, bytes_sent);
+      cur_percent = (unsigned char)(0.5f + (100.0 * ftell(fw->fp)) / fw->file_size);
+
+      /* Display at 10% or difference is greater than 10% */
+      if (cur_percent % 10 == 0 || (cur_percent - last_percent) > 10) {
+        /* No need to repeat for the same percentage */
+        if (last_percent != cur_percent) {
+          /* clear previous line after first progress report */
+          if (cur_percent != 0) {
+            /* \033[F = Previous line, \033[J = clear line */
+            mxt_info(fw->ctx, "\033[F\033[J\033[F");
+          }
+          mxt_info(fw->ctx, "Sent %d frames, %d bytes. % 3d%%", frame, bytes_sent, cur_percent);
+          last_percent = cur_percent;
+        }
       }
     }
   }
@@ -553,6 +566,9 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
     mxt_err(fw.ctx, "Cannot open firmware file %s!", filename);
     return mxt_errno_to_rc(errno);
   }
+  fseek(fw.fp, 0L, SEEK_END);
+  fw.file_size = ftell(fw.fp);
+  fseek(fw.fp, 0L, SEEK_SET);
 
   ret = mxt_bootloader_init_chip(&fw);
   if (ret && (ret != MXT_DEVICE_IN_BOOTLOADER))
