@@ -639,7 +639,7 @@ int main (int argc, char *argv[])
   case CMD_WRITE:
     mxt_verb(ctx, "Write command");
     ret = mxt_handle_write_cmd(mxt, object_type, count, instance, address,
-                               databuf, sizeof(databuf), argc, argv);
+                               argc, argv);
     if (ret == MXT_ERROR_BAD_INPUT)
       goto free;
     break;

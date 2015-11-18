@@ -39,6 +39,7 @@
 #include "libmaxtouch.h"
 #include "utilfuncs.h"
 
+#define BUF_SIZE 1024
 #define BYTETOBINARYPATTERN "%d%d%d%d %d%d%d%d"
 #define BYTETOBINARY(byte)  \
   (byte & 0x80 ? 1 : 0), \
@@ -196,10 +197,10 @@ free:
 /// \return #mxt_rc
 int mxt_handle_write_cmd(struct mxt_device *mxt, const uint16_t type,
                          uint16_t count, const uint8_t inst, uint16_t address,
-                         unsigned char databuf[], const int buff_size, int argc,
-                         char *argv[])
+                         int argc, char *argv[])
 {
   uint16_t obj_addr = 0;
+  unsigned char databuf[BUF_SIZE];
   unsigned char *p_databuf = databuf;
   int ret = MXT_SUCCESS;
 
@@ -223,7 +224,7 @@ int mxt_handle_write_cmd(struct mxt_device *mxt, const uint16_t type,
 
   /* Parse unprocessed arguments */
   while (optind < argc) {
-    ret = mxt_convert_hex(argv[optind++], p_databuf, &count, buff_size - (p_databuf - databuf));
+    ret = mxt_convert_hex(argv[optind++], p_databuf, &count, sizeof(databuf) - (p_databuf - databuf));
 
     if (ret || count == 0) {
       fprintf(stderr, "Hex convert error\n");
