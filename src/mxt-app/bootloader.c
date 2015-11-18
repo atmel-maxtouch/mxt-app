@@ -268,8 +268,8 @@ static int get_hex_value(struct flash_context *fw, unsigned char *ptr)
 static int send_frames(struct flash_context *fw)
 {
   unsigned char buffer[FIRMWARE_BUFFER_SIZE];
-  unsigned char last_percent = 100;
-  unsigned char cur_percent = 0;
+  uint8_t last_percent = 100;
+  uint8_t cur_percent = 0;
   int ret;
   int i;
   int frame_size = 0;
@@ -568,7 +568,7 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
   }
   fseek(fw.fp, 0L, SEEK_END);
   fw.file_size = ftell(fw.fp);
-  fseek(fw.fp, 0L, SEEK_SET);
+  rewind(fw.fp);
 
   ret = mxt_bootloader_init_chip(&fw);
   if (ret && (ret != MXT_DEVICE_IN_BOOTLOADER))
