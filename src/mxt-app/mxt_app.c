@@ -638,8 +638,8 @@ int main (int argc, char *argv[])
   switch (cmd) {
   case CMD_WRITE:
     mxt_verb(ctx, "Write command");
-    ret = mxt_handle_write_cmd(mxt, object_type, count, ctx, instance, databuf,
-                               sizeof(databuf), argc, argv);
+    ret = mxt_handle_write_cmd(mxt, object_type, count, instance, address,
+                               databuf, sizeof(databuf), argc, argv);
     if (ret == MXT_ERROR_BAD_INPUT)
       goto free;
     break;
