@@ -185,7 +185,7 @@ int main (int argc, char *argv[])
   bool format = false;
   uint16_t port = 4000;
   uint8_t t68_datatype = 1;
-  unsigned char databuf[BUF_SIZE];
+  unsigned char databuf;
   char strbuf2[BUF_SIZE];
   char strbuf[BUF_SIZE];
   strbuf[0] = '\0';
@@ -271,12 +271,12 @@ int main (int argc, char *argv[])
         if (cmd == CMD_NONE) {
           cmd = CMD_BACKUP;
           if (optarg) {
-            ret = mxt_convert_hex(optarg, &databuf[0], &count, sizeof(databuf));
+            ret = mxt_convert_hex(optarg, &databuf, &count, sizeof(databuf));
             if (ret || count == 0) {
               fprintf(stderr, "Hex convert error\n");
               ret = MXT_ERROR_BAD_INPUT;
             }
-            backup_cmd = databuf[0];
+            backup_cmd = databuf;
           }
         } else {
           print_usage(argv[0]);
@@ -560,12 +560,12 @@ int main (int argc, char *argv[])
     case 't':
       if (cmd == CMD_NONE) {
         if (optarg) {
-          ret = mxt_convert_hex(optarg, &databuf[0], &count, sizeof(databuf));
+          ret = mxt_convert_hex(optarg, &databuf, &count, sizeof(databuf));
           if (ret) {
             fprintf(stderr, "Hex convert error\n");
             ret = MXT_ERROR_BAD_INPUT;
           } else {
-            self_test_cmd = databuf[0];
+            self_test_cmd = databuf;
           }
         }
         cmd = CMD_TEST;

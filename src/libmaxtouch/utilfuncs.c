@@ -281,13 +281,13 @@ int mxt_convert_hex(char *hex, unsigned char *databuf,
     if (lownibble == '\0' || lownibble == '\n')
       return MXT_ERROR_BAD_INPUT;
 
+    if (pos > buf_size)
+      return MXT_ERROR_NO_MEM;
+
     *(databuf + datapos) = (to_digit(highnibble) << 4)
                            | to_digit(lownibble);
     datapos++;
-
     pos += 2;
-    if (pos > buf_size)
-      return MXT_ERROR_NO_MEM;
   }
 
   *count = datapos;
