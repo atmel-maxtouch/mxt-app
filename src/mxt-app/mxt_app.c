@@ -46,6 +46,7 @@
 
 #define BUF_SIZE 1024
 
+
 //******************************************************************************
 /// \brief Initialize mXT device and read the info block
 /// \return #mxt_rc
@@ -173,7 +174,6 @@ int main (int argc, char *argv[])
   uint8_t backup_cmd = BACKUPNV_COMMAND;
   unsigned char self_test_cmd = SELF_TEST_ALL;
   uint16_t address = 0;
-  uint16_t object_address = 0;
   uint16_t count = 0;
   struct mxt_conn_info *conn = NULL;
   uint16_t object_type = 0;
@@ -185,7 +185,7 @@ int main (int argc, char *argv[])
   bool format = false;
   uint16_t port = 4000;
   uint8_t t68_datatype = 1;
-  unsigned char databuf[BUF_SIZE];
+  unsigned char databuf;
   char strbuf2[BUF_SIZE];
   char strbuf[BUF_SIZE];
   strbuf[0] = '\0';
@@ -271,12 +271,12 @@ int main (int argc, char *argv[])
         if (cmd == CMD_NONE) {
           cmd = CMD_BACKUP;
           if (optarg) {
-            ret = mxt_convert_hex(optarg, &databuf[0], &count, sizeof(databuf));
+            ret = mxt_convert_hex(optarg, &databuf, &count, sizeof(databuf));
             if (ret || count == 0) {
               fprintf(stderr, "Hex convert error\n");
               ret = MXT_ERROR_BAD_INPUT;
             }
-            backup_cmd = databuf[0];
+            backup_cmd = databuf;
           }
         } else {
           print_usage(argv[0]);
@@ -560,12 +560,12 @@ int main (int argc, char *argv[])
     case 't':
       if (cmd == CMD_NONE) {
         if (optarg) {
-          ret = mxt_convert_hex(optarg, &databuf[0], &count, sizeof(databuf));
+          ret = mxt_convert_hex(optarg, &databuf, &count, sizeof(databuf));
           if (ret) {
             fprintf(stderr, "Hex convert error\n");
             ret = MXT_ERROR_BAD_INPUT;
           } else {
-            self_test_cmd = databuf[0];
+            self_test_cmd = databuf;
           }
         }
         cmd = CMD_TEST;
@@ -638,43 +638,10 @@ int main (int argc, char *argv[])
   switch (cmd) {
   case CMD_WRITE:
     mxt_verb(ctx, "Write command");
-
-    if (object_type > 0) {
-      object_address = mxt_get_object_address(mxt, object_type, instance);
-      if (object_address == OBJECT_NOT_FOUND) {
-        fprintf(stderr, "No such object\n");
-        ret = MXT_ERROR_OBJECT_NOT_FOUND;
-        break;
-      }
-
-      mxt_verb(ctx, "T%u address:%u offset:%u", object_type,
-               object_address, address);
-      address = object_address + address;
-
-      if (count == 0) {
-        count = mxt_get_object_size(mxt, object_type);
-      }
-    } else if (count == 0) {
-      fprintf(stderr, "Not enough arguments!\n");
-      ret = MXT_ERROR_BAD_INPUT;
+    ret = mxt_handle_write_cmd(mxt, object_type, count, instance, address,
+                               argc, argv);
+    if (ret == MXT_ERROR_BAD_INPUT)
       goto free;
-    }
-
-    if (optind != (argc - 1)) {
-      fprintf(stderr, "Must give hex input\n");
-      ret = MXT_ERROR_BAD_INPUT;
-      goto free;
-    }
-
-    ret = mxt_convert_hex(argv[optind], databuf, &count, sizeof(databuf));
-    if (ret || count == 0) {
-      fprintf(stderr, "Hex convert error\n");
-      ret = MXT_ERROR_BAD_INPUT;
-    } else {
-      ret = mxt_write_register(mxt, databuf, address, count);
-      if (ret)
-        fprintf(stderr, "Write error\n");
-    }
     break;
 
   case CMD_READ:

@@ -34,10 +34,12 @@
 #include <inttypes.h>
 #include <time.h>
 #include <sys/time.h>
+#include <getopt.h>
 
 #include "libmaxtouch.h"
 #include "utilfuncs.h"
 
+#define BUF_SIZE 1024
 #define BYTETOBINARYPATTERN "%d%d%d%d %d%d%d%d"
 #define BYTETOBINARY(byte)  \
   (byte & 0x80 ? 1 : 0), \
@@ -189,6 +191,55 @@ free:
   return ret;
 }
 
+
+//******************************************************************************
+/// \brief Handles parsing of the write parameters
+/// \return #mxt_rc
+int mxt_handle_write_cmd(struct mxt_device *mxt, const uint16_t type,
+                         uint16_t count, const uint8_t inst, uint16_t address,
+                         int argc, char *argv[])
+{
+  uint16_t obj_addr = 0;
+  unsigned char databuf[BUF_SIZE];
+  unsigned char *p_databuf = databuf;
+  int ret = MXT_SUCCESS;
+
+  if (type > 0) {
+    obj_addr = mxt_get_object_address(mxt, type, inst);
+    if (obj_addr == OBJECT_NOT_FOUND) {
+      fprintf(stderr, "No such object\n");
+      return MXT_ERROR_OBJECT_NOT_FOUND;
+    }
+
+    mxt_verb(mxt->ctx, "T%u address:%u offset:%u", type, obj_addr, address);
+    address = obj_addr + address;
+
+    if (count == 0) {
+      count = mxt_get_object_size(mxt, type);
+    }
+  } else if (count == 0) {
+    fprintf(stderr, "Not enough arguments!\n");
+    return MXT_ERROR_BAD_INPUT;
+  }
+
+  /* Parse unprocessed arguments */
+  while (optind < argc) {
+    ret = mxt_convert_hex(argv[optind++], p_databuf, &count, sizeof(databuf) - (p_databuf - databuf));
+
+    if (ret || count == 0) {
+      fprintf(stderr, "Hex convert error\n");
+      return MXT_ERROR_BAD_INPUT;
+    }
+    p_databuf += count;
+  }
+
+  ret = mxt_write_register(mxt, databuf, address, (p_databuf - databuf));
+  if (ret)
+    fprintf(stderr, "Write error\n");
+
+  return MXT_SUCCESS;
+}
+
 //******************************************************************************
 /// \brief Convert hex nibble to digit
 static char to_digit(char hex)
@@ -230,13 +281,13 @@ int mxt_convert_hex(char *hex, unsigned char *databuf,
     if (lownibble == '\0' || lownibble == '\n')
       return MXT_ERROR_BAD_INPUT;
 
+    if (pos > buf_size)
+      return MXT_ERROR_NO_MEM;
+
     *(databuf + datapos) = (to_digit(highnibble) << 4)
                            | to_digit(lownibble);
     datapos++;
-
     pos += 2;
-    if (pos > buf_size)
-      return MXT_ERROR_NO_MEM;
   }
 
   *count = datapos;
