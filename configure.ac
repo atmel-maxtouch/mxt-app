@@ -11,7 +11,7 @@ AC_CONFIG_HEADERS([config.h])
 
 # Checks for programs.
 AC_PROG_CC
-AM_PROG_AR
+m4_ifdef([AM_PROG_AR], [AM_PROG_AR]) dnl Workaround for earlier Automake
 LT_INIT
 
 # Check for usb support
