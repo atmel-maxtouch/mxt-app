@@ -38,10 +38,6 @@
 #include "libmaxtouch/info_block.h"
 #include "usb_device.h"
 
-#ifndef ANDROID
-#include "config.h"
-#endif
-
 /* USB device configuration */
 #define VENDOR_ID    0x03EB
 #define ENDPOINT_1_IN  0x81
