@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
-/// \file   run_tests.c
-/// \brief  Test suite for mxt-app.
+/// \file   test_utilfuncs.c
+/// \brief  Tests against libmaxtouch/utilfuncs.h
 /// \author Steven Swann
 //------------------------------------------------------------------------------
 // Copyright 2016 Atmel Corporation. All rights reserved.
@@ -27,19 +27,52 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
+#include <stdio.h>
+#include <string.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
 #include <cmocka.h>
 
+#include "libmaxtouch/libmaxtouch.h"
+#include "libmaxtouch/log.h"
+#include "libmaxtouch/utilfuncs.h"
+#include "libmaxtouch/info_block.h"
+
 #include "run_unit_tests.h"
 
-int main(int argc, char *argv[])
-{
-  /* Test suite */
-  const UnitTest tests[] = {
-    unit_test(mxt_convert_hex_test),
-  };
+void mxt_convert_hex_test(void **state) {
+  /* test setup */
+  uint8_t databuf[5] = {0};
+  char hex[2];
+  uint16_t count;
 
-  return run_tests(tests);
+  /* perform tests */
+  strcpy(hex, "09");
+  assert_int_equal(mxt_convert_hex((char *)&hex, (unsigned char *)&databuf,
+        &count, sizeof(databuf)), MXT_SUCCESS);
+  assert_int_equal((int)databuf[0], 9);
+  assert_int_equal(count, 1);
+
+  strcpy(hex, "0F");
+  assert_int_equal(mxt_convert_hex((char *)&hex, (unsigned char *)&databuf,
+        &count, sizeof(databuf)), MXT_SUCCESS);
+  assert_int_equal((int)databuf[0], 0x0F);
+  assert_int_equal(count, 1);
+
+  strcpy(hex, "0FAB");
+  assert_int_equal(mxt_convert_hex((char *)&hex, (unsigned char *)&databuf,
+        &count, sizeof(databuf)), MXT_SUCCESS);
+  assert_false(databuf[2] == 0x0F);
+  assert_false(databuf[3] == 0xAB);
+  assert_int_equal(count, 2);
+
+  /* test error conditions */
+  strcpy(hex, "F");
+  assert_int_equal(mxt_convert_hex((char *)&hex, (unsigned char *)&databuf,
+        &count, sizeof(databuf)), MXT_ERROR_BAD_INPUT);
+
+  strcpy(hex, "0FAB");
+  assert_int_equal(mxt_convert_hex((char *)&hex, (unsigned char *)&databuf,
+        &count, 1), MXT_ERROR_NO_MEM);
 }

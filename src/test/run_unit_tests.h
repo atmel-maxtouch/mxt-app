@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-/// \file   run_tests.c
+/// \file   run_tests.h
 /// \brief  Test suite for mxt-app.
 /// \author Steven Swann
 //------------------------------------------------------------------------------
@@ -27,19 +27,4 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-#include <stdarg.h>
-#include <stddef.h>
-#include <setjmp.h>
-#include <cmocka.h>
-
-#include "run_unit_tests.h"
-
-int main(int argc, char *argv[])
-{
-  /* Test suite */
-  const UnitTest tests[] = {
-    unit_test(mxt_convert_hex_test),
-  };
-
-  return run_tests(tests);
-}
+void mxt_convert_hex_test(void **state);
