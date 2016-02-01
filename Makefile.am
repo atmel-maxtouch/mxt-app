@@ -33,7 +33,8 @@ noinst_LTLIBRARIES = libmaxtouch.la
 check_PROGRAMS = test/run_unit_tests
 
 test_run_unit_tests_SOURCES =\
-  src/mxt-app/test/run_unit_tests.c
+  src/mxt-app/test/run_unit_tests.c \
+  src/mxt-app/test/test_utilfuncs.c
 
 test_run_unit_tests_CFLAGS =\
   -I$(top_srcdir)/src \
