@@ -42,7 +42,7 @@ AM_CONDITIONAL(ENABLE_MAN, test x"$enable_man" = x"yes")
 AC_HEADER_STDBOOL
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h netinet/in.h stdint.h stdlib.h])
 AC_CHECK_HEADERS([string.h sys/ioctl.h sys/socket.h sys/statfs.h unistd.h])
-AC_CHECK_HEADERS([limits.h malloc.h netdb.h sys/time.h ctype.h])
+AC_CHECK_HEADERS([limits.h malloc.h netdb.h sys/time.h ctype.h cmocka.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_INLINE

@@ -32,6 +32,27 @@ endif
 bin_PROGRAMS = mxt-app
 noinst_LTLIBRARIES = libmaxtouch.la
 
+check_PROGRAMS = test/run_unit_tests
+
+test_run_unit_tests_SOURCES =\
+  src/mxt-app/test/run_unit_tests.c \
+  src/mxt-app/test/test_utilfuncs.c
+
+test_run_unit_tests_CFLAGS =\
+  -I$(top_srcdir)/src \
+	-fvisibility=hidden \
+	-ffunction-sections \
+	-fdata-sections \
+	-Wall -Werror -Wmissing-declarations -Wmissing-prototypes -Wnested-externs \
+	-Wpointer-arith -Wsign-compare -Wchar-subscripts -Wstrict-prototypes \
+	-Wwrite-strings -Wshadow -Wformat-security -Wtype-limits \
+	-DMXT_VERSION=\"$(GIT_VERSION)\" \
+	-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
+
+test_run_unit_tests_LDFLAGS = -lcmocka -lmaxtouch
+
+TESTS = test/run_unit_tests
+
 libmaxtouch_la_SOURCES =\
 	src/libmaxtouch/libmaxtouch.h \
 	src/libmaxtouch/libmaxtouch.c \
