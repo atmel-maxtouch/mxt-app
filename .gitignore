@@ -19,6 +19,11 @@ Makefile
 Makefile.in
 /missing
 /mxt-app
+/run-unit-tests
+/run-unit-tests.log
+/run-unit-tests.trs
+/test-driver
+/test-suite.log
 /man1/mxt-app.1
 /autom4te.cache/
 /m4/
