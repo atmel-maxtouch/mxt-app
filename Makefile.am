@@ -32,6 +32,24 @@ endif
 bin_PROGRAMS = mxt-app
 noinst_LTLIBRARIES = libmaxtouch.la
 
+check_PROGRAMS = run_unit_tests
+
+run_unit_tests_SOURCES =\
+  src/test/run_unit_tests.c \
+  src/test/test_utilfuncs.c
+
+run_unit_tests_CFLAGS =\
+  -I$(top_srcdir)/src \
+	-fvisibility=hidden \
+	-ffunction-sections \
+	-fdata-sections \
+	-DMXT_VERSION=\"$(GIT_VERSION)\" \
+	-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
+
+run_unit_tests_LDFLAGS = -lcmocka -lmaxtouch
+
+TESTS = run_unit_tests
+
 libmaxtouch_la_SOURCES =\
 	src/libmaxtouch/libmaxtouch.h \
 	src/libmaxtouch/libmaxtouch.c \
