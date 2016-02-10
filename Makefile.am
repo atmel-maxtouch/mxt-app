@@ -32,7 +32,7 @@ endif
 bin_PROGRAMS = mxt-app
 noinst_LTLIBRARIES = libmaxtouch.la
 
-check_PROGRAMS = run_unit_tests
+check_PROGRAMS = run-unit-tests
 
 run_unit_tests_SOURCES =\
   src/test/run_unit_tests.c \
@@ -48,7 +48,7 @@ run_unit_tests_CFLAGS =\
 
 run_unit_tests_LDFLAGS = -lcmocka -lmaxtouch
 
-TESTS = run_unit_tests
+TESTS = run-unit-tests
 
 libmaxtouch_la_SOURCES =\
 	src/libmaxtouch/libmaxtouch.h \
