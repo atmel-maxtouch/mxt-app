@@ -214,10 +214,14 @@ int i2c_dev_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int coun
 //******************************************************************************
 /// \brief  Bootloader write
 /// \return #mxt_rc
-int i2c_dev_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int count)
+int i2c_dev_bootloader_write(struct mxt_device *mxt, unsigned char const *buf,
+                             int count, size_t *bytes_read)
 {
   int fd = -ENODEV;
   int ret;
+
+  if (count > I2C_DEV_MAX_BLOCK)
+    count = I2C_DEV_MAX_BLOCK;
 
   ret = open_and_set_slave_address(mxt, &fd);
   if (ret)
@@ -232,6 +236,7 @@ int i2c_dev_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, i
     ret = MXT_SUCCESS;
   }
 
+  *bytes_read = count;
   close(fd);
   return ret;
 }

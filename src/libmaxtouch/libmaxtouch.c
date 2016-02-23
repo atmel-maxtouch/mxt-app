@@ -834,6 +834,26 @@ int mxt_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count)
 //******************************************************************************
 /// \brief Write to bootloader
 /// \return #mxt_rc
+static i2c_dev_bootloader_write_blks(struct mxt_device *mxt, unsigned char const *buf, int count)
+{
+  int ret;
+  size_t received;
+  size_t off = 0;
+
+  while (off < count) {
+    ret = i2c_dev_bootloader_write(mxt, buf + off, count - off, &received);
+    if (ret)
+      return ret;
+
+    off += received;
+  }
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief Write to bootloader
+/// \return #mxt_rc
 int mxt_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int count)
 {
   int ret;
@@ -846,7 +866,7 @@ int mxt_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int c
 #endif /* HAVE_LIBUSB */
 
   case E_I2C_DEV:
-    ret = i2c_dev_bootloader_write(mxt, buf, count);
+    ret = i2c_dev_bootloader_write_blks(mxt, buf, count);
     break;
 
   case E_HIDRAW:
