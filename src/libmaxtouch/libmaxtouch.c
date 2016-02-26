@@ -833,11 +833,11 @@ int mxt_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count)
 //******************************************************************************
 /// \brief Write to bootloader
 /// \return #mxt_rc
-static i2c_dev_bootloader_write_blks(struct mxt_device *mxt, unsigned char const *buf, int count)
+static int i2c_dev_bootloader_write_blks(struct mxt_device *mxt, unsigned char const *buf, int count)
 {
   int ret;
   size_t received;
-  size_t off = 0;
+  int off = 0;
 
   while (off < count) {
     ret = i2c_dev_bootloader_write(mxt, buf + off, count - off, &received);
