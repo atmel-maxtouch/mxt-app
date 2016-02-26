@@ -113,7 +113,6 @@ int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn,
   return ret;
 }
 
-
 //******************************************************************************
 /// \brief Create connection object
 /// \return #mxt_rc
