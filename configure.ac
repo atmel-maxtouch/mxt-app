@@ -53,6 +53,8 @@ AC_TYPE_UINT32_T
 AC_TYPE_UINT8_T
 AC_TYPE_SIZE_T
 
+AC_PATH_PROG(CTAGS, ctags, /bin/true)
+
 # Checks for library functions.
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC

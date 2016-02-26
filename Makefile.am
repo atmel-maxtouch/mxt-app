@@ -125,3 +125,6 @@ dist-hook:
 indent:
 	astyle --style=linux --indent=spaces=2 \
 	$(mxt_app_SOURCES) $(libmaxtouch_la_SOURCES)
+
+ctags:
+	find src -type f -name "*.[ch]" | xargs @CTAGS@

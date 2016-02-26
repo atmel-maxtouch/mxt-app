@@ -37,3 +37,4 @@ Makefile.in
 .reviewboardrc
 doc/html
 doc/doxygen_sqlite3.db
+/tags
