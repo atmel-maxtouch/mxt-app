@@ -111,6 +111,7 @@ enum mxt_rc {
   MXT_ERROR_RESERVED = 33,                   /*!< Reserved value */
   MXT_DEVICE_IN_BOOTLOADER = 34,             /*!< Device is in bootloader mode */
   MXT_ERROR_OBJECT_IS_VOLATILE = 35,         /*!< Object is volatile */
+  MXT_ERROR_RESERVED2 = 36,                  /*!< Reserved value */
 };
 
 //******************************************************************************
