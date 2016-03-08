@@ -75,4 +75,8 @@ void mxt_convert_hex_test(void **state)
   strcpy(hex, "0FAB");
   ret = mxt_convert_hex(hex, databuf, &count, 1);
   assert_int_equal(ret, MXT_ERROR_NO_MEM);
+
+  strcpy(hex, "0xA5");
+  ret = mxt_convert_hex(hex, databuf, &count, sizeof(databuf));
+  assert_int_equal(ret, MXT_ERROR_BAD_INPUT);
 }
