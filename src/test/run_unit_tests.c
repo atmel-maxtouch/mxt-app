@@ -37,9 +37,9 @@
 int main(int argc, char *argv[])
 {
   /* Test suite */
-  const UnitTest tests[] = {
+  const struct CMUnitTest tests[] = {
     unit_test(mxt_convert_hex_test),
   };
 
-  return run_tests(tests);
+  return cmocka_run_group_tests(tests, NULL, NULL);
 }
