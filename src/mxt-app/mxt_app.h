@@ -41,6 +41,8 @@
 #define SELF_CAP_SIGNALS  0xF5
 #define SELF_CAP_DELTAS   0xF7
 #define SELF_CAP_REFS     0xF8
+#define AST_DELTAS        0xFB
+#define AST_REFS          0xFC
 
 /* T25 Self Test Commands */
 #define SELF_TEST_ANALOG       0x01
@@ -100,6 +102,7 @@ struct t37_ctx {
   struct libmaxtouch_ctx *lc;
 
   bool self_cap;
+  bool active_stylus;
 
   int x_size;
   int y_size;
@@ -117,6 +120,7 @@ struct t37_ctx {
   int t37_addr;
   int t37_size;
   uint8_t t111_instances;
+  uint8_t t107_instances;
 
   uint16_t frame;
   int pass;
