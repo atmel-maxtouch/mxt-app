@@ -242,20 +242,21 @@ int mxt_handle_write_cmd(struct mxt_device *mxt, const uint16_t type,
 
 //******************************************************************************
 /// \brief Convert hex nibble to digit
-static char to_digit(char hex)
+/// \return #mxt_rc
+static int to_digit(const char hex, char *const decimal)
 {
-  char decimal;
-
   if (hex >= '0' && hex <= '9')
-    decimal = hex - '0';
+    *decimal = hex - '0';
   else if (hex >= 'A' && hex <= 'F')
-    decimal = hex - 'A' + 10;
+    *decimal = hex - 'A' + 10;
   else if (hex >= 'a' && hex <= 'f')
-    decimal = hex - 'a' + 10;
-  else
-    decimal = 0;
+    *decimal = hex - 'a' + 10;
+  else {
+    *decimal = 0;
+    return MXT_ERROR_BAD_INPUT;
+  }
 
-  return decimal;
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
@@ -268,6 +269,9 @@ int mxt_convert_hex(char *hex, unsigned char *databuf,
   uint16_t datapos = 0;
   char highnibble;
   char lownibble;
+  char high_dec_nibble;
+  char low_dec_nibble;
+  int ret = MXT_SUCCESS;
 
   while (1) {
     highnibble = *(hex + pos);
@@ -278,20 +282,31 @@ int mxt_convert_hex(char *hex, unsigned char *databuf,
       break;
 
     /* uneven number of hex digits */
-    if (lownibble == '\0' || lownibble == '\n')
-      return MXT_ERROR_BAD_INPUT;
+    if (lownibble == '\0' || lownibble == '\n') {
+      ret = MXT_ERROR_BAD_INPUT;
+      break;
+    }
 
-    if (pos > buf_size)
-      return MXT_ERROR_NO_MEM;
+    if (pos > buf_size) {
+      ret = MXT_ERROR_NO_MEM;
+      break;
+    }
 
-    *(databuf + datapos) = (to_digit(highnibble) << 4)
-                           | to_digit(lownibble);
+    ret = to_digit(highnibble, &high_dec_nibble);
+    if (ret)
+      break;
+
+    ret = to_digit(lownibble, &low_dec_nibble);
+    if (ret)
+      break;
+
+    *(databuf + datapos) = (high_dec_nibble << 4) | low_dec_nibble;
     datapos++;
     pos += 2;
   }
 
   *count = datapos;
-  return MXT_SUCCESS;
+  return ret;
 }
 
 //******************************************************************************
