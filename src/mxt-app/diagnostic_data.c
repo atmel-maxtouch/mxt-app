@@ -81,6 +81,9 @@ static int get_objects_addr(struct t37_ctx *ctx)
   ctx->t111_instances = mxt_get_object_instances(ctx->mxt,
                         SPT_SELFCAPCONFIG_T111);
 
+  ctx->t107_instances = mxt_get_object_instances(ctx->mxt,
+                        PROCI_ACTIVESTYLUS_T107);
+
   return MXT_SUCCESS;
 }
 
@@ -214,6 +217,53 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
           return MXT_ERROR_IO;
       }
     }
+  } else if (ctx->active_stylus) {
+    for (pass = 0; pass < ctx->passes; pass++) {
+      const char *mode;
+      switch (ctx->mode) {
+      default:
+      case AST_DELTAS:
+        mode = "delta";
+        break;
+      case AST_REFS:
+        mode = "ref";
+        break;
+      }
+
+      for (y = 0; y < ctx->y_size; y++) {
+        int y_real;
+        const char* set;
+
+        if ( y < id->matrix_y_size) {
+          y_real = y;
+          set = "0";
+        } else {
+          y_real = y - id->matrix_y_size;
+          set = "1";
+        }
+        ret = fprintf(ctx->hawkeye, "AST_%s_Y%s_%d,", mode, set, y_real);
+        if (ret < 0)
+          return MXT_ERROR_IO;
+      }
+
+      for (x = 0; x < ctx->x_size; x++) {
+        int x_real;
+        const char* set;
+
+        if ( x < ctx->x_size/2) {
+          x_real = x;
+          set = "0";
+        } else {
+          x_real = x - ctx->x_size/2;
+          set = "1";
+        }
+
+        ret = fprintf(ctx->hawkeye, "AST_%s_X%s_%d,", mode, set, x_real);
+        if (ret < 0)
+          return MXT_ERROR_IO;
+      }
+    }
+
   } else {
     for (x = 0; x < ctx->x_size; x++) {
       for (y = 0; y < ctx->y_size; y++) {
@@ -318,7 +368,7 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
   if (ret < 0)
     return MXT_ERROR_IO;
 
-  if (ctx->self_cap) {
+  if ((ctx->self_cap)||(ctx->active_stylus)) {
     for (pass = 0; pass < ctx->passes; pass++) {
       int pass_ofs = (ctx->y_size + ctx->x_size) * pass;
 
@@ -434,7 +484,7 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
       return MXT_ERROR_OBJECT_NOT_FOUND;
     }
 
-    // read Ymax Y values, plus Ymax or 2Ymax X values
+    // Read Ymax Y values, plus Ymax or 2Ymax X values
     ctx->passes = ctx->t111_instances;
     ctx->y_size = id->matrix_y_size;
     ctx->x_size = ctx->y_size * ((id->matrix_x_size > ctx->y_size) ? 2 : 1);
@@ -442,6 +492,30 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
     ctx->pages_per_pass = ((ctx->y_size + ctx->x_size)*sizeof(uint16_t) +(ctx->page_size - 1)) /
                           ctx->page_size;
 
+    break;
+
+  case AST_DELTAS:
+  case AST_REFS:
+    ctx->self_cap = false;
+    ctx->active_stylus = true;
+
+    if (id->family != 164) {
+      mxt_err(ctx->lc, "active stylus data not available");
+      return MXT_ERROR_NOT_SUPPORTED;
+    }
+
+    if (ctx->t107_instances == 0) {
+      mxt_err(ctx->lc, "T107 not found");
+      return MXT_ERROR_OBJECT_NOT_FOUND;
+    }
+
+    // Read Ymax Y values, plus Ymax or 2Ymax X values
+    ctx->passes = ctx->t107_instances;
+    ctx->y_size = 2 * id->matrix_y_size;    // Two scans per axis
+    ctx->x_size = ctx->y_size * ((id->matrix_x_size > ctx->y_size) ? 2 : 1);
+    ctx->data_values = (ctx->y_size + ctx->x_size) * ctx->passes;
+    ctx->pages_per_pass = ((ctx->y_size + ctx->x_size)*sizeof(uint16_t) +(ctx->page_size - 1)) /
+                          ctx->page_size;
     break;
 
   default:
@@ -530,6 +604,14 @@ static int mxt_read_diagnostic_data_self_cap(struct t37_ctx* ctx)
 }
 
 //******************************************************************************
+/// \brief Read one frame of diagnostic data
+/// \return #mxt_rc
+static int mxt_read_diagnostic_data_ast(struct t37_ctx* ctx)
+{
+  return mxt_read_diagnostic_data_self_cap(ctx);
+}
+
+//******************************************************************************
 /// \brief Retrieve data from the T37 Diagnostic Data object
 /// \return #mxt_rc
 int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
@@ -570,10 +652,12 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   t1 = time(NULL);
 
   for (ctx.frame = 1; ctx.frame <= frames; ctx.frame++) {
-    if (!ctx.self_cap) {
-      ret = mxt_read_diagnostic_data_frame(&ctx);
-    } else {
+    if (ctx.self_cap) {
       ret = mxt_read_diagnostic_data_self_cap(&ctx);
+    } else if (ctx.active_stylus) {
+      ret = mxt_read_diagnostic_data_ast(&ctx);
+    } else {
+      ret = mxt_read_diagnostic_data_frame(&ctx);
     }
     if (ret)
       goto close;
