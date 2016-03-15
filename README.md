@@ -66,6 +66,9 @@ by Atmel under NDA.
 `--version`
 :   print version of mxt-app.
 
+`--block-size *BLOCKSIZE*`
+:   Sets the i2c block size.
+
 # CONFIGURATION FILE COMMANDS
 
 `--load *FILE*`

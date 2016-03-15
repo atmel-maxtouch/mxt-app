@@ -47,8 +47,6 @@ struct mxt_conn_info;
 /* Deep sleep retry delay 25 ms */
 #define I2C_RETRY_DELAY 25000
 
-#define I2C_DEV_MAX_BLOCK 255
-
 //******************************************************************************
 /// \brief  Register i2c-dev device
 /// \return #mxt_rc
@@ -100,14 +98,14 @@ static int open_and_set_slave_address(struct mxt_device *mxt, int *fd_out)
 /// \brief  Read register from MXT chip
 /// \return #mxt_rc
 int i2c_dev_read_register(struct mxt_device *mxt, unsigned char *buf,
-                          int start_register, size_t count, size_t *bytes_read)
+                          int start_register, int count, size_t *bytes_read)
 {
   int fd = -ENODEV;
   int ret;
   char register_buf[2];
 
-  if (count > I2C_DEV_MAX_BLOCK)
-    count = I2C_DEV_MAX_BLOCK;
+  if (count > mxt->ctx->i2c_block_size)
+    count = mxt->ctx->i2c_block_size;
 
   ret = open_and_set_slave_address(mxt, &fd);
   if (ret)
@@ -220,8 +218,8 @@ int i2c_dev_bootloader_write(struct mxt_device *mxt, unsigned char const *buf,
   int fd = -ENODEV;
   int ret;
 
-  if (count > I2C_DEV_MAX_BLOCK)
-    count = I2C_DEV_MAX_BLOCK;
+  if (count > mxt->ctx->i2c_block_size)
+    count = mxt->ctx->i2c_block_size;
 
   ret = open_and_set_slave_address(mxt, &fd);
   if (ret)

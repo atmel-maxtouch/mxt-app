@@ -52,6 +52,7 @@ int mxt_new(struct libmaxtouch_ctx **ctx)
   new_ctx->log_level = LOG_ERROR;
   new_ctx->query = false;
   new_ctx->log_fn = mxt_log_stderr;
+  new_ctx->i2c_block_size = I2C_DEV_MAX_BLOCK;
 
   *ctx = new_ctx;
 
