@@ -699,7 +699,7 @@ release:
 /// \brief  Bootloader version query
 int mxt_bootloader_version(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, struct mxt_conn_info *conn)
 {
-  struct flash_context fw;
+  struct flash_context fw = {0};
   int ret;
   unsigned char buf[3];
 
