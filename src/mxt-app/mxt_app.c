@@ -104,6 +104,7 @@ static void print_usage(char *prog_name)
           "  --self-cap-tune-config     : tune self capacitance settings to config\n"
           "  --self-cap-tune-nvram      : tune self capacitance settings to NVRAM\n"
           "  --version                  : print version\n"
+          "  --block-size BLOCKSIZE     : set the maximum block size used for i2c transfers (default %d)\n"
           "\n"
           "Configuration file commands:\n"
           "  --load FILE                : upload cfg from FILE in .xcfg or OBP_RAW format\n"
@@ -162,7 +163,7 @@ static void print_usage(char *prog_name)
           "\n"
           "Debug options:\n"
           "  -v [--verbose] LEVEL       : set debug level\n",
-          MXT_VERSION, prog_name);
+          MXT_VERSION, prog_name, I2C_DEV_MAX_BLOCK);
 }
 
 //******************************************************************************
@@ -186,6 +187,7 @@ int main (int argc, char *argv[])
   uint8_t t37_mode = DELTAS_MODE;
   bool format = false;
   uint16_t port = 4000;
+  int i2c_block_size = I2C_DEV_MAX_BLOCK;
   uint8_t t68_datatype = 1;
   unsigned char databuf;
   char strbuf2[BUF_SIZE];
@@ -199,6 +201,7 @@ int main (int argc, char *argv[])
 
     static struct option long_options[] = {
       {"backup",           optional_argument, 0, 0},
+      {"block-size",       required_argument, 0, 0},
       {"bootloader-version", no_argument,     0, 0},
       {"bridge-client",    required_argument, 0, 'C'},
       {"calibrate",        no_argument,       0, 0},
@@ -387,6 +390,8 @@ int main (int argc, char *argv[])
         t37_mode = AST_DELTAS;
       } else if (!strcmp(long_options[option_index].name, "active-stylus-refs")) {
         t37_mode = AST_REFS;
+      } else if (!strcmp(long_options[option_index].name, "block-size")) {
+        i2c_block_size = atoi(optarg);
       } else if (!strcmp(long_options[option_index].name, "version")) {
         printf("mxt-app %s%s\n", MXT_VERSION, ENABLE_DEBUG ? " DEBUG":"");
         return MXT_SUCCESS;
@@ -621,6 +626,12 @@ int main (int argc, char *argv[])
 
   /* Debug does not work until mxt_set_verbose() is called */
   mxt_info(ctx, "Version:%s", MXT_VERSION);
+
+  /* Update the i2c block size */
+  if (i2c_block_size != I2C_DEV_MAX_BLOCK) {
+    mxt_verb(ctx, "Setting i2c_block_size from %d to %d", ctx->i2c_block_size, i2c_block_size);
+    ctx->i2c_block_size = i2c_block_size;
+  }
 
   if (cmd == CMD_WRITE || cmd == CMD_READ) {
     mxt_verb(ctx, "instance:%u", instance);

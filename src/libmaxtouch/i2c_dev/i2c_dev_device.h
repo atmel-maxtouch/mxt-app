@@ -28,6 +28,8 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
+#define I2C_DEV_MAX_BLOCK 255
+
 //******************************************************************************
 /// \brief Device information for i2c-dev backend
 struct i2c_dev_conn_info {
@@ -42,7 +44,7 @@ struct i2c_dev_device {
 
 int i2c_dev_open(struct mxt_device *mxt);
 void i2c_dev_release(struct mxt_device *mxt);
-int i2c_dev_read_register(struct mxt_device *mxt, unsigned char *buf, int start_register, size_t count, size_t *bytes_transferred);
+int i2c_dev_read_register(struct mxt_device *mxt, unsigned char *buf, int start_register, int count, size_t *bytes_transferred);
 int i2c_dev_write_register(struct mxt_device *mxt, unsigned char const *buf, int start_register, size_t count);
 int i2c_dev_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count);
 int i2c_dev_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int count, size_t *bytes_transferred);

@@ -131,6 +131,7 @@ struct libmaxtouch_ctx {
   bool query;
   int scan_count;
   enum mxt_log_level log_level;
+  int i2c_block_size;
 
   void (*log_fn)(struct libmaxtouch_ctx *ctx, enum mxt_log_level level,
                  const char *format, va_list args);
