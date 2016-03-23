@@ -43,6 +43,7 @@
 #endif
 
 #define MAX_DMESG_COUNT       (500)
+#define MAX_DMESG_BUFSIZE     (10E6)
 
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/libmaxtouch.h"
@@ -291,15 +292,20 @@ int dmesg_alloc_buffer(struct mxt_device *mxt)
     return mxt_errno_to_rc(errno);
   }
 
+  if (size > MAX_DMESG_BUFSIZE)
+    size = MAX_DMESG_BUFSIZE;
+
+  mxt_dbg(mxt->ctx, "sysfs.debug_msg_buf_size: %d bytes", size);
+
   // Allocate buffer space
-  mxt->sysfs.debug_msg_buf_size = size;
   mxt->sysfs.debug_msg_buf = (char *)calloc(size, sizeof(char));
   if (mxt->sysfs.debug_msg_buf == NULL) {
-    mxt_err(mxt->ctx, "Error allocating debug_msg_buf");
+    mxt_err(mxt->ctx, "Error allocating debug_msg_buf %d bytes", size);
     return mxt_errno_to_rc(errno);
   }
 
-  return 0;
+  mxt->sysfs.debug_msg_buf_size = size;
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
