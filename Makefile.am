@@ -12,12 +12,6 @@ AM_MAKEFLAGS = --no-print-directory
 
 AM_CFLAGS = \
 	-I$(top_srcdir)/src \
-	-fvisibility=hidden \
-	-ffunction-sections \
-	-fdata-sections \
-	-Wall -Werror -Wmissing-declarations -Wmissing-prototypes -Wnested-externs \
-	-Wpointer-arith -Wsign-compare -Wchar-subscripts -Wstrict-prototypes \
-	-Wwrite-strings -Wshadow -Wformat-security -Wtype-limits \
 	-DMXT_VERSION=\"$(GIT_VERSION)\" \
 	-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -D_GNU_SOURCE=1
 
@@ -35,14 +29,17 @@ noinst_LTLIBRARIES = libmaxtouch.la
 check_PROGRAMS = run-unit-tests
 
 run_unit_tests_SOURCES =\
-  src/test/run_unit_tests.c \
-  src/test/test_utilfuncs.c
+	src/test/run_unit_tests.c \
+	src/test/test_utilfuncs.c
 
 run_unit_tests_CFLAGS =\
-  -I$(top_srcdir)/src \
+	-I$(top_srcdir)/src \
 	-fvisibility=hidden \
 	-ffunction-sections \
 	-fdata-sections \
+	-Wall -Werror -Wmissing-declarations -Wmissing-prototypes -Wnested-externs \
+	-Wpointer-arith -Wsign-compare -Wchar-subscripts -Wstrict-prototypes \
+	-Wwrite-strings -Wshadow -Wformat-security -Wtype-limits \
 	-DMXT_VERSION=\"$(GIT_VERSION)\" \
 	-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
