@@ -43,7 +43,7 @@ void mxt_convert_hex_test(void **state)
 {
   /* test setup */
   uint8_t databuf[5] = {0};
-  char hex[4];
+  char hex[5];
   uint16_t count;
   int ret;
 
