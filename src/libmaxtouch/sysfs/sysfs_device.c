@@ -483,7 +483,7 @@ static int read_boolean_file(struct mxt_device *mxt, char *filename,
 {
   FILE *file;
   char val;
-  bool ret;
+  int ret;
 
   file = fopen(filename, "r");
   if (!file) {
