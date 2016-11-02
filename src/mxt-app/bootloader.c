@@ -362,6 +362,7 @@ static int send_frames(struct flash_context *fw)
       return ret;
     } else {
       mxt_verb(fw->ctx, "CRC pass");
+      frame_retry = 0;
       frame++;
       bytes_sent += frame_size;
       cur_percent = (unsigned char)(0.5f + (100.0 * ftell(fw->fp)) / fw->file_size);
