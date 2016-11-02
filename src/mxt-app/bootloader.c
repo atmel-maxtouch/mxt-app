@@ -229,7 +229,7 @@ recheck:
 
   if (!fw->have_bootloader_version
       && state == MXT_WAITING_BOOTLOAD_CMD) {
-    if (bootloader_id | 0x20) {
+    if (bootloader_id & 0x20) {
       mxt_dbg(fw->ctx, "Bootloader using extended ID mode");
       fw->extended_id_mode = true;
     } else {
