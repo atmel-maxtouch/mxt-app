@@ -674,6 +674,12 @@ static int mxt_load_xcfg_file(struct libmaxtouch_ctx *ctx, const char *filename,
         objcfg->data[offset + 2] = (char) ((data >> 16) & 0xFF);
         objcfg->data[offset + 3] = (char) ((data >> 24) & 0xFF);
         break;
+      case 4:
+        *(mem + offset) = (char) data & 0xFF;
+        *(mem + offset + 1) = (char) ((data >> 8) & 0xFF);
+        *(mem + offset + 2) = (char) ((data >> 16) & 0xFF);
+        *(mem + offset + 3) = (char) ((data >> 24) & 0xFF);
+         break;
       default:
         mxt_err(ctx, "Only 1, 2 and 4 byte config values are supported");
         ret = MXT_ERROR_FILE_FORMAT;
