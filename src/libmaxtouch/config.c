@@ -174,7 +174,7 @@ static int mxt_write_object_config(struct mxt_device *mxt,
   memcpy(obj_buf, objcfg->data, num_bytes);
 
   /* Write object */
-  ret = mxt_write_register(mxt, obj_buf, obj_addr, device_size);
+  ret = mxt_write_register(mxt, obj_buf, obj_addr, num_bytes);
   if (ret) {
     mxt_err(mxt->ctx, "Config write error, ret=%d", ret);
     return ret;
