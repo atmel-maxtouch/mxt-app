@@ -110,6 +110,7 @@ static void print_usage(char *prog_name)
           "  --load FILE                : upload cfg from FILE in .xcfg or OBP_RAW format\n"
           "  --save FILE                : save cfg to FILE in .xcfg or OBP_RAW format\n"
           "  --checksum FILE            : verify .xcfg or OBP_RAW file config checksum\n"
+          "  --conv-cfg                 : convert cfg (use --load and --save afterwards to specify filenames)\n"
           "\n"
           "Register read/write commands:\n"
           "  -R [--read]                : read from object\n"
@@ -220,6 +221,7 @@ int main (int argc, char *argv[])
       {"instance",         required_argument, 0, 'I'},
       {"load",             required_argument, 0, 0},
       {"save",             required_argument, 0, 0},
+      {"conv-cfg",         no_argument,       0, 0},
       {"messages",         optional_argument, 0, 'M'},
       {"count",            required_argument, 0, 'n'},
       {"port",             required_argument, 0, 'p'},
@@ -331,6 +333,9 @@ int main (int argc, char *argv[])
           cmd = CMD_LOAD_CFG;
           strncpy(strbuf, optarg, sizeof(strbuf));
           strbuf[sizeof(strbuf) - 1] = '\0';
+        } else if (cmd == CMD_CONV_CFG) {
+          strncpy(strbuf, optarg, sizeof(strbuf));
+          strbuf[sizeof(strbuf) - 1] = '\0';
         } else {
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
@@ -340,6 +345,16 @@ int main (int argc, char *argv[])
           cmd = CMD_SAVE_CFG;
           strncpy(strbuf, optarg, sizeof(strbuf));
           strbuf[sizeof(strbuf) - 1] = '\0';
+        } else if (cmd == CMD_CONV_CFG) {
+          strncpy(strbuf2, optarg, sizeof(strbuf2));
+          strbuf2[sizeof(strbuf2) - 1] = '\0';
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "conv-cfg")) {
+        if (cmd == CMD_NONE) {
+          cmd = CMD_CONV_CFG;
         } else {
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
@@ -645,7 +660,7 @@ int main (int argc, char *argv[])
     ret = mxt_scan(ctx, &conn, true);
     goto free;
 
-  } else if (cmd != CMD_FLASH && cmd != CMD_BOOTLOADER_VERSION) {
+  } else if (cmd != CMD_FLASH && cmd != CMD_BOOTLOADER_VERSION && cmd != CMD_CONV_CFG) {
     ret = mxt_init_chip(ctx, &mxt, &conn);
     if (ret && cmd != CMD_CRC_CHECK )
       goto free;
@@ -778,6 +793,13 @@ int main (int argc, char *argv[])
     mxt_verb(ctx, "CMD_SAVE_CFG");
     mxt_verb(ctx, "filename:%s", strbuf);
     ret = mxt_save_config_file(mxt, strbuf);
+    break;
+
+  case CMD_CONV_CFG:
+    mxt_verb(ctx, "CMD_CONV_CFG");
+    mxt_verb(ctx, "input:%s", strbuf);
+    mxt_verb(ctx, "output:%s", strbuf2);
+    ret = mxt_convert_config_file(ctx, strbuf, strbuf2);
     break;
 
   case CMD_SELF_CAP_TUNE_CONFIG:
