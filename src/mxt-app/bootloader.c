@@ -65,6 +65,14 @@
 #define MXT_BOOTLOADER_DELAY     50000
 
 //******************************************************************************
+/// \brief File operation wrapper object
+struct file_context {
+  FILE *fp;
+  int (*get)(struct file_context *fpc, unsigned char *ptr);
+  int (*put)(struct file_context *fpc, unsigned char val);
+};
+
+//******************************************************************************
 /// \brief Bootloader context object
 struct flash_context {
   struct mxt_device *mxt;
@@ -72,7 +80,7 @@ struct flash_context {
   struct libmaxtouch_ctx *ctx;
   bool have_bootloader_version;
   bool extended_id_mode;
-  FILE *fp;
+  struct file_context fpc;
   long file_size;
   char curr_version[MXT_FW_VER_LEN];
   int i2c_adapter;
@@ -82,6 +90,112 @@ struct flash_context {
   const char *new_version;
   bool usb_bootloader;
 };
+
+//******************************************************************************
+/// \brief Read value from binary file
+static int fpc_get_value(struct file_context *fpc, unsigned char *ptr)
+{
+  int val;
+
+  val = fgetc(fpc->fp);
+
+  if (feof(fpc->fp)) return EOF;
+
+  *ptr = val;
+
+  return 0;
+}
+
+//******************************************************************************
+/// \brief Read hexadecimal value from file
+static int fpc_get_hex_value(struct file_context *fpc, unsigned char *ptr)
+{
+  char str[] = "00\0";
+  int val;
+
+  str[0] = fgetc(fpc->fp);
+  str[1] = fgetc(fpc->fp);
+
+  if (feof(fpc->fp)) return EOF;
+
+  if (sscanf(str, "%x", &val) != 1) {
+    return EOF;
+  }
+
+  *ptr =  val;
+
+  return 0;
+}
+
+//******************************************************************************
+/// \brief Read value from binary file
+static int fpc_put_value(struct file_context *fpc, unsigned char val)
+{
+  fputc(val, fpc->fp);
+
+  return ferror(fpc->fp);
+}
+
+//******************************************************************************
+/// \brief Read hexadecimal value from file
+static int fpc_put_hex_value(struct file_context *fpc, unsigned char val)
+{
+  int ret;
+
+  ret = fprintf(fpc->fp, "%02hhX", val);
+
+  if(ret != 2) {
+    return ret;
+  }
+
+  return 0;
+}
+
+//******************************************************************************
+/// \brief Open file in hex format
+static int open_hex_file(struct file_context *fpc, const char *filename, const char* mode)
+{
+  fpc->fp = fopen(filename, mode);
+  if (!fpc->fp) {
+    return errno;
+  }
+
+  fpc->get = fpc_get_hex_value;
+  fpc->put = fpc_put_hex_value;
+
+  return 0;
+}
+
+//******************************************************************************
+/// \brief Open binary file
+static int open_bin_file(struct file_context *fpc, const char *filename, const char* mode)
+{
+  fpc->fp = fopen(filename, mode);
+  if (!fpc->fp) {
+    return errno;
+  }
+
+  fpc->get = fpc_get_value;
+  fpc->put = fpc_put_value;
+
+  return 0;
+}
+
+//******************************************************************************
+/// \brief Open file in format based on filename
+static int open_file(struct file_context *fpc, const char *filename, const char* mode)
+{
+  int ret;
+
+  char *extension = strrchr(filename, '.');
+
+  if (extension && !strcmp(extension, ".enc"))
+    ret = open_hex_file(fpc, filename, mode);
+  else
+    ret = open_bin_file(fpc, filename, mode);
+
+  return ret;
+}
 
 //******************************************************************************
 /// \brief Wait for CHG line to indicate bootloader state change
@@ -243,26 +357,6 @@ recheck:
 }
 
 //******************************************************************************
-/// \brief Read hexadecimal value from file
-static int get_hex_value(struct flash_context *fw, unsigned char *ptr)
-{
-  char str[] = "00\0";
-  int val;
-  int ret;
-
-  str[0] = fgetc(fw->fp);
-  str[1] = fgetc(fw->fp);
-
-  if (feof(fw->fp)) return EOF;
-
-  ret = sscanf(str, "%x", &val);
-
-  *ptr =  val;
-
-  return ret;
-}
-
-//******************************************************************************
 /// \brief Send firmware frames to bootloader
 /// \return #mxt_rc
 static int send_frames(struct flash_context *fw)
@@ -302,14 +396,14 @@ static int send_frames(struct flash_context *fw)
 
   frame = 1;
 
-  while (!feof(fw->fp)) {
+  while (!feof(fw->fpc.fp)) {
     if (frame_retry == 0) {
-      if (get_hex_value(fw, &buffer[0]) == EOF) {
+      if (fw->fpc.get(&fw->fpc, &buffer[0]) == EOF) {
         mxt_info(fw->ctx, "End of file");
         break;
       }
 
-      if (get_hex_value(fw, &buffer[1]) == EOF) {
+      if (fw->fpc.get(&fw->fpc, &buffer[1]) == EOF) {
         mxt_err(fw->ctx, "Unexpected end of firmware file");
         return MXT_ERROR_FILE_FORMAT;
       }
@@ -327,7 +421,7 @@ static int send_frames(struct flash_context *fw)
       }
 
       for (i = 2; i < frame_size; i++) {
-        ret = get_hex_value(fw, &buffer[i]);
+        ret = fw->fpc.get(&fw->fpc, &buffer[i]);
 
         if (ret == EOF) {
           mxt_err(fw->ctx, "Unexpected end of firmware file");
@@ -365,7 +459,7 @@ static int send_frames(struct flash_context *fw)
       frame_retry = 0;
       frame++;
       bytes_sent += frame_size;
-      cur_percent = (unsigned char)(0.5f + (100.0 * ftell(fw->fp)) / fw->file_size);
+      cur_percent = (unsigned char)(0.5f + (100.0 * ftell(fw->fpc.fp)) / fw->file_size);
 
       /* Display at 10% or difference is greater than 10% */
       if (cur_percent % 10 == 0 || (cur_percent - last_percent) > 10) {
@@ -383,7 +477,7 @@ static int send_frames(struct flash_context *fw)
     }
   }
 
-  fclose(fw->fp);
+  fclose(fw->fpc.fp);
 
   return MXT_SUCCESS;
 }
@@ -562,14 +656,14 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
 
   mxt_info(fw.ctx, "Opening firmware file %s", filename);
 
-  fw.fp = fopen(filename, "r");
-  if (!fw.fp) {
+  ret = open_file(&fw.fpc, filename, "r");
+  if (ret) {
     mxt_err(fw.ctx, "Cannot open firmware file %s!", filename);
-    return mxt_errno_to_rc(errno);
+    return mxt_errno_to_rc(ret);
   }
-  fseek(fw.fp, 0L, SEEK_END);
-  fw.file_size = ftell(fw.fp);
-  rewind(fw.fp);
+  fseek(fw.fpc.fp, 0L, SEEK_END);
+  fw.file_size = ftell(fw.fpc.fp);
+  rewind(fw.fpc.fp);
 
   ret = mxt_bootloader_init_chip(&fw);
   if (ret && (ret != MXT_DEVICE_IN_BOOTLOADER))
