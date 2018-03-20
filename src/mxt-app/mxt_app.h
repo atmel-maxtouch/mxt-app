@@ -83,6 +83,7 @@ typedef enum mxt_app_cmd_t {
   CMD_LOAD_CFG,
   CMD_SAVE_CFG,
   CMD_CONV_CFG,
+  CMD_CONV_FW,
   CMD_MESSAGES,
   CMD_SELF_CAP_TUNE_CONFIG,
   CMD_SELF_CAP_TUNE_NVRAM,
@@ -135,6 +136,7 @@ struct t37_ctx {
   FILE *hawkeye;
 };
 
+int mxt_convert_firmware_file(struct libmaxtouch_ctx *ctx, const char *in_filename, const char *out_filename);
 int mxt_flash_firmware(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, const char *filename, const char *new_version, struct mxt_conn_info *conn);
 int mxt_socket_server(struct mxt_device *mxt, uint16_t port);
 int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port);

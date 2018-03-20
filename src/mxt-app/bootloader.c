@@ -641,6 +641,59 @@ static int mxt_enter_bootloader_mode(struct flash_context *fw)
 }
 
 //******************************************************************************
+/// \brief  Load firmware from .enc or binary file and save to new file in
+//          .enc or binary format (automatically detect formats)
+/// \return #mxt_rc
+int mxt_convert_firmware_file(struct libmaxtouch_ctx *ctx,
+                              const char *in_filename,
+                              const char *out_filename)
+{
+  int ret;
+  long file_size;
+  struct file_context in_fpc;
+  struct file_context out_fpc;
+  unsigned char val;
+
+  mxt_info(ctx, "Opening input firmware file %s", in_filename);
+
+  ret = open_file(&in_fpc, in_filename, "r");
+  if (ret) {
+    mxt_err(ctx, "Error %d opening %s for input", ret, in_filename);
+    ret = mxt_errno_to_rc(ret);
+    goto fail_in;
+  }
+
+  mxt_info(ctx, "Opening output firmware file %s", out_filename);
+
+  ret = open_file(&out_fpc, out_filename, "w");
+  if (ret) {
+    mxt_err(ctx, "Error %d opening %s for output", ret, out_filename);
+    ret = mxt_errno_to_rc(ret);
+    goto fail_out;
+  }
+
+  while (1) {
+    if (in_fpc.get(&in_fpc, &val) == EOF) {
+      break;
+    }
+    ret = out_fpc.put(&out_fpc, val);
+    if (ret) {
+      mxt_err(ctx, "Error %d writing to output", ret);
+      ret = mxt_errno_to_rc(ret);
+      break;
+    }
+  }
+
+  fclose(out_fpc.fp);
+
+fail_out:
+  fclose(in_fpc.fp);
+
+fail_in:
+  return ret;
+}
+
+//******************************************************************************
 /// \brief  Flash firmware to chip
 int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
                        struct mxt_device *maxtouch,
