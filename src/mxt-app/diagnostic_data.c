@@ -434,6 +434,8 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
   struct mxt_id_info *id = ctx->mxt->info.id;
   int ret;
 
+  ctx->active_stylus = false;
+
   ret = get_objects_addr(ctx);
   if (ret) {
     mxt_err(ctx->lc, "Failed to get object information");
