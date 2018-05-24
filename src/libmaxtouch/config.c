@@ -507,7 +507,7 @@ static int mxt_load_xcfg_file(struct libmaxtouch_ctx *ctx, const char *filename,
 
     ignore_line = false;
 
-    /* Extract the checksum */
+    /* Extract the info and checksums */
     if (!strcmp(object, "VERSION_INFO_HEADER")) {
       while (false == ignore_line) {
         if (fscanf(fp, "%s", tmp) != 1) {
@@ -515,9 +515,24 @@ static int mxt_load_xcfg_file(struct libmaxtouch_ctx *ctx, const char *filename,
           ret = MXT_ERROR_FILE_FORMAT;
           goto close;
         }
-        if (!strncmp(tmp, "CHECKSUM", 8)) {
+        if (!strncmp(tmp, "FAMILY_ID", 9)) {
+          sscanf(tmp, "%[^'=']=%hhu", object, &cfg->id.family);
+          mxt_dbg(ctx, "Family ID from file: %s", tmp);
+        } else if (!strncmp(tmp, "VARIANT", 7)) {
+          sscanf(tmp, "%[^'=']=%hhu", object, &cfg->id.variant);
+          mxt_dbg(ctx, "Variant from file: %s", tmp);
+        } else if (!strncmp(tmp, "VERSION", 7)) {
+          sscanf(tmp, "%[^'=']=%hhu", object, &cfg->id.version);
+          mxt_dbg(ctx, "Version from file: %s", tmp);
+        } else if (!strncmp(tmp, "BUILD", 5)) {
+          sscanf(tmp, "%[^'=']=%hhu", object, &cfg->id.build);
+          mxt_dbg(ctx, "Build from file: %s", tmp);
+        } else if (!strncmp(tmp, "CHECKSUM", 8)) {
           sscanf(tmp, "%[^'=']=%x", object, &cfg->config_crc);
           mxt_dbg(ctx, "Config CRC from file: %s", tmp);
+        } else if (!strncmp(tmp, "INFO_BLOCK_CHECKSUM", 19)) {
+          sscanf(tmp, "%[^'=']=%x", object, &cfg->info_crc);
+          mxt_dbg(ctx, "Info CRC from file: %s", tmp);
           ignore_line = true;
         }
       }
@@ -868,6 +883,31 @@ int mxt_save_config_file(struct mxt_device *mxt, const char *filename)
     ret = mxt_save_xcfg_file(mxt->ctx, filename, &cfg);
   else
     ret = mxt_save_raw_file(mxt->ctx, filename, &cfg);
+
+  mxt_free_config(&cfg);
+
+  return ret;
+}
+
+//******************************************************************************
+/// \brief  Load configuration from .xcfg or RAW file and save to new file in
+//          .xcfg or RAW format (automatically detect formats)
+/// \return #mxt_rc
+int mxt_convert_config_file(struct libmaxtouch_ctx *ctx, const char *in_filename, const char *out_filename)
+{
+  int ret;
+
+  char *extension = strrchr(out_filename, '.');
+  struct mxt_config cfg = {{0}};
+
+  ret = mxt_get_config_from_file(ctx, in_filename, &cfg);
+  if (ret)
+    return ret;
+
+  if (extension && !strcmp(extension, ".xcfg"))
+    ret = mxt_save_xcfg_file(ctx, out_filename, &cfg);
+  else
+    ret = mxt_save_raw_file(ctx, out_filename, &cfg);
 
   mxt_free_config(&cfg);
 
