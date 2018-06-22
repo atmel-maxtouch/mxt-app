@@ -224,7 +224,6 @@ failure:
   return ret;
 }
 
-
 //******************************************************************************
 /// \brief Read information block
 /// \return #mxt_rc

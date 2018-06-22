@@ -1,9 +1,9 @@
 //------------------------------------------------------------------------------
-/// \file   run_tests.h
-/// \brief  Test suite for mxt-app.
+/// \file   broken_line.h
+/// \brief  Broken line detection
 /// \author Steven Swann
 //------------------------------------------------------------------------------
-// Copyright 2016 Atmel Corporation. All rights reserved.
+// Copyright 2014 Atmel Corporation. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -27,21 +27,23 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-#include "mxt-app/mxt_app.h"
+/* Broken Line Detection BROKEN_LINE_PATTERN Options */
+#define BROKEN_LINE_PATTERN_ITO       0
+#define BROKEN_LINE_PATTERN_XSENSE    1
 
-#define assert_float_equal(x,y) assert_true(abs(x - y) < 0.00001)
+/* Broken Line Detection Default Options */
+#define BROKEN_LINE_DEFAULT_THRESHOLD 20
 
-/* initialisation functions */
-int init_mxt_device_struct(struct mxt_device **mxt);
-int init_t37_ctx_struct(struct mxt_device *mxt, struct t37_ctx **f_p);
-int init_mxt_touchscreen_info_struct(struct mxt_device *mxt,
-    struct mxt_touchscreen_info **mxt_ts_p);
+//******************************************************************************
+/// \brief Broken line detection context options
+struct broken_line_options
+{
+  bool dualx;
+  uint8_t x_center_threshold;
+  uint8_t x_border_threshold;
+  uint8_t y_center_threshold;
+  uint8_t y_border_threshold;
+  uint8_t pattern;
+};
 
-/* test functions */
-void mxt_convert_hex_test(void **state);
-void validate_sensor_variant_options_test(void **state);
-void get_xyline_data_test(void **state);
-void sensor_variant_algorithm_test(void **state);
-void calculate_poly_test(void **state);
-void check_line_test(void **state);
-void polyfit_test(void **state);
+int mxt_broken_line(struct mxt_device *mxt, struct broken_line_options *bl_opts);

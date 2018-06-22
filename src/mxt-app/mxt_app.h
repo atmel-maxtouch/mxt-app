@@ -33,6 +33,16 @@
        __typeof__ (b) _b = (b); \
            _a < _b ? _a : _b; })
 
+/* Object offsets */
+#define T100_XORIGIN_OFFSET    0x08
+#define T100_YORIGIN_OFFSET    0x13
+#define T100_YSIZE_OFFSET      0x14
+#define T100_XSIZE_OFFSET      0x09
+#define T9_XORIGIN_OFFSET      0x01
+#define T9_YORIGIN_OFFSET      0x02
+#define T9_YSIZE_OFFSET        0x04
+#define T9_XSIZE_OFFSET        0x03
+
 /* T6 Debug Diagnostics Commands */
 #define PAGE_UP           0x01
 #define PAGE_DOWN         0x02
@@ -86,6 +96,8 @@ typedef enum mxt_app_cmd_t {
   CMD_SELF_CAP_TUNE_CONFIG,
   CMD_SELF_CAP_TUNE_NVRAM,
   CMD_ZERO_CFG,
+  CMD_BROKEN_LINE,
+  CMD_SENSOR_VARIANT,
   CMD_CRC_CHECK,
 } mxt_app_cmd;
 
@@ -94,6 +106,7 @@ typedef enum mxt_app_cmd_t {
 volatile sig_atomic_t mxt_sigint_rx;
 
 struct t37_diagnostic_data;
+struct mxt_conn_info;
 
 //******************************************************************************
 /// \brief T37 Diagnostic Data context object
@@ -128,10 +141,24 @@ struct t37_ctx {
   int x_ptr;
   int y_ptr;
 
+  double mean;
+  double variance;
+  double std_dev;
+
   struct t37_diagnostic_data *t37_buf;
   uint16_t *data_buf;
 
   FILE *hawkeye;
+};
+
+//******************************************************************************
+/// \brief Touchscreen info context
+struct mxt_touchscreen_info {
+  uint16_t instance_addr;
+  uint8_t xorigin;
+  uint8_t yorigin;
+  uint8_t xsize;
+  uint8_t ysize;
 };
 
 int mxt_flash_firmware(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, const char *filename, const char *new_version, struct mxt_conn_info *conn);
@@ -153,3 +180,12 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx);
 sig_atomic_t mxt_get_sigint_flag(void);
 int mxt_read_messages_sigint(struct mxt_device *mxt, int timeout_seconds, void *context, int (*msg_func)(struct mxt_device *mxt, uint8_t *msg, void *context, uint8_t size));
 int mxt_bootloader_version(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, struct mxt_conn_info *conn);
+int disable_gr(struct mxt_device *mxt);
+int16_t get_value(struct t37_ctx *ctx, int x, int y);
+int debug_frame_calc_stats(struct t37_ctx *ctx);
+int debug_frame_normalise(struct t37_ctx *ctx);
+int mxt_read_touchscreen_info(struct mxt_device *mxt, struct mxt_touchscreen_info **mxt_ts_info);
+float reference_no_offset(float val);
+int mxt_free_run_mode(struct mxt_device *mxt);
+int mxt_disable_touch(struct mxt_device *mxt);
+int debug_frame(struct t37_ctx *ctx);

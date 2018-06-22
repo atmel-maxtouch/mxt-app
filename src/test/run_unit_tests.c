@@ -27,18 +27,33 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
+#include <stdio.h>
+#include <string.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
 #include <cmocka.h>
-
+#include <stdint.h>
+#include <stdbool.h>
+#include <signal.h>
+ 
++include "mxt-app/mxt_app.h"
 #include "run_unit_tests.h"
 
+	
+//******************************************************************************
+/// \brief Run all unit tests
 int main(int argc, char *argv[])
 {
   /* Test suite */
   const struct CMUnitTest tests[] = {
     unit_test(mxt_convert_hex_test),
+    unit_test(validate_sensor_variant_options_test),
+    unit_test(get_xyline_data_test),
+    unit_test(polyfit_test),
+    unit_test(calculate_poly_test),
+    unit_test(check_line_test),
+    unit_test(sensor_variant_algorithm_test),
   };
 
   return cmocka_run_group_tests(tests, NULL, NULL);

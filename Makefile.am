@@ -17,7 +17,8 @@ AM_CFLAGS = \
 
 AM_LDFLAGS = \
 	-Wl,--gc-sections \
-	-Wl,--as-needed
+	-Wl,--as-needed \
+  -lm
 
 if !DEBUG
 AM_CFLAGS += -DNDEBUG
@@ -30,7 +31,24 @@ check_PROGRAMS = run-unit-tests
 
 run_unit_tests_SOURCES =\
 	src/test/run_unit_tests.c \
-	src/test/test_utilfuncs.c
+	src/test/test_utilfuncs.c \
+	src/test/test_sensor_variant.c \
+	src/mxt-app/mxt_app.h \
+	src/mxt-app/broken_line.c \
+	src/mxt-app/sensor_variant.c \
+	src/mxt-app/polyfit.c \
+	src/mxt-app/menu.c \
+	src/mxt-app/bootloader.c \
+	src/mxt-app/diagnostic_data.c \
+	src/mxt-app/touch_app.c \
+	src/mxt-app/self_test.c \
+	src/mxt-app/bridge.c \
+	src/mxt-app/gr.c \
+	src/mxt-app/serial_data.c \
+	src/mxt-app/buffer.c \
+	src/mxt-app/buffer.h \
+	src/mxt-app/self_cap.c \
+	src/mxt-app/signal.c
 
 run_unit_tests_CFLAGS =\
 	-I$(top_srcdir)/src \
@@ -43,7 +61,7 @@ run_unit_tests_CFLAGS =\
 	-DMXT_VERSION=\"$(GIT_VERSION)\" \
 	-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
-run_unit_tests_LDFLAGS = -lcmocka -lmaxtouch
+run_unit_tests_LDFLAGS = -lcmocka -lmaxtouch -lm
 
 TESTS = run-unit-tests
 
@@ -82,6 +100,9 @@ EXTRA_mxt_app_DEPENDENCIES = git-version
 mxt_app_SOURCES =\
 	src/mxt-app/mxt_app.h \
 	src/mxt-app/mxt_app.c \
+	src/mxt-app/broken_line.c \
+        src/mxt-app/sensor_variant.c \
+        src/mxt-app/polyfit.c \
 	src/mxt-app/menu.c \
 	src/mxt-app/bootloader.c \
 	src/mxt-app/diagnostic_data.c \

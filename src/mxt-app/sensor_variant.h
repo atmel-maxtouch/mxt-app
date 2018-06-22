@@ -1,6 +1,7 @@
+#pragma once
 //------------------------------------------------------------------------------
-/// \file   run_tests.h
-/// \brief  Test suite for mxt-app.
+/// \file   sensor_variant.h
+/// \brief  Sensor variant algorithm
 /// \author Steven Swann
 //------------------------------------------------------------------------------
 // Copyright 2016 Atmel Corporation. All rights reserved.
@@ -26,22 +27,34 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
+#define UPPER_LIMIT   15
+#define LOWER_LIMIT   15
+#define POLY_DEGREE   2
 
-#include "mxt-app/mxt_app.h"
+struct mxt_device;
+struct libmaxtouch_ctx;
+struct mxt_touchscreen_info;
+struct t37_ctx;
 
-#define assert_float_equal(x,y) assert_true(abs(x - y) < 0.00001)
+//******************************************************************************
+/// \brief Sensor Variant algorithm context options
+//     sensor_variant_options
+struct sensor_variant_options
+{
+  bool dualx;
+  uint32_t max_defects;
+  uint8_t matrix_size;
+  uint8_t upper_limit;
+  uint8_t lower_limit;
+};
 
-/* initialisation functions */
-int init_mxt_device_struct(struct mxt_device **mxt);
-int init_t37_ctx_struct(struct mxt_device *mxt, struct t37_ctx **f_p);
-int init_mxt_touchscreen_info_struct(struct mxt_device *mxt,
-    struct mxt_touchscreen_info **mxt_ts_p);
-
-/* test functions */
-void mxt_convert_hex_test(void **state);
-void validate_sensor_variant_options_test(void **state);
-void get_xyline_data_test(void **state);
-void sensor_variant_algorithm_test(void **state);
-void calculate_poly_test(void **state);
-void check_line_test(void **state);
-void polyfit_test(void **state);
+int check_sub_matrix(struct t37_ctx *ctx, bool *status, int x_size, int y_size, struct sensor_variant_options *sv_opts);
+int sensor_variant_algorithm(struct t37_ctx *frame, struct mxt_touchscreen_info *ts, struct sensor_variant_options *sv_opts);
+int validate_sensor_variant_options(struct mxt_device *mxt, struct sensor_variant_options *sv_opts);
+int mxt_sensor_variant(struct mxt_device *mxt, struct sensor_variant_options *sv_opts);
+int calculate_poly(double *data, double *coeff, int len, double *result);
+int check_line(struct libmaxtouch_ctx *ctx, struct sensor_variant_options *sv_opts, double *xval, double *yval, int len, uint32_t *num_failed, bool *status, double *coeff);
+double ft_peval(double x, double *coeffs);
+bool ft_polyfit(struct libmaxtouch_ctx *ctx, double *xdata, double *ydata, double *result, int len);
+int get_xline_data(struct t37_ctx *frame, uint16_t x, uint16_t ysize, double *yval);
+int get_yline_data(struct t37_ctx *frame, uint16_t y, uint16_t xsize, double *xval);

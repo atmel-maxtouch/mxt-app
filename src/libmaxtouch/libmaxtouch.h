@@ -108,10 +108,10 @@ enum mxt_rc {
   MXT_ERROR_NOENT = 30,                      /*!< No such file or directory */
   MXT_ERROR_SELFCAP_TUNE = 31,               /*!< Error processing self cap command */
   MXT_MSG_CONTINUE = 32,                     /*!< Continue processing messages */
-  MXT_ERROR_RESERVED = 33,                   /*!< Reserved value */
+  MXT_BROKEN_LINE_DETECTED = 33,             /*!< Broken Line Detected */
   MXT_DEVICE_IN_BOOTLOADER = 34,             /*!< Device is in bootloader mode */
   MXT_ERROR_OBJECT_IS_VOLATILE = 35,         /*!< Object is volatile */
-  MXT_ERROR_RESERVED2 = 36,                  /*!< Reserved value */
+  MXT_SENSOR_VARIANT_DETECTED = 36,          /*!< Sensor variant issue detected */
 };
 
 //******************************************************************************

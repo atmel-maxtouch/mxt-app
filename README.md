@@ -245,6 +245,59 @@ deltas. Self capacitance measurements are only available on some devices.
 :   Set *DATATYPE* of the file. This will be automatically detected from the
     file itself in most cases.
 
+# BROKEN LINE DETECTION
+
+The broken line test scans the diagnostic data to identify touch sensor
+defects.
+
+`--broken-line`
+:   Run the broken line detection algorithm on the device
+
+`--dualx`
+: Indicate if sensor X lines are double connected
+
+`--x-center-threshold N`
+: Set threshold for X lines in center of sensor to N percent
+
+`--x-border-threshold N`
+: Set threshold for X lines at edge of sensor to N percent
+
+`--y-center-threshold N`
+: Set threshold for Y lines in center of sensor to N percent
+
+`--y-border-threshold N`
+: Set threshold for Y lines at edge of sensor to N percent
+
+`--pattern *PATTERN*`
+: set sensor *PATTERN* material to ITO or Xsense
+
+# SENSOR VARIANT ALGORITHM
+
+The sensor variant algorithm calculates all nodes of a channel
+to find the trend line of the reference.  A comparison is done
+between the real and expected sensor reference.
+
+`--sensor-variant`
+: Perform the Sensor Variant algorithm
+
+`--dualx`
+: Indicate if sensor X lines are double connected
+
+`--fail-if-any`
+: Fail the Sensor Variant test on any defects
+
+`--max-defects N`
+: Maximum No. of continuous defects
+
+`--upper-limit N`
+: Upper limit for regression, in percentage %
+
+`--lower-limit N`
+: Lower limit for regression, in percentage %
+
+`--matrix-size N`
+: The allowed matrix size
+
 # FINDING AND SPECIFYING DEVICE
 
 By default mxt-app will scan available devices and connect to the first device
@@ -506,6 +559,10 @@ To compile using autotools:
 To cross-compile:
 
     ./autogen.sh --host=arm-linux-gnueabi && make
+	
+    or, 
+	
+    ./autogen.sh --host=arm-linux-gnueabihf && make
 
 To enable debug:
 

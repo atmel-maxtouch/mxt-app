@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 /// \file   diagnostic_data.c
-/// \brief  T37 Diagnostic Data functions
+/// \brief  Diagnostic Data functions
 /// \author Atul Tiwari/Nick Dyer
 //------------------------------------------------------------------------------
 // Copyright 2012 Atmel Corporation. All rights reserved.
@@ -38,6 +38,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <math.h>
 
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/info_block.h"
@@ -742,4 +743,234 @@ void mxt_dd_menu(struct mxt_device *mxt)
 
     mxt_dd_cmd(mxt, menu_input, csv_file_in);
   }
+}
+
+//******************************************************************************
+/// \brief Disable golden references objects
+/// \return #mxt_rc
+int disable_gr(struct mxt_device *mxt)
+{
+  uint16_t addr;
+  uint8_t disable = 0;
+
+  mxt_info(mxt->ctx, "Disabling SPT_GOLDENREFERENCES_T66");
+
+  addr = mxt_get_object_address(mxt, SPT_GOLDENREFERENCES_T66, 0);
+  if (addr == OBJECT_NOT_FOUND)
+    return OBJECT_NOT_FOUND;
+
+  mxt_write_register(mxt, &disable, addr, 1);
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief Get value from debug data buffer
+int16_t get_value(struct t37_ctx *ctx, int x, int y)
+{
+  int ofs = x * ctx->y_size + y;
+  return (int16_t)ctx->data_buf[ofs];
+}
+
+//******************************************************************************
+/// \brief Calculate stats for the data frame
+int debug_frame_calc_stats(struct t37_ctx *ctx)
+{
+  int x, y;
+  ctx->mean = 0;
+  ctx->variance = 0;
+
+  /* mean */
+  for (x = 0; x < ctx->x_size; x++) {
+    for (y = 0; y < ctx->y_size; y++) {
+      ctx->mean += get_value(ctx, x, y);
+    }
+  }
+  ctx->mean /= (ctx->x_size * ctx->y_size);
+  mxt_dbg(ctx->lc, "Mean of dataset: %0.2f", ctx->mean);
+
+  /* variance */
+  for (x = 0; x < ctx->x_size; x++) {
+    for (y = 0; y < ctx->y_size; y++) {
+      ctx->variance += fabs(get_value(ctx, x, y) - ctx->mean);
+    }
+  }
+  ctx->variance /= (ctx->x_size * ctx->y_size);
+  mxt_dbg(ctx->lc, "Variance of dataset: %0.2f", ctx->variance);
+
+  /* standard deviation */
+  ctx->std_dev = sqrt(ctx->variance);
+  mxt_dbg(ctx->lc, "Standard deviation of dataset: %0.2f", ctx->std_dev);
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief Normalise a data frame
+int debug_frame_normalise(struct t37_ctx *ctx)
+{
+  int x, y;
+  for (x = 0; x < ctx->x_size; x++) {
+    for (y = 0; y < ctx->y_size; y++) {
+      ctx->data_buf[x * ctx->y_size + y] =
+        (ctx->data_buf[x * ctx->y_size + y] - ctx->mean)/ctx->std_dev;
+    }
+  }
+  return MXT_SUCCESS;
+
+}
+
+//******************************************************************************
+/// \brief Read screen parameters for touchscreen objects
+/// \return #mxt_rc
+int mxt_read_touchscreen_info(struct mxt_device *mxt, struct mxt_touchscreen_info **mxt_ts_info)
+{
+  int i, addr;
+  uint8_t T100_instances = mxt_get_object_instances(mxt, TOUCH_MULTITOUCHSCREEN_T100);
+  uint8_t T9_instances = mxt_get_object_instances(mxt, TOUCH_MULTITOUCHSCREEN_T9);
+  uint8_t instance_count = T100_instances + T9_instances;
+
+  struct mxt_touchscreen_info *mxt_ts =
+    calloc(instance_count, sizeof(struct mxt_touchscreen_info));
+  if (!mxt_ts)
+    return MXT_ERROR_NO_MEM;
+
+  if (T100_instances > 0) {
+    for (i = 0; i < T100_instances; i++) {
+      addr = mxt_get_object_address(mxt, TOUCH_MULTITOUCHSCREEN_T100, i);
+      mxt_ts[i].instance_addr = addr;
+      /* get x-axis values */
+      mxt_read_register(mxt, &mxt_ts[i].xorigin, addr + T100_XORIGIN_OFFSET, 1);
+      mxt_read_register(mxt, &mxt_ts[i].xsize, addr + T100_XSIZE_OFFSET, 1);
+      /* get y-axis values */
+      mxt_read_register(mxt, &mxt_ts[i].yorigin, addr + T100_YORIGIN_OFFSET, 1);
+      mxt_read_register(mxt, &mxt_ts[i].ysize, addr + T100_YSIZE_OFFSET, 1);
+    }
+  } else {
+    for (i = 0; i < T9_instances; i++) {
+      addr = mxt_get_object_address(mxt, TOUCH_MULTITOUCHSCREEN_T9, i);
+      mxt_ts[i].instance_addr = addr;
+      /* get x-axis values */
+      mxt_read_register(mxt, &mxt_ts[i].xorigin, addr + T9_XORIGIN_OFFSET, 1);
+      mxt_read_register(mxt, &mxt_ts[i].xsize, addr + T9_XSIZE_OFFSET, 1);
+      /* get y-axis values */
+      mxt_read_register(mxt, &mxt_ts[i].yorigin, addr + T9_YORIGIN_OFFSET, 1);
+      mxt_read_register(mxt, &mxt_ts[i].ysize, addr + T9_YSIZE_OFFSET, 1);
+    }
+  }
+  *mxt_ts_info = mxt_ts;
+
+  return MXT_SUCCESS;
+}
+
+//*****************************************************************************
+/// \brief Handle value offset
+float reference_no_offset(float val)
+{
+  if (val > 16000)
+    val -= 16384;
+
+  if (val < 384)
+    val = 0;
+
+  return val;
+}
+
+//******************************************************************************
+/// \brief Enter T7 Free-run power mode Run broken line detection algorithm
+/// \return #mxt_rc
+int mxt_free_run_mode(struct mxt_device *mxt)
+{
+  uint16_t t7_addr = mxt_get_object_address(mxt, GEN_POWERCONFIG_T7, 0);
+  const uint8_t t7_freerun[2] = { 0xff, 0xff };
+
+  mxt_info(mxt->ctx, "Going into T7 Free-run Mode");
+
+  return mxt_write_register(mxt, t7_freerun, t7_addr, 2);
+}
+
+
+//******************************************************************************
+/// \brief Disable touch objects T9, T100 and T43
+/// \return #mxt_rc
+int mxt_disable_touch(struct mxt_device *mxt)
+{
+  uint16_t addr;
+  uint8_t disable = 0;
+
+  mxt_info(mxt->ctx, "Disabling Touch Objects");
+
+  addr = mxt_get_object_address(mxt, TOUCH_KEYARRAY_T15, 0);
+  if (!(addr == OBJECT_NOT_FOUND)) {
+    mxt_write_register(mxt, &disable, addr, sizeof(disable));
+    mxt_dbg(mxt->ctx, "Disabling TOUCH_KEYARRAY_T15");
+  }
+
+  addr = mxt_get_object_address(mxt, SPT_DIGITIZER_T43, 0);
+  if (!(addr == OBJECT_NOT_FOUND)) {
+    mxt_write_register(mxt, &disable, addr, sizeof(disable));
+    mxt_dbg(mxt->ctx, "Disabling SPT_DIGITIZER_T43");
+  }
+
+  addr = mxt_get_object_address(mxt, TOUCH_MULTITOUCHSCREEN_T9, 0);
+  if (!(addr == OBJECT_NOT_FOUND)) {
+    mxt_write_register(mxt, &disable, addr, sizeof(disable));
+    mxt_dbg(mxt->ctx, "Disabling TOUCH_MULTITOUCHSCREEN_T9 instance 0");
+  }
+
+  addr = mxt_get_object_address(mxt, TOUCH_MULTITOUCHSCREEN_T9, 1);
+  if (!(addr == OBJECT_NOT_FOUND)) {
+    mxt_write_register(mxt, &disable, addr, sizeof(disable));
+    mxt_dbg(mxt->ctx, "Disabling TOUCH_MULTITOUCHSCREEN_T9 instance 1");
+  }
+
+  addr = mxt_get_object_address(mxt, TOUCH_MULTITOUCHSCREEN_T100, 0);
+  if (!(addr == OBJECT_NOT_FOUND)) {
+    mxt_write_register(mxt, &disable, addr, sizeof(disable));
+    mxt_dbg(mxt->ctx, "Disabling TOUCH_MULTITOUCHSCREEN_T100");
+  }
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief Output hawkeye data to terminal
+/// \return #mxt_rc
+int debug_frame(struct t37_ctx *ctx)
+{
+  int x;
+  int y;
+  int ofs;
+  int16_t value;
+  char *buf;
+  const char *end;
+  char *p;
+
+  /* Allow for column widths */
+  size_t bufsize = 6 + 7*ctx->y_size;
+  buf = calloc(bufsize, sizeof(char));
+  end = buf + bufsize;
+
+  /* Header */
+  p = buf;
+  p += snprintf(p, end-p, "      ");
+  for (y = 0; y < ctx->y_size; y++)
+    p+= snprintf(p, end-p, "Y%-5d ", y);
+  mxt_dbg(ctx->lc, "%s", buf);
+
+  for (x = 0; x < ctx->x_size; x++) {
+    p = buf;
+    p += snprintf(p, end-p, "X%-4d ", x);
+    for (y = 0; y < ctx->y_size; y++) {
+      ofs = y + x * ctx->y_size;
+
+      value = (int16_t)ctx->data_buf[ofs];
+
+      p+= snprintf(p, end-p, "%-6d ", value);
+    }
+    mxt_dbg(ctx->lc, "%s", buf);
+  }
+
+  free(buf);
+  return MXT_SUCCESS;
 }
