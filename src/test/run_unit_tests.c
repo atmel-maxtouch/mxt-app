@@ -37,7 +37,7 @@
 #include <stdbool.h>
 #include <signal.h>
  
-+include "mxt-app/mxt_app.h"
+#include "mxt-app/mxt_app.h"
 #include "run_unit_tests.h"
 
 	
