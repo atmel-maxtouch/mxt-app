@@ -9,6 +9,8 @@ AC_CONFIG_SRCDIR([src/libmaxtouch/libmaxtouch.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
 
+AC_USE_SYSTEM_EXTENSIONS
+
 # Checks for programs.
 AC_PROG_CC
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR]) dnl Workaround for earlier Automake
