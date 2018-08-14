@@ -4,7 +4,7 @@ TOPDIR=$(dirname "$0")/..
 
 if [ -d "$TOPDIR/.git" ]
 then
-  VERSION=$(cd "$TOPDIR" && git describe --dirty=-mod --always | sed s/^v//)
+  VERSION=$(cd "$TOPDIR" && git describe --tags --dirty=-mod --always | sed s/^v//)
 fi
 
 if [ -z "$VERSION" ]
