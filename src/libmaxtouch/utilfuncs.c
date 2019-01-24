@@ -70,9 +70,9 @@ void mxt_print_info_block(struct mxt_device *mxt)
 
   printf("Matrix size: X%uY%u\n",
          id->matrix_x_size, id->matrix_y_size);
-  /* Show the CRC */
+  /* Show Information Block CRC */
   printf("Information Block CRC: 0x%06X\n\n", mxt->info.crc);
-
+	
   /* Show the object table */
   printf("Type Start Size Instances ReportIds Name\n");
   printf("-----------------------------------------------------------------\n");
