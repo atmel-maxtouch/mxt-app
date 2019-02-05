@@ -915,7 +915,7 @@ free:
 //******************************************************************************
 /// \brief  Check the checksum for a given file
 /// \return #mxt_rc
-int mxt_checkcrc(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, char *filename)
+int mxt_checkcrc(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, char *filename, uint32_t *crc)
 {
   int ret;
   struct mxt_config cfg = {{0}};
@@ -993,6 +993,7 @@ int mxt_checkcrc(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, char *file
 
   if (calc_crc == cfg.config_crc) {
     mxt_info(ctx, "File checksum verified: %d", cfg.config_crc);
+    *crc = cfg.config_crc;
     ret = MXT_SUCCESS;
   } else {
     mxt_err(ctx, "Checksum error: calc=%06X file=%06X", calc_crc, cfg.config_crc);

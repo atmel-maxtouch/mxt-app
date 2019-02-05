@@ -207,7 +207,7 @@ int mxt_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int c
 int mxt_msg_wait(struct mxt_device *mxt, int timeout_ms);
 int mxt_errno_to_rc(int errno_in);
 int mxt_report_all(struct mxt_device *mxt);
-int mxt_checkcrc(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, char *filename);
+int mxt_checkcrc(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, char *filename, uint32_t *crc);
 
 #ifdef __cplusplus
 }
