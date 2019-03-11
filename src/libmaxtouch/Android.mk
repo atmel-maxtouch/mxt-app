@@ -1,7 +1,7 @@
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
-LOCAL_C_INCLUDES := $(TOP_DIR)/src $(TOP_DIR)/lib/libusbdroid/code/src
+LOCAL_C_INCLUDES := $(MXTAPP_TOP_DIR)/src $(MXTAPP_TOP_DIR)/lib/libusbdroid/code/src
 LOCAL_CFLAGS += -DHAVE_LIBUSB -DMXT_VERSION=\"$(GIT_VERSION)\"
 LOCAL_SRC_FILES := \
   libmaxtouch.c \
