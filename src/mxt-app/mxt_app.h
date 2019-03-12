@@ -43,11 +43,21 @@
 #define T9_YSIZE_OFFSET        0x04
 #define T9_XSIZE_OFFSET        0x03
 
+/* T15 Key Object offsets */
+#define T15_CTRL_OFFSET		   0x00
+#define T15_XORIGIN_OFFSET	   0x01
+#define T15_YORIGIN_OFFSET	   0x02
+#define T15_XSIZE_OFFSET	   0x03
+#define T15_YSIZE_OFFSET           0x04
+
 /* T6 Debug Diagnostics Commands */
 #define PAGE_UP           0x01
 #define PAGE_DOWN         0x02
 #define DELTAS_MODE       0x10
 #define REFS_MODE         0x11
+#define KEY_DELTAS_MODE	  0x17
+#define KEY_REFS_MODE     0x18
+#define KEY_SIGS_MODE	  0x19
 #define SELF_CAP_SIGNALS  0xF5
 #define SELF_CAP_DELTAS   0xF7
 #define SELF_CAP_REFS     0xF8
@@ -116,6 +126,7 @@ struct t37_ctx {
 
   bool self_cap;
   bool active_stylus;
+  bool t15_keyarray;
 
   int x_size;
   int y_size;
@@ -134,6 +145,7 @@ struct t37_ctx {
   int t37_size;
   uint8_t t111_instances;
   uint8_t t107_instances;
+  uint8_t t15_instances;
 
   uint16_t frame;
   int pass;
@@ -147,6 +159,7 @@ struct t37_ctx {
 
   struct t37_diagnostic_data *t37_buf;
   uint16_t *data_buf;
+  uint8_t *key_buf;
 
   FILE *hawkeye;
 };
@@ -161,11 +174,29 @@ struct mxt_touchscreen_info {
   uint8_t ysize;
 };
 
+//******************************************************************************
+/// \brief Touchscreen info context
+struct mxt_t15_info {
+  uint16_t t15_instance_addr;
+  uint8_t t15_xorigin;
+  uint8_t t15_yorigin;
+  uint8_t t15_xsize;
+  uint8_t t15_ysize;
+  uint8_t t15_enable;
+};
+
+
+
 int mxt_flash_firmware(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, const char *filename, const char *new_version, struct mxt_conn_info *conn);
 int mxt_socket_server(struct mxt_device *mxt, uint16_t port);
 int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port);
 int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file, uint16_t frames);
 void mxt_dd_menu(struct mxt_device *mxt);
+void mxt_dd_menu2(struct mxt_device *mxt, char selection);
+void mxt_mutual_menu(struct mxt_device *mxt, char selection);
+void mxt_self_menu(struct mxt_device *mxt, char selection);
+void mxt_stylus_menu(struct mxt_device *mxt, char selection);
+void mxt_key_array_menu(struct mxt_device *mxt, char selection);
 int mxt_store_golden_refs(struct mxt_device *mxt);
 int mxt_menu(struct mxt_device *mxt);
 uint8_t self_test_menu(struct mxt_device *mxt);
@@ -176,7 +207,7 @@ int print_raw_messages_t44(struct mxt_device *mxt);
 void print_t6_status(uint8_t status);
 int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd);
 int mxt_read_diagnostic_data_frame(struct t37_ctx *ctx);
-int mxt_debug_dump_initialise(struct t37_ctx *ctx);
+int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx);
 sig_atomic_t mxt_get_sigint_flag(void);
 int mxt_read_messages_sigint(struct mxt_device *mxt, int timeout_seconds, void *context, int (*msg_func)(struct mxt_device *mxt, uint8_t *msg, void *context, uint8_t size));
 int mxt_bootloader_version(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, struct mxt_conn_info *conn);
@@ -185,6 +216,7 @@ int16_t get_value(struct t37_ctx *ctx, int x, int y);
 int debug_frame_calc_stats(struct t37_ctx *ctx);
 int debug_frame_normalise(struct t37_ctx *ctx);
 int mxt_read_touchscreen_info(struct mxt_device *mxt, struct mxt_touchscreen_info **mxt_ts_info);
+int mxt_read_t15_key_info(struct mxt_device *mxt, struct mxt_t15_info **mxt_key_info);
 float reference_no_offset(float val);
 int mxt_free_run_mode(struct mxt_device *mxt);
 int mxt_disable_touch(struct mxt_device *mxt);

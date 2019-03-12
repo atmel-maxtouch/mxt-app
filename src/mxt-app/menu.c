@@ -41,6 +41,7 @@
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/utilfuncs.h"
 #include "libmaxtouch/info_block.h"
+#include "libmaxtouch/msg.h"
 
 #include "mxt_app.h"
 

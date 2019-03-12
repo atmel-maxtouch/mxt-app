@@ -36,3 +36,4 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
 int mxt_get_calibrate_msgs(struct mxt_device *mxt, int timeout, int *state);
 int mxt_flush_msgs(struct mxt_device *mxt);
 uint32_t mxt_get_config_crc(struct mxt_device *mxt);
+void mxt_print_config_crc(struct mxt_device *mxt);
