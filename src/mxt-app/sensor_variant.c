@@ -391,7 +391,7 @@ int mxt_sensor_variant(struct mxt_device *mxt, struct sensor_variant_options *sv
   frame->lc = mxt->ctx;
   frame->mode = REFS_MODE;
 
-  ret = mxt_debug_dump_initialise(frame);
+  ret = mxt_debug_dump_initialise(mxt, frame);
   if (ret)
     return ret;
 
