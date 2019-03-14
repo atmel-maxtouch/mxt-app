@@ -1,8 +1,8 @@
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
-LOCAL_CFLAGS += -DHAVE_LIBUSB -DMXT_VERSION=\"$(GIT_VERSION)\"
-LOCAL_C_INCLUDES := $(MXTAPP_TOP_DIR)/src $(MXTAPP_TOP_DIR)/lib/libusbdroid/code/src
+LOCAL_C_INCLUDES := $(MXTAPP_TOP_DIR)/src
+LOCAL_CFLAGS += -DMXT_VERSION=\"$(GIT_VERSION)\"
 LOCAL_SRC_FILES := \
   mxt_app.c \
   broken_line.c \
@@ -20,8 +20,14 @@ LOCAL_SRC_FILES := \
   self_cap.c \
   signal.c
 LOCAL_LDLIBS := -llog
-LOCAL_STATIC_LIBRARIES := maxtouch libusbdroid
+LOCAL_STATIC_LIBRARIES := maxtouch
 LOCAL_SHARED_LIBRARIES := liblog
 LOCAL_MODULE := mxt-app
+
+ifneq ($(MXTAPP_NO_USB_SUPPORT),true)
+    LOCAL_C_INCLUDES += $(MXTAPP_TOP_DIR)/lib/libusbdroid/code/src
+    LOCAL_CFLAGS += -DHAVE_LIBUSB
+    LOCAL_STATIC_LIBRARIES += libusbdroid
+endif
 
 include $(BUILD_EXECUTABLE)
