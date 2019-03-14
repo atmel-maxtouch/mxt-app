@@ -525,6 +525,10 @@ To download libusbdroid submodule:
     git submodule init
     git submodule update
 
+Or to build without usb support:
+
+    MXTAPP_NO_USB_SUPPORT := true
+
 To compile using Android NDK:
 
     ndk-build
@@ -532,6 +536,10 @@ To compile using Android NDK:
 To enable debug:
 
     ndk-build NDK_DEBUG=1
+
+To disable usb support:
+
+    ndk-build MXTAPP_NO_USB_SUPPORT=true
 
 To enable PIE support (for Android L):
 
