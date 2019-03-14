@@ -247,7 +247,7 @@ int mxt_broken_line(struct mxt_device *mxt, struct broken_line_options *bl_opts)
   frame.lc = mxt->ctx;
   frame.mode = REFS_MODE;
 
-  ret = mxt_debug_dump_initialise(&frame);
+  ret = mxt_debug_dump_initialise(mxt, &frame);
   if (ret)
     return ret;
 

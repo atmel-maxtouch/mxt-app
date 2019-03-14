@@ -68,7 +68,7 @@ static int get_objects_addr(struct t37_ctx *ctx)
   t6_addr = mxt_get_object_address(ctx->mxt, GEN_COMMANDPROCESSOR_T6, 0);
   if (t6_addr == OBJECT_NOT_FOUND) return MXT_ERROR_OBJECT_NOT_FOUND;
 
-  /* T37 commands address */
+  /* T37 command address */
   ctx->diag_cmd_addr = t6_addr + MXT_T6_DIAGNOSTIC_OFFSET;
 
   /* Obtain Debug Diagnostic object's address */
@@ -160,8 +160,8 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
   int ret;
   int x;
   int y;
-  int pass;
-
+  int i, pass, num_keys;
+  
   ret = fprintf(ctx->hawkeye, "time,TIN,");
   if (ret < 0)
     return MXT_ERROR_IO;
@@ -265,6 +265,33 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
       }
     }
 
+  } 
+  else if (ctx->t15_keyarray) {
+    
+    for (pass = 0; pass < ctx->passes; pass++) {
+      const char *mode;
+      switch (ctx->mode) {
+      default:
+      case KEY_DELTAS_MODE:
+        mode = "_deltas";
+        break;
+      case KEY_REFS_MODE:
+        mode = "_refs";
+        break;
+      case KEY_SIGS_MODE:
+        mode = "_sigs";
+        break;
+      }
+      
+      num_keys = ctx->key_buf[pass];
+      
+      for (i = 0; i < num_keys; i++) {      
+        ret = fprintf(ctx->hawkeye, "Key_%d%s_%d,", i, mode, pass);
+        
+        if (ret < 0)
+          return MXT_ERROR_IO;
+      }       
+    }
   } else {
     for (x = 0; x < ctx->x_size; x++) {
       for (y = 0; y < ctx->y_size; y++) {
@@ -313,6 +340,34 @@ static int mxt_debug_insert_data_self_cap(struct t37_ctx *ctx)
 }
 
 //******************************************************************************
+/// \brief Insert t15 key array data into buffer at appropriate co-ordinates
+/// \return #mxt_rc
+static int mxt_debug_insert_data_key_array(struct t37_ctx *ctx)
+{
+  int offset = 0;
+  int pass_ofs = 0;
+  int data_pos = 0;
+  uint16_t val;
+
+  /* Manage key array and multiple instance */
+
+  for (offset = 0; offset < (ctx->key_buf[ctx->pass]); offset++) {
+
+    val = (ctx->t37_buf->data[data_pos+1] << 8) | ctx->t37_buf->data[data_pos];
+
+    data_pos +=2;
+    
+    if (ctx->passes != 0) {
+      pass_ofs = ctx->key_buf[(ctx->pass - 1)];
+    }
+      
+    ctx->data_buf[offset + pass_ofs] = val;
+  }
+  
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
 /// \brief Insert page of data into buffer at appropriate co-ordinates
 /// \return #mxt_rc
 static int mxt_debug_insert_data(struct t37_ctx *ctx)
@@ -355,10 +410,13 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
 {
   int x;
   int y;
+  int i;
   int pass;
-  int ofs;
-  int32_t value;
   int ret;
+  int ofs = 0;
+  int32_t value = 0;
+  uint8_t totalkeys = 0;
+  struct mxt_t15_info *mxt_key = NULL;
 
   ret = mxt_print_timestamp(ctx->hawkeye, false);
   if (ret)
@@ -389,6 +447,18 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
           return MXT_ERROR_IO;
       }
     }
+  } else if (ctx->t15_keyarray) {
+      for (i = 0; i < ctx->passes; i++) {
+        totalkeys = totalkeys + ctx->key_buf[i];
+      }
+
+      for (i = 0; i < totalkeys; i++) {
+        value = (int16_t)ctx->data_buf[i];
+        ret = fprintf(ctx->hawkeye, "%d,",
+                      (ctx->mode == KEY_DELTAS_MODE) ? (int16_t)value : value);
+        if (ret < 0)
+          return MXT_ERROR_IO;
+    } 
   } else {
     /* iterate through columns */
     for (x = 0; x < ctx->x_size; x++) {
@@ -430,12 +500,17 @@ static int get_num_frames(uint16_t *frames)
 //******************************************************************************
 /// \brief Initialise parameters and allocate buffers
 /// \return #mxt_rc
-int mxt_debug_dump_initialise(struct t37_ctx *ctx)
+int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
 {
+  int ret, pass;
   struct mxt_id_info *id = ctx->mxt->info.id;
-  int ret;
+  struct mxt_t15_info *mxt_key_info;
+  uint8_t data;
+  uint8_t buf_ofs;
 
   ctx->active_stylus = false;
+  ctx->self_cap = false;
+  ctx->t15_keyarray = false;
 
   ret = get_objects_addr(ctx);
   if (ret) {
@@ -444,13 +519,14 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
   }
 
   mxt_dbg(ctx->lc, "t37_size: %d", ctx->t37_size);
+
+  /* Minus header */
   ctx->page_size = ctx->t37_size - 2;
   mxt_dbg(ctx->lc, "page_size: %d", ctx->page_size);
 
   switch (ctx->mode) {
   case DELTAS_MODE:
   case REFS_MODE:
-    ctx->self_cap = false;
 
     if (id->family == 0xA0 && id->variant == 0x00) {
       /* mXT1386 data is formatted into stripes */
@@ -475,6 +551,7 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
   case SELF_CAP_SIGNALS:
   case SELF_CAP_DELTAS:
   case SELF_CAP_REFS:
+      
     ctx->self_cap = true;
 
     if (id->family != 164) {
@@ -494,12 +571,57 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
     ctx->data_values = (ctx->y_size + ctx->x_size) * ctx->passes;
     ctx->pages_per_pass = ((ctx->y_size + ctx->x_size)*sizeof(uint16_t) +(ctx->page_size - 1)) /
                           ctx->page_size;
+    break;
+      
+  case KEY_DELTAS_MODE:
+  case KEY_REFS_MODE:
+  case KEY_SIGS_MODE:    
+      
+    ctx->t15_keyarray = true;
+    ctx->data_values = 0;
 
+    ret = mxt_read_t15_key_info (mxt, &mxt_key_info);
+      if (ret != MXT_SUCCESS) {
+        mxt_err(ctx->lc, "Read t15 key array failed\n");
+        free(mxt_key_info);
+        return MXT_INTERNAL_ERROR;
+      }
+      
+    /* Get t15 instances */
+    ctx->t15_instances = mxt_get_object_instances(mxt, TOUCH_KEYARRAY_T15);
+       
+    // Setup of passes and set Y max and X max to 32 total buttons
+    ctx->passes = ctx->t15_instances;   // Passes equals # available instances
+     
+    mxt_dbg(mxt->ctx, "Number of passes: %d", ctx->passes);      
+      
+    /* Allocate storage for t15 x and y size */
+    ctx->key_buf = (uint8_t *)calloc((ctx->passes), sizeof(uint8_t));
+    if (!ctx->key_buf) {
+      mxt_err(ctx->lc, "calloc key_buf failed");      
+    }
+     
+    buf_ofs = 0;
+      
+    /* Calculate # of keys with multiple instances */
+    for (pass = 0; pass < ctx->passes; pass++) {
+      data = (mxt_key_info[pass].t15_ysize) * (mxt_key_info[pass].t15_xsize);
+      ctx->data_values = ctx->data_values + data;
+      ctx->key_buf[pass] = data;
+      
+      mxt_dbg(ctx->lc, "T15_ysize: %d", mxt_key_info[pass].t15_ysize);
+      mxt_dbg(ctx->lc, "T15_xsize: %d", mxt_key_info[pass].t15_xsize);
+      mxt_dbg(ctx->lc, "Keys per pass: %d", ctx->data_values);
+    }
+
+    /* Calculate # of keys for array buffer */
+    ctx->pages_per_pass = 1;      
+      
     break;
 
   case AST_DELTAS:
   case AST_REFS:
-    ctx->self_cap = false;
+      
     ctx->active_stylus = true;
 
     if (id->family != 164) {
@@ -528,9 +650,14 @@ int mxt_debug_dump_initialise(struct t37_ctx *ctx)
 
   mxt_dbg(ctx->lc, "passes: %d", ctx->passes);
   mxt_dbg(ctx->lc, "pages_per_pass: %d", ctx->pages_per_pass);
-  mxt_dbg(ctx->lc, "x_size: %d", ctx->x_size);
-  mxt_dbg(ctx->lc, "y_size: %d", ctx->y_size);
-  mxt_dbg(ctx->lc, "data_values: %d", ctx->data_values);
+  
+  if (!(ctx->t15_keyarray)) {
+    mxt_dbg(ctx->lc, "x_size: %d", ctx->x_size);
+    mxt_dbg(ctx->lc, "y_size: %d", ctx->y_size);
+    mxt_dbg(ctx->lc, "data_values: %d", ctx->data_values);
+  }
+  
+  
 
   /* allocate t37 buffers */
   ctx->t37_buf = (struct t37_diagnostic_data *)calloc(1, ctx->t37_size);
@@ -615,6 +742,30 @@ static int mxt_read_diagnostic_data_ast(struct t37_ctx* ctx)
 }
 
 //******************************************************************************
+/// \brief Read one frame of diagnostic data t15 key array
+/// \return #mxt_rc
+static int mxt_read_diagnostic_data_t15key (struct t37_ctx* ctx)
+{
+  int ret;
+  
+  /* iterate through stripes */
+  for (ctx->pass = 0; ctx->pass < ctx->passes; ctx->pass++) {
+    for (ctx->page = 0; ctx->page < ctx->pages_per_pass; ctx->page++) {
+      mxt_dbg(ctx->lc, "Frame %d Pass %d Page %d", ctx->frame, ctx->pass,
+              ctx->page);
+
+      ret = mxt_get_t37_page(ctx);
+      if (ret)
+        return ret;
+
+      mxt_debug_insert_data_key_array(ctx);
+    }
+  }
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
 /// \brief Retrieve data from the T37 Diagnostic Data object
 /// \return #mxt_rc
 int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
@@ -634,7 +785,7 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
     frames = 1;
   }
 
-  ret = mxt_debug_dump_initialise(&ctx);
+  ret = mxt_debug_dump_initialise(mxt, &ctx);
   if (ret)
     return ret;
 
@@ -659,6 +810,8 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
       ret = mxt_read_diagnostic_data_self_cap(&ctx);
     } else if (ctx.active_stylus) {
       ret = mxt_read_diagnostic_data_ast(&ctx);
+    } else if (ctx.t15_keyarray) {
+      ret = mxt_read_diagnostic_data_t15key(&ctx);
     } else {
       ret = mxt_read_diagnostic_data_frame(&ctx);
     }
@@ -688,24 +841,103 @@ free:
 
 //******************************************************************************
 /// \brief Handle menu input for diagnostic data functions
-static void mxt_dd_cmd(struct mxt_device *mxt, char selection, const char *csv_file)
+static void mxt_dd_cmd(struct mxt_device *mxt, char menu_1, char menu_2, const char *csv_file)
 {
   uint16_t frames;
   int ret;
 
-  switch (selection) {
-  case 'd':
-  case 'D':
-    ret = get_num_frames(&frames);
-    if (ret == MXT_SUCCESS)
-      mxt_debug_dump(mxt, DELTAS_MODE, csv_file, frames);
+  switch (menu_1) {
+  case 'm':
+  case 'M':
+    switch (menu_2) {
+    case 'd':
+    case 'D':
+      ret = get_num_frames(&frames);
+      if (ret == MXT_SUCCESS)
+        mxt_debug_dump(mxt, DELTAS_MODE, csv_file, frames);
+      break;
+    case 'r':
+    case 'R':
+      ret = get_num_frames(&frames);
+      if (ret == MXT_SUCCESS)
+        mxt_debug_dump(mxt, REFS_MODE, csv_file, frames);
+      break;
+        
+    default:
+      printf("Invalid menu option\n");
+    }
+      break;
+  
+  case 's':
+  case 'S':
+    switch (menu_2) {
+    case 'd':
+    case 'D':
+      ret = get_num_frames(&frames);
+      if (ret == MXT_SUCCESS)
+        mxt_debug_dump(mxt, SELF_CAP_DELTAS, csv_file, frames);
+      break;
+    case 'r':
+    case 'R':
+      ret = get_num_frames(&frames);
+      if (ret == MXT_SUCCESS) 
+        mxt_debug_dump(mxt, SELF_CAP_REFS, csv_file, frames);
+      break;
+        
+      default:
+        printf("Invalid menu option\n");
+    }
     break;
-  case 'r':
-  case 'R':
-    ret = get_num_frames(&frames);
-    if (ret == MXT_SUCCESS)
-      mxt_debug_dump(mxt, REFS_MODE, csv_file, frames);
+    
+  case 'k':
+  case 'K':
+    switch (menu_2) {
+    case 'd':
+    case 'D':
+      ret = get_num_frames(&frames);
+      if (ret == MXT_SUCCESS)
+        mxt_debug_dump(mxt, KEY_DELTAS_MODE, csv_file, frames);
+      break;
+    case 'r':
+    case 'R':
+      ret = get_num_frames(&frames);
+      if (ret == MXT_SUCCESS) 
+        mxt_debug_dump(mxt, KEY_REFS_MODE, csv_file, frames);
+      break;
+        
+    case 's':
+    case 'S':
+      ret = get_num_frames(&frames);
+      if (ret == MXT_SUCCESS)
+        mxt_debug_dump(mxt, KEY_SIGS_MODE, csv_file, frames); 
+      break;
+        
+      default:
+        printf("Invalid menu option\n");
+    }
     break;
+    
+  case 'a':
+  case 'A':
+    switch (menu_2) {
+    case 'd':
+    case 'D':
+      ret = get_num_frames(&frames);
+      if (ret == MXT_SUCCESS)
+        mxt_debug_dump(mxt, AST_DELTAS, csv_file, frames);
+      break;
+    case 'r':
+    case 'R':
+      ret = get_num_frames(&frames);
+      if (ret == MXT_SUCCESS) 
+        mxt_debug_dump(mxt, AST_REFS, csv_file, frames);
+      break;
+        
+      default:
+        printf("Invalid menu option\n");
+    }
+    break;
+   
   default:
     printf("Invalid menu option\n");
     break;
@@ -713,16 +945,71 @@ static void mxt_dd_cmd(struct mxt_device *mxt, char selection, const char *csv_f
 }
 
 //******************************************************************************
-/// \brief Menu interface for diagonistic data functions
+/// \brief Menu #1 interface for diagonistic data functions
 void mxt_dd_menu(struct mxt_device *mxt)
+{
+  char menu_input;
+
+  while(true) {
+    printf("\nSelect one of the options:\n\n"
+           "Enter M:   Dump (M)utual Cap Diagnostic Data\n"
+           "Enter S:   Dump (S)elf-Cap Diagnostic Data\n"
+           "Enter K:   Dump (K)ey Array Diagnostic Data\n"
+           "Enter A:   Dump (A)ctive Stylus Diagnostic Data\n"
+           "Enter Q:   (Q)uit\n");
+
+    if (scanf("%1s", &menu_input) == EOF) {
+      fprintf(stderr, "Could not handle the input, exiting");
+      return;
+    }
+
+    if ((menu_input == 'q') || (menu_input == 'Q')) {
+      printf("Quit\n");
+      return;
+    }
+
+    mxt_dd_menu2(mxt, menu_input);
+  }
+}
+
+//******************************************************************************
+/// \brief Menu #2 interface for diagonistic data functions
+void mxt_dd_menu2(struct mxt_device *mxt, char selection)
+{
+
+  switch (selection) {
+  case 'm':
+  case 'M':
+    mxt_mutual_menu(mxt, selection);
+    break;
+  case 's':
+  case 'S':
+    mxt_self_menu(mxt, selection);
+  case 'k':
+  case 'K':
+    mxt_key_array_menu(mxt, selection);
+    break;
+  case 'a':
+  case 'A':
+    mxt_stylus_menu(mxt, selection);
+    break;
+      
+  default:
+    printf("Invalid menu option\n");
+  }    
+}
+
+//******************************************************************************
+/// \brief Menu for mutual diagonistic data functions
+void mxt_mutual_menu(struct mxt_device *mxt, char selection)
 {
   char menu_input;
   char csv_file_in[MAX_FILENAME_LENGTH + 1];
 
   while(true) {
     printf("\nSelect one of the options:\n\n"
-           "Enter D:   (D)elta dump\n"
-           "Enter R:   (R)eference dump\n"
+           "Enter D:   (D)elta mutual dump\n"
+           "Enter R:   (R)eference mutual dump\n"
            "Enter Q:   (Q)uit\n");
 
     if (scanf("%1s", &menu_input) == EOF) {
@@ -741,9 +1028,112 @@ void mxt_dd_menu(struct mxt_device *mxt)
       return;
     }
 
-    mxt_dd_cmd(mxt, menu_input, csv_file_in);
+    mxt_dd_cmd(mxt, selection, menu_input, csv_file_in);
   }
 }
+
+//******************************************************************************
+/// \brief Menu interface for diagonistic data functions
+void mxt_self_menu(struct mxt_device *mxt, char selection)
+{
+  char menu_input;
+  char csv_file_in[MAX_FILENAME_LENGTH + 1];
+
+  while(true) {
+    printf("\nSelect one of the options:\n\n"
+           "Enter D:   (D)elta self-cap dump\n"
+           "Enter R:   (R)eference self-cap dump\n"
+           "Enter Q:   (Q)uit\n");
+
+    if (scanf("%1s", &menu_input) == EOF) {
+      fprintf(stderr, "Could not handle the input, exiting");
+      return;
+    }
+
+    if ((menu_input == 'q') || (menu_input == 'Q')) {
+      printf("Quit\n");
+      return;
+    }
+
+    printf("\nFile name: ");
+    if (scanf("%255s", csv_file_in) == EOF) {
+      fprintf(stderr, "Could not handle the input, exiting");
+      return;
+    }
+
+    mxt_dd_cmd(mxt, selection, menu_input, csv_file_in);
+  }
+}
+
+
+//******************************************************************************
+/// \brief Menu interface for diagonistic data functions
+void mxt_stylus_menu(struct mxt_device *mxt, char selection)
+{
+  char menu_input;
+  char csv_file_in[MAX_FILENAME_LENGTH + 1];
+
+  while(true) {
+    printf("\nSelect one of the options:\n\n"
+           "Enter D:   (D)elta mutual dump\n"
+           "Enter R:   (R)eference mutual dump\n"
+           "Enter Q:   (Q)uit\n");
+
+    if (scanf("%1s", &menu_input) == EOF) {
+      fprintf(stderr, "Could not handle the input, exiting");
+      return;
+    }
+
+    if ((menu_input == 'q') || (menu_input == 'Q')) {
+      printf("Quit\n");
+      return;
+    }
+
+    printf("\nFile name: ");
+    if (scanf("%255s", csv_file_in) == EOF) {
+      fprintf(stderr, "Could not handle the input, exiting");
+      return;
+    }
+
+    mxt_dd_cmd(mxt, selection, menu_input, csv_file_in);
+  }
+}
+
+
+//******************************************************************************
+/// \brief Menu interface for diagonistic data functions
+void mxt_key_array_menu(struct mxt_device *mxt, char selection)
+{
+  char menu_input;
+  char csv_file_in[MAX_FILENAME_LENGTH + 1];
+
+  while(true) {
+    printf("\nSelect one of the options:\n\n"
+           "Enter D:   (D)elta mutual dump\n"
+           "Enter R:   (R)eference mutual dump\n"
+           "Enter S:   (S)ignal mutual dump\n"
+           "Enter Q:   (Q)uit\n");
+
+    if (scanf("%1s", &menu_input) == EOF) {
+      fprintf(stderr, "Could not handle the input, exiting");
+      return;
+    }
+
+    if ((menu_input == 'q') || (menu_input == 'Q')) {
+      printf("Quit\n");
+      return;
+    }
+
+    printf("\nFile name: ");
+    if (scanf("%255s", csv_file_in) == EOF) {
+      fprintf(stderr, "Could not handle the input, exiting");
+      return;
+    }
+
+    mxt_dd_cmd(mxt, selection, menu_input, csv_file_in);
+  }
+}
+
 
 //******************************************************************************
 /// \brief Disable golden references objects
@@ -862,6 +1252,55 @@ int mxt_read_touchscreen_info(struct mxt_device *mxt, struct mxt_touchscreen_inf
 
   return MXT_SUCCESS;
 }
+
+//******************************************************************************
+/// \brief Read key array parameters from T15 objects
+/// \return #mxt_rc
+int mxt_read_t15_key_info(struct mxt_device *mxt, struct mxt_t15_info **mxt_key_info)
+{
+  int i, addr;
+  
+  uint8_t t15_count = mxt_get_object_instances(mxt, TOUCH_KEYARRAY_T15);
+  
+  /* Check if t15 key instance exists */
+  if (t15_count == 0) {
+	    mxt_err(mxt->ctx, "T15 key array not found\n");
+      return MXT_ERROR_OBJECT_NOT_FOUND;
+  }
+  
+  /* Allocate memory for mxt_key to hold key array info */
+  struct mxt_t15_info *mxt_key = calloc(t15_count, sizeof(struct mxt_t15_info));
+  if (!mxt_key)
+      return MXT_ERROR_NO_MEM;
+	
+  if (t15_count > 0) {
+    for (i = 0; i < t15_count; i++) {
+      addr = mxt_get_object_address(mxt, TOUCH_KEYARRAY_T15, i);
+
+      /* Check enable bit */
+      mxt_read_register(mxt, &mxt_key[i].t15_enable, addr + T15_CTRL_OFFSET, 1);
+      
+      if (!(mxt_key[i].t15_enable & 0x01)) {
+        mxt_warn(mxt->ctx, "T15 key array instance %d not enabled\n", i);
+      }	
+
+      mxt_key[i].t15_instance_addr = addr;
+      
+      /* get x-axis values */
+      mxt_read_register(mxt, &mxt_key[i].t15_xorigin, addr + T15_XORIGIN_OFFSET, 1);
+      mxt_read_register(mxt, &mxt_key[i].t15_xsize, addr + T15_XSIZE_OFFSET, 1);
+  
+      /* get y-axis values */
+      mxt_read_register(mxt, &mxt_key[i].t15_yorigin, addr + T15_YORIGIN_OFFSET, 1);
+      mxt_read_register(mxt, &mxt_key[i].t15_ysize, addr + T15_YSIZE_OFFSET, 1);
+    }
+  }
+  
+  *mxt_key_info = mxt_key;
+  
+  return MXT_SUCCESS;
+}
+
 
 //*****************************************************************************
 /// \brief Handle value offset

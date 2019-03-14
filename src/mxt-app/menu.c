@@ -41,6 +41,7 @@
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/utilfuncs.h"
 #include "libmaxtouch/info_block.h"
+#include "libmaxtouch/msg.h"
 
 #include "mxt_app.h"
 
@@ -257,6 +258,9 @@ static bool mxt_app_command(struct mxt_device *mxt, char selection)
     /* Print info block */
     printf("Reading info block.....\n");
     mxt_print_info_block(mxt);
+    /* Print config crc */
+    printf("Reading config crc.....\n\n");
+    mxt_print_config_crc(mxt);
     break;
   case 'd':
     read_object_command(mxt);
@@ -330,7 +334,7 @@ int mxt_menu(struct mxt_device *mxt)
     printf("Select one of the options:\n\n"
            "Enter L:   (L)oad config file\n"
            "Enter S:   (S)ave config file\n"
-           "Enter I:   Read (I)nfo block\n"
+           "Enter I:   Read (I)nfo block and Config CRC\n"
            "Enter D:   Rea(D) individual object config\n"
            "Enter W:   (W)rite individual object\n"
            "Enter T:   Run sel(T)-test\n"

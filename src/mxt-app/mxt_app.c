@@ -149,6 +149,9 @@ static void print_usage(char *prog_name)
           "  --self-cap-signals         : capture self cap signals\n"
           "  --self-cap-deltas          : capture self cap deltas\n"
           "  --self-cap-refs            : capture self cap references\n"
+		  "  --key-array-deltas         : capture key array deltas\n"
+		  "  --key-array-refs           : capture key array references\n"
+		  "  --key-array-signals        : capture key array signals\n"
           "  --active-stylus-deltas     : capture active stylus deltas\n"
           "  --active-stylus-refs       : capture active stylus references\n"
           "\n"
@@ -279,6 +282,9 @@ int main (int argc, char *argv[])
       {"self-cap-signals", no_argument,       0, 0},
       {"self-cap-deltas",  no_argument,       0, 0},
       {"self-cap-refs",    no_argument,       0, 0},
+      {"key-array-deltas",    no_argument,       0, 0},
+      {"key-array-refs",    no_argument,       0, 0},
+      {"key-array-signals",    no_argument,       0, 0},
       {"active-stylus-deltas",  no_argument,       0, 0},
       {"active-stylus-refs",    no_argument,       0, 0},
       {"bridge-server",    no_argument,       0, 'S'},
@@ -518,6 +524,12 @@ int main (int argc, char *argv[])
         t37_mode = SELF_CAP_REFS;
       } else if (!strcmp(long_options[option_index].name, "self-cap-deltas")) {
         t37_mode = SELF_CAP_DELTAS;
+      } else if (!strcmp(long_options[option_index].name, "key-array-deltas")) {
+        t37_mode = KEY_DELTAS_MODE;
+      } else if (!strcmp(long_options[option_index].name, "key-array-refs")) {
+        t37_mode = KEY_REFS_MODE;		  
+      } else if (!strcmp(long_options[option_index].name, "key-array-signals")) {
+        t37_mode = KEY_SIGS_MODE;		   
       } else if (!strcmp(long_options[option_index].name, "active-stylus-deltas")) {
         t37_mode = AST_DELTAS;
       } else if (!strcmp(long_options[option_index].name, "active-stylus-refs")) {

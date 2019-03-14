@@ -242,3 +242,18 @@ uint32_t mxt_get_config_crc(struct mxt_device *mxt)
 
   return checksum;
 }
+
+//******************************************************************************
+/// \brief  Prints checksum
+/// \return #mxt_rc
+void mxt_print_config_crc(struct mxt_device *mxt)
+{
+  int ret;
+  uint32_t checksum;
+
+  checksum = mxt_get_config_crc(mxt);
+	
+  /* Show config CRC */
+  printf("Configuration CRC: 0x%06X\n\n\n", checksum);
+
+}
