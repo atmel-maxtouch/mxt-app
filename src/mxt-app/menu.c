@@ -111,6 +111,8 @@ static void read_object_command(struct mxt_device *mxt)
 {
   uint16_t obj_num;
   uint8_t instance = 0;
+  uint8_t obj_instance = 0;
+  struct mxt_object obj;
 
   while(1) {
     printf("Enter the object number to read or 0 to finish\n");
@@ -122,14 +124,16 @@ static void read_object_command(struct mxt_device *mxt)
     if (obj_num == 0)
       return;
 
-    if (MXT_INSTANCES(mxt->info.objects[obj_num]) > 1) {
+    obj_instance = mxt_get_object_instances(mxt, obj_num);
+    
+    if (obj_instance > 1) {
       printf("Enter object instance\n");
+        
       if (scanf("%" SCNu8, &instance) != 1) {
         printf("Input parse error\n");
-        return;
+        return;      
       }
     }
-
     mxt_read_object(mxt, obj_num, instance, 0, 0, true);
   }
 }
@@ -195,6 +199,7 @@ static void write_object_command(struct mxt_device *mxt)
 {
   uint16_t obj_num;
   uint8_t instance = 0;
+  uint8_t obj_instance = 0;
 
   while(1) {
     printf("Enter the object number to write or 0 to finish\n");
@@ -206,14 +211,16 @@ static void write_object_command(struct mxt_device *mxt)
     if (obj_num == 0)
       return;
 
-    if (MXT_INSTANCES(mxt->info.objects[obj_num]) > 1) {
+    obj_instance = mxt_get_object_instances(mxt, obj_num);
+    
+    if (obj_instance > 1) {
       printf("Enter object instance\n");
+        
       if (scanf("%" SCNu8, &instance) != 1) {
         printf("Input parse error\n");
-        return;
+        return;      
       }
     }
-
     write_to_object(mxt, obj_num, instance);
   }
 }
@@ -315,7 +322,6 @@ static bool mxt_app_command(struct mxt_device *mxt, char selection)
     exit_loop = true;
     break;
   }
-
   return exit_loop;
 }
 
