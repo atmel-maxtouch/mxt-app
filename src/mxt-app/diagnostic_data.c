@@ -39,6 +39,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <math.h>
+#include <inttypes.h>
 
 #include "libmaxtouch/libmaxtouch.h"
 #include "libmaxtouch/info_block.h"
@@ -84,6 +85,12 @@ static int get_objects_addr(struct t37_ctx *ctx)
 
   ctx->t107_instances = mxt_get_object_instances(ctx->mxt,
                         PROCI_ACTIVESTYLUS_T107);
+  
+  ctx->t100_instances = mxt_get_object_instances(ctx->mxt,
+                        TOUCH_MULTITOUCHSCREEN_T100);
+  
+  ctx->t9_instances = mxt_get_object_instances(ctx->mxt,
+                        TOUCH_MULTITOUCHSCREEN_T9);
 
   return MXT_SUCCESS;
 }
@@ -161,10 +168,13 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
   int x;
   int y;
   int i, pass, num_keys;
-  
-  ret = fprintf(ctx->hawkeye, "time,TIN,");
-  if (ret < 0)
+  int num_frames;
+
+  if (ctx->self_cap || ctx->active_stylus || ctx->t15_keyarray) {
+    ret = fprintf(ctx->hawkeye, "time,TIN,");
+    if (ret < 0)
     return MXT_ERROR_IO;
+  }
 
   if (ctx->self_cap) {
     for (pass = 0; pass < ctx->passes; pass++) {
@@ -267,7 +277,6 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
 
   } 
   else if (ctx->t15_keyarray) {
-    
     for (pass = 0; pass < ctx->passes; pass++) {
       const char *mode;
       switch (ctx->mode) {
@@ -292,20 +301,24 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
           return MXT_ERROR_IO;
       }       
     }
-  } else {
-    for (x = 0; x < ctx->x_size; x++) {
-      for (y = 0; y < ctx->y_size; y++) {
-        ret = fprintf(ctx->hawkeye, "X%dY%d_%s16,", x, y,
-                      (ctx->mode == DELTAS_MODE) ? "Delta" : "Reference");
-        if (ret < 0)
-          return MXT_ERROR_IO;
+  } else {  /* For Mutual Cap */
+
+    if (ctx->fformat == false) {    /* Check for format 0 */
+      for (x = 0; x < ctx->x_size; x++) {
+        for (y = 0; y < ctx->y_size; y++) {
+          ret = fprintf(ctx->hawkeye, "X%dY%d_%s16,", x, y,
+                        (ctx->mode == DELTAS_MODE) ? "Delta" : "Reference");
+          if (ret < 0)
+            return MXT_ERROR_IO;
+        }
       }
+
+      ret = fprintf(ctx->hawkeye, "\n");
+
+      if (ret < 0)
+        return MXT_ERROR_IO;
     }
   }
-
-  ret = fprintf(ctx->hawkeye, "\n");
-  if (ret < 0)
-    return MXT_ERROR_IO;
 
   return MXT_SUCCESS;
 }
@@ -377,15 +390,11 @@ static int mxt_debug_insert_data(struct t37_ctx *ctx)
   int ofs;
 
   for (i = 0; i < ctx->page_size; i += 2) {
-    if (ctx->x_ptr > ctx->x_size) {
-      mxt_err(ctx->lc, "x pointer overrun");
-      return MXT_INTERNAL_ERROR;
-    }
-
+    
     value = (ctx->t37_buf->data[i+1] << 8) | ctx->t37_buf->data[i];
 
-    ofs = ctx->y_ptr + ctx->x_ptr * ctx->y_size;
-
+    ofs = ctx->y_ptr;
+    
     /* The last page may overlap the end of the matrix */
     if (ofs >= ctx->data_values)
       return MXT_SUCCESS;
@@ -394,10 +403,6 @@ static int mxt_debug_insert_data(struct t37_ctx *ctx)
 
     ctx->y_ptr++;
 
-    if (ctx->y_ptr > ctx->stripe_endy) {
-      ctx->y_ptr = ctx->stripe_starty;
-      ctx->x_ptr++;
-    }
   }
 
   return MXT_SUCCESS;
@@ -408,24 +413,31 @@ static int mxt_debug_insert_data(struct t37_ctx *ctx)
 /// \return #mxt_rc
 static int mxt_hawkeye_output(struct t37_ctx *ctx)
 {
-  int x;
-  int y;
-  int i;
+  int x, y, i;
   int pass;
   int ret;
+  int num_frames;
   int ofs = 0;
+  int data_ofs = 0;
   int32_t value = 0;
   uint8_t totalkeys = 0;
+  uint8_t ts_xsize = 0;
+  uint8_t ts_ysize = 0;
+  uint8_t ts_xorigin = 0;
+  uint8_t ts_yorigin = 0;  
   struct mxt_t15_info *mxt_key = NULL;
-
-  ret = mxt_print_timestamp(ctx->hawkeye, false);
-  if (ret)
-    return ret;
-
-  /* print frame number */
-  ret = fprintf(ctx->hawkeye, ",%u,", ctx->frame);
-  if (ret < 0)
-    return MXT_ERROR_IO;
+  struct mxt_touchscreen_info *ts_info = NULL;
+  
+  if (ctx->fformat == false) {
+     ret = mxt_print_timestamp(ctx->hawkeye, false);
+     if (ret)
+        return ret;
+  
+     /* print frame number */
+     ret = fprintf(ctx->hawkeye, ",%u,", ctx->frame);
+     if (ret < 0)
+       return MXT_ERROR_IO;
+  }
 
   if ((ctx->self_cap)||(ctx->active_stylus)) {
     for (pass = 0; pass < ctx->passes; pass++) {
@@ -458,26 +470,130 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
                       (ctx->mode == KEY_DELTAS_MODE) ? (int16_t)value : value);
         if (ret < 0)
           return MXT_ERROR_IO;
-    } 
+    }
   } else {
-    /* iterate through columns */
-    for (x = 0; x < ctx->x_size; x++) {
-      for (y = 0; y < ctx->y_size; y++) {
-        ofs = y + x * ctx->y_size;
 
-        value = ctx->data_buf[ofs];
+      if (ctx->fformat == false ) {
+        /* iterate through columns */
+        for (x = 0; x < ctx->x_size; x++) {
+          for (y = 0; y < ctx->y_size; y++) {
+            ofs = y + x * ctx->y_size;
 
-        ret = fprintf(ctx->hawkeye, "%d,",
-                      (ctx->mode == DELTAS_MODE) ? (int16_t)value : value);
+              value = ctx->data_buf[ofs];
+
+              ret = fprintf(ctx->hawkeye, "%d,", 
+                            (ctx->mode == DELTAS_MODE) ? (int16_t)value : value);
+              if (ret < 0)
+                return MXT_ERROR_IO;
+          }
+        }
+         
+        ret = fprintf(ctx->hawkeye, "\n");
+
         if (ret < 0)
           return MXT_ERROR_IO;
-      }
-    }
-  }
+      } else {
 
-  ret = fprintf(ctx->hawkeye, "\n");
-  if (ret < 0)
-    return MXT_ERROR_IO;
+        pass = ctx->instance;
+        
+        ret = mxt_read_touchscreen_info (ctx->mxt, &ts_info);
+          
+        if (ret != MXT_SUCCESS) {
+          mxt_err(ctx->lc, "Read touchscreen info failed\n");
+          free(ts_info);
+          return MXT_INTERNAL_ERROR;
+        }
+         
+        /* Setup X Axis columns for touchscreen matrix */
+    
+        ret = fprintf(ctx->hawkeye, "Frame %d", ctx->frame);
+                   
+        for (x = 0; x < ts_info[pass].xsize; x++) {
+          ret = fprintf(ctx->hawkeye, ",X%d_%s16", (x + ts_info[pass].xorigin), 
+                       (ctx->mode == DELTAS_MODE) ? "Deltas" : "Refs");      
+     
+        }
+    
+        /* Insert newline for first row of data */
+        ret = fprintf(ctx->hawkeye, "\n");
+         
+        /* Insert y data per rows */
+        for (y = 0; y < ts_info[pass].ysize; y++) {
+        
+          ret = fprintf(ctx->hawkeye, "Y%d_%s16", (y + ts_info[pass].yorigin), 
+                         (ctx->mode == DELTAS_MODE) ? "Deltas" : "Refs"); 
+           
+          ret = fprintf(ctx->hawkeye, ",");
+        
+          if (pass == 0) {
+            data_ofs = 0;
+          } else {
+            data_ofs = ((ts_info[pass].xorigin * ctx->y_size) + (ts_info[pass].yorigin));
+          }
+        
+          for (x = 0; x < ts_info[pass].xsize; x++) {
+            value = (int16_t)ctx->data_buf[y + data_ofs];
+            
+            ret = fprintf(ctx->hawkeye, "%d",
+                       (ctx->mode == DELTAS_MODE) ? (int16_t) value: value);
+            if (ret < 0)
+              return MXT_ERROR_IO;
+            
+            if (x == ((ts_info[pass].xsize) - 1)){
+              break;
+            } else {
+              ret = fprintf(ctx->hawkeye, ",");
+              if (ret < 0)
+                return MXT_ERROR_IO;
+              }
+            
+            data_ofs = data_ofs + ctx->y_size;
+          }
+
+          ret = fprintf(ctx->hawkeye, "\n");
+          if (ret < 0)
+            return MXT_ERROR_IO;
+               
+          if (y == ((ts_info[pass].ysize) - 1)) {
+            ret = fprintf(ctx->hawkeye, "\n");
+            if (ret < 0)
+              return MXT_ERROR_IO;
+        
+            break;
+          }  
+        }  
+      }
+  }
+  
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief Select multitouch instance
+/// \return #mxt_rc
+static int get_instance_num(uint16_t *instance)
+{
+  printf("Enter instance number: ");
+  
+  if (scanf("%hu", instance) == EOF) {
+    fprintf(stderr, "Could not handle the input, exiting");
+    return MXT_ERROR_BAD_INPUT;
+  }
+  
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief Get file format
+/// \return #mxt_rc
+static int get_file_format(uint16_t *fformat)
+{
+  printf("Enter file format 0/1: ");
+
+  if (scanf("%hu", fformat) == EOF) {
+    fprintf(stderr, "Could not handle the input, exiting");
+    return MXT_ERROR_BAD_INPUT;
+  }
 
   return MXT_SUCCESS;
 }
@@ -487,7 +603,7 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
 /// \return #mxt_rc
 static int get_num_frames(uint16_t *frames)
 {
-  printf("Number of frames: ");
+  printf("Enter number of frames: ");
 
   if (scanf("%hu", frames) == EOF) {
     fprintf(stderr, "Could not handle the input, exiting");
@@ -505,6 +621,7 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
   int ret, pass;
   struct mxt_id_info *id = ctx->mxt->info.id;
   struct mxt_t15_info *mxt_key_info;
+  uint8_t instance = 0;
   uint8_t data;
   uint8_t buf_ofs;
 
@@ -540,16 +657,17 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
       ctx->y_size = id->matrix_y_size;
       ctx->data_values = ctx->x_size * ctx->y_size;
       ctx->passes = 1;
-      ctx->pages_per_pass = (ctx->data_values*2 + (ctx->page_size - 1)) /
+      ctx->pages_per_pass = (ctx->data_values * 2 + (ctx->page_size - 1)) /
                             ctx->page_size;
     }
 
-    ctx->stripe_width = ctx->y_size / ctx->passes;
+    ctx->stripe_width = ctx->y_size;
+      
     mxt_dbg(ctx->lc, "stripe_width: %d", ctx->stripe_width);
     break;
 
-  case SELF_CAP_SIGNALS:
   case SELF_CAP_DELTAS:
+  case SELF_CAP_SIGNALS:
   case SELF_CAP_REFS:
       
     ctx->self_cap = true;
@@ -656,8 +774,6 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
     mxt_dbg(ctx->lc, "y_size: %d", ctx->y_size);
     mxt_dbg(ctx->lc, "data_values: %d", ctx->data_values);
   }
-  
-  
 
   /* allocate t37 buffers */
   ctx->t37_buf = (struct t37_diagnostic_data *)calloc(1, ctx->t37_size);
@@ -687,17 +803,17 @@ int mxt_read_diagnostic_data_frame(struct t37_ctx* ctx)
 {
   int ret;
 
-  /* iterate through stripes */
-  for (ctx->pass = 0; ctx->pass < ctx->passes; ctx->pass++) {
+    /* iterate through stripes */
     /* Calculate stripe parameters */
-    ctx->stripe_starty = ctx->stripe_width * ctx->pass;
+    ctx->stripe_starty = 0;
     ctx->stripe_endy = ctx->stripe_starty + ctx->stripe_width - 1;
     ctx->x_ptr = 0;
     ctx->y_ptr = ctx->stripe_starty;
+    ctx->pass = 0;
 
     for (ctx->page = 0; ctx->page < ctx->pages_per_pass; ctx->page++) {
-      mxt_dbg(ctx->lc, "Frame %d Pass %d Page %d", ctx->frame, ctx->pass,
-              ctx->page);
+      mxt_dbg(ctx->lc, "Frame %d Pass %d Page %d Stripe Start %d Stripe Width %d\n", ctx->frame, ctx->pass,
+              ctx->page, ctx->stripe_starty, ctx->stripe_width);
 
       ret = mxt_get_t37_page(ctx);
       if (ret)
@@ -705,7 +821,6 @@ int mxt_read_diagnostic_data_frame(struct t37_ctx* ctx)
 
       mxt_debug_insert_data(ctx);
     }
-  }
 
   return MXT_SUCCESS;
 }
@@ -769,7 +884,7 @@ static int mxt_read_diagnostic_data_t15key (struct t37_ctx* ctx)
 /// \brief Retrieve data from the T37 Diagnostic Data object
 /// \return #mxt_rc
 int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
-                   uint16_t frames)
+                   uint16_t frames, uint16_t instance, uint16_t format)
 {
   struct t37_ctx ctx;
   time_t t1;
@@ -779,15 +894,31 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   ctx.lc = mxt->ctx;
   ctx.mxt = mxt;
   ctx.mode = mode;
+  ctx.fformat = format;
 
   if (frames == 0) {
-    mxt_warn(ctx.lc, "Defaulting to 1 frame");
+    mxt_warn(ctx.lc, "Warning: Defaulting to 1 frame");
     frames = 1;
   }
 
   ret = mxt_debug_dump_initialise(mxt, &ctx);
   if (ret)
     return ret;
+  
+  if (ctx.t100_instances) {
+    if (instance >= ctx.t100_instances) {
+      mxt_warn(ctx.lc, "Warning: Instance %d does not exist. Defaulting to T100 instance 0", instance);
+      instance = 0;
+    }
+    
+  } else if (ctx.t9_instances) {
+    if (instance >= ctx.t9_instances) {
+      mxt_warn(ctx.lc, "Warning: Instance %d does not exist. Defaulting to T9 instance 0", instance);
+      instance = 0;
+    }
+  }
+  
+  ctx.instance = instance;
 
   /* Open Hawkeye output file */
   ctx.hawkeye = fopen(csv_file,"w");
@@ -845,22 +976,25 @@ static void mxt_dd_cmd(struct mxt_device *mxt, char menu_1, char menu_2, const c
 {
   uint16_t frames;
   int ret;
-
+  uint16_t instance = 0;
+  uint16_t format = 0;
+  
+  ret = get_instance_num(&instance);
+  
+  ret = get_num_frames(&frames);
+  
+  ret = get_file_format(&format);
+ 
   switch (menu_1) {
   case 'm':
-  case 'M':
     switch (menu_2) {
     case 'd':
-    case 'D':
-      ret = get_num_frames(&frames);
       if (ret == MXT_SUCCESS)
-        mxt_debug_dump(mxt, DELTAS_MODE, csv_file, frames);
+        mxt_debug_dump(mxt, DELTAS_MODE, csv_file, frames, instance, format);
       break;
     case 'r':
-    case 'R':
-      ret = get_num_frames(&frames);
       if (ret == MXT_SUCCESS)
-        mxt_debug_dump(mxt, REFS_MODE, csv_file, frames);
+        mxt_debug_dump(mxt, REFS_MODE, csv_file, frames, instance, format);
       break;
         
     default:
@@ -869,19 +1003,14 @@ static void mxt_dd_cmd(struct mxt_device *mxt, char menu_1, char menu_2, const c
       break;
   
   case 's':
-  case 'S':
     switch (menu_2) {
     case 'd':
-    case 'D':
-      ret = get_num_frames(&frames);
       if (ret == MXT_SUCCESS)
-        mxt_debug_dump(mxt, SELF_CAP_DELTAS, csv_file, frames);
+        mxt_debug_dump(mxt, SELF_CAP_DELTAS, csv_file, frames, instance, format);
       break;
     case 'r':
-    case 'R':
-      ret = get_num_frames(&frames);
       if (ret == MXT_SUCCESS) 
-        mxt_debug_dump(mxt, SELF_CAP_REFS, csv_file, frames);
+        mxt_debug_dump(mxt, SELF_CAP_REFS, csv_file, frames, instance, format);
       break;
         
       default:
@@ -890,26 +1019,18 @@ static void mxt_dd_cmd(struct mxt_device *mxt, char menu_1, char menu_2, const c
     break;
     
   case 'k':
-  case 'K':
     switch (menu_2) {
     case 'd':
-    case 'D':
-      ret = get_num_frames(&frames);
       if (ret == MXT_SUCCESS)
-        mxt_debug_dump(mxt, KEY_DELTAS_MODE, csv_file, frames);
+        mxt_debug_dump(mxt, KEY_DELTAS_MODE, csv_file, frames, instance, format);
       break;
     case 'r':
-    case 'R':
-      ret = get_num_frames(&frames);
       if (ret == MXT_SUCCESS) 
-        mxt_debug_dump(mxt, KEY_REFS_MODE, csv_file, frames);
+        mxt_debug_dump(mxt, KEY_REFS_MODE, csv_file, frames, instance, format);
       break;
-        
     case 's':
-    case 'S':
-      ret = get_num_frames(&frames);
       if (ret == MXT_SUCCESS)
-        mxt_debug_dump(mxt, KEY_SIGS_MODE, csv_file, frames); 
+        mxt_debug_dump(mxt, KEY_SIGS_MODE, csv_file, frames, instance, format); 
       break;
         
       default:
@@ -918,19 +1039,14 @@ static void mxt_dd_cmd(struct mxt_device *mxt, char menu_1, char menu_2, const c
     break;
     
   case 'a':
-  case 'A':
     switch (menu_2) {
     case 'd':
-    case 'D':
-      ret = get_num_frames(&frames);
       if (ret == MXT_SUCCESS)
-        mxt_debug_dump(mxt, AST_DELTAS, csv_file, frames);
+        mxt_debug_dump(mxt, AST_DELTAS, csv_file, frames, instance, format);
       break;
     case 'r':
-    case 'R':
-      ret = get_num_frames(&frames);
       if (ret == MXT_SUCCESS) 
-        mxt_debug_dump(mxt, AST_REFS, csv_file, frames);
+        mxt_debug_dump(mxt, AST_REFS, csv_file, frames, instance, format);
       break;
         
       default:
@@ -962,8 +1078,10 @@ void mxt_dd_menu(struct mxt_device *mxt)
       fprintf(stderr, "Could not handle the input, exiting");
       return;
     }
-
-    if ((menu_input == 'q') || (menu_input == 'Q')) {
+      /* force lower case */
+      menu_input = tolower(menu_input);
+    
+    if (menu_input == 'q') {
       printf("Quit\n");
       return;
     }
@@ -979,18 +1097,14 @@ void mxt_dd_menu2(struct mxt_device *mxt, char selection)
 
   switch (selection) {
   case 'm':
-  case 'M':
     mxt_mutual_menu(mxt, selection);
     break;
   case 's':
-  case 'S':
     mxt_self_menu(mxt, selection);
   case 'k':
-  case 'K':
     mxt_key_array_menu(mxt, selection);
     break;
   case 'a':
-  case 'A':
     mxt_stylus_menu(mxt, selection);
     break;
       
@@ -1016,19 +1130,32 @@ void mxt_mutual_menu(struct mxt_device *mxt, char selection)
       fprintf(stderr, "Could not handle the input, exiting");
       return;
     }
+    
+    /* force lower case */
+    menu_input = tolower(menu_input);
+    
+    switch (menu_input) {
+      case 'd':
+      case 'r':
+      case 'q':
+        if (menu_input == 'q') {
+          printf("Quit\n");
+          return;
+        }
 
-    if ((menu_input == 'q') || (menu_input == 'Q')) {
-      printf("Quit\n");
-      return;
+        printf("\nFile name: ");
+        if (scanf("%255s", csv_file_in) == EOF) {
+          fprintf(stderr, "Could not handle the input, exiting");
+          return;
+        }
+
+        mxt_dd_cmd(mxt, selection, menu_input, csv_file_in);
+        
+      break;
+        
+      default:
+        printf("Invalid menu option\n");  
     }
-
-    printf("\nFile name: ");
-    if (scanf("%255s", csv_file_in) == EOF) {
-      fprintf(stderr, "Could not handle the input, exiting");
-      return;
-    }
-
-    mxt_dd_cmd(mxt, selection, menu_input, csv_file_in);
   }
 }
 
@@ -1049,22 +1176,34 @@ void mxt_self_menu(struct mxt_device *mxt, char selection)
       fprintf(stderr, "Could not handle the input, exiting");
       return;
     }
+    
+    /* force lower case */
+    menu_input = tolower(menu_input);
+    
+    switch (menu_input) {
+      case 'd':
+      case 'r':
+      case 'q':
+        if (menu_input == 'q') {
+          printf("Quit\n");
+          return;
+        }
 
-    if ((menu_input == 'q') || (menu_input == 'Q')) {
-      printf("Quit\n");
-      return;
-    }
+        printf("\nFile name: ");
+        if (scanf("%255s", csv_file_in) == EOF) {
+          fprintf(stderr, "Could not handle the input, exiting");
+          return;
+        }
 
-    printf("\nFile name: ");
-    if (scanf("%255s", csv_file_in) == EOF) {
-      fprintf(stderr, "Could not handle the input, exiting");
-      return;
-    }
+        mxt_dd_cmd(mxt, selection, menu_input, csv_file_in);
+        
+        break;
+        
 
-    mxt_dd_cmd(mxt, selection, menu_input, csv_file_in);
+         default:
+        printf("Invalid menu option\n");    }
   }
 }
-
 
 //******************************************************************************
 /// \brief Menu interface for diagonistic data functions
@@ -1083,22 +1222,35 @@ void mxt_stylus_menu(struct mxt_device *mxt, char selection)
       fprintf(stderr, "Could not handle the input, exiting");
       return;
     }
+    
+      /* force lower case */
+    menu_input = tolower(menu_input);
+    
+    switch (menu_input) {
+      case 'd':
+      case 'r':
+      case 'q':
 
-    if ((menu_input == 'q') || (menu_input == 'Q')) {
-      printf("Quit\n");
-      return;
+        if (menu_input == 'q') {
+          printf("Quit\n");
+          return;
+        }
+
+      printf("\nFile name: ");
+      if (scanf("%255s", csv_file_in) == EOF) {
+        fprintf(stderr, "Could not handle the input, exiting");
+        return;
+      }
+
+      mxt_dd_cmd(mxt, selection, menu_input, csv_file_in);
+        
+      break;
+        
+      default:
+      printf("Invalid menu option\n");     
     }
-
-    printf("\nFile name: ");
-    if (scanf("%255s", csv_file_in) == EOF) {
-      fprintf(stderr, "Could not handle the input, exiting");
-      return;
-    }
-
-    mxt_dd_cmd(mxt, selection, menu_input, csv_file_in);
   }
 }
-
 
 //******************************************************************************
 /// \brief Menu interface for diagonistic data functions
@@ -1118,22 +1270,36 @@ void mxt_key_array_menu(struct mxt_device *mxt, char selection)
       fprintf(stderr, "Could not handle the input, exiting");
       return;
     }
+    
+       /* force lower case */
+    menu_input = tolower(menu_input);
+    
+      switch (menu_input) {
+        case 'd':
+        case 'r':
+        case 's':
+        case 'q':
 
-    if ((menu_input == 'q') || (menu_input == 'Q')) {
-      printf("Quit\n");
-      return;
+      if (menu_input == 'q') {
+        printf("Quit\n");
+        return;
+      }
+
+      printf("\nFile name: ");
+      if (scanf("%255s", csv_file_in) == EOF) {
+        fprintf(stderr, "Could not handle the input, exiting");
+        return;
+      }
+
+      mxt_dd_cmd(mxt, selection, menu_input, csv_file_in);
+          
+      break;
+          
+      default:
+      printf("Invalid menu option\n"); 
     }
-
-    printf("\nFile name: ");
-    if (scanf("%255s", csv_file_in) == EOF) {
-      fprintf(stderr, "Could not handle the input, exiting");
-      return;
-    }
-
-    mxt_dd_cmd(mxt, selection, menu_input, csv_file_in);
   }
 }
-
 
 //******************************************************************************
 /// \brief Disable golden references objects
@@ -1236,7 +1402,7 @@ int mxt_read_touchscreen_info(struct mxt_device *mxt, struct mxt_touchscreen_inf
       mxt_read_register(mxt, &mxt_ts[i].yorigin, addr + T100_YORIGIN_OFFSET, 1);
       mxt_read_register(mxt, &mxt_ts[i].ysize, addr + T100_YSIZE_OFFSET, 1);
     }
-  } else {
+  } else if (T9_instances > 0) {
     for (i = 0; i < T9_instances; i++) {
       addr = mxt_get_object_address(mxt, TOUCH_MULTITOUCHSCREEN_T9, i);
       mxt_ts[i].instance_addr = addr;
@@ -1247,7 +1413,11 @@ int mxt_read_touchscreen_info(struct mxt_device *mxt, struct mxt_touchscreen_inf
       mxt_read_register(mxt, &mxt_ts[i].yorigin, addr + T9_YORIGIN_OFFSET, 1);
       mxt_read_register(mxt, &mxt_ts[i].ysize, addr + T9_YSIZE_OFFSET, 1);
     }
+  } else {
+    mxt_err(mxt->ctx, "No multi-touch device found");
+    return MXT_ERROR_NO_DEVICE;
   }
+          
   *mxt_ts_info = mxt_ts;
 
   return MXT_SUCCESS;
