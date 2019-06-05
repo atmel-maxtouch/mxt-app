@@ -170,7 +170,7 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
   int i, pass, num_keys;
   int num_frames;
 
-  if (ctx->self_cap || ctx->active_stylus || ctx->t15_keyarray) {
+  if (ctx->fformat == false) {
     ret = fprintf(ctx->hawkeye, "time,TIN,");
     if (ret < 0)
     return MXT_ERROR_IO;
