@@ -226,7 +226,7 @@ deltas. Self capacitance measurements are only available on some devices.
     Format 0 - Outputs all nodes in single line (X0Y0, X0Y1, ... X1Y0).
     Format 1 - Outputs in (X) row and (Y) column format.
 
-`--references
+`--references`
 :   Capture references data.
 
 `--self-cap-signals`
