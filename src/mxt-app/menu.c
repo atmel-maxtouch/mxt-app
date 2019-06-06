@@ -131,7 +131,7 @@ static void read_object_command(struct mxt_device *mxt)
         
       if (scanf("%" SCNu8, &instance) != 1) {
         printf("Input parse error\n");
-        return;      
+        return;
       }
     }
     mxt_read_object(mxt, obj_num, instance, 0, 0, true);
@@ -212,13 +212,13 @@ static void write_object_command(struct mxt_device *mxt)
       return;
 
     obj_instance = mxt_get_object_instances(mxt, obj_num);
-    
+
     if (obj_instance > 1) {
       printf("Enter object instance\n");
-        
+
       if (scanf("%" SCNu8, &instance) != 1) {
         printf("Input parse error\n");
-        return;      
+        return;
       }
     }
     write_to_object(mxt, obj_num, instance);

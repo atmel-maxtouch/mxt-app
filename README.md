@@ -213,10 +213,18 @@ deltas. Self capacitance measurements are only available on some devices.
 `--debug-dump *FILE*`
 :   The T37 Diagnostic Data object provides raw access to touch reference/delta
     measurements from the touch screen. Diagnostic data is written to *FILE* in
-    CSV format. The format is compatible with the Atmel Hawkeye utility.
+    CSV format. Format 0 is compatible with the Atmel Hawkeye utility.
 
 `--frames *N*`
 :   Capture *N* frames of data.
+
+`--instance *N*`
+:   Capture object instance *N*. Defaults to instance 0.
+
+`--format *N*`
+:   Capture using Format 0 or 1. 
+    Format 0 - Outputs all nodes in single line (X0Y0, X0Y1, ... X1Y0).
+    Format 1 - Outputs in (X) row and (Y) column format.
 
 `--references`
 :   Capture references data.

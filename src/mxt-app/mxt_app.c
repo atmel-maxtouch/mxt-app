@@ -145,13 +145,15 @@ static void print_usage(char *prog_name)
           "T37 Diagnostic Data commands:\n"
           "  --debug-dump FILE          : capture diagnostic data to FILE\n"
           "  --frames N                 : capture N frames of data\n"
+          "  --instance INSTANCE        : select object INSTANCE\n"
+	  "  --format 0/1               : capture using format 0 or 1\n"
           "  --references               : capture references data\n"
           "  --self-cap-signals         : capture self cap signals\n"
           "  --self-cap-deltas          : capture self cap deltas\n"
           "  --self-cap-refs            : capture self cap references\n"
-		  "  --key-array-deltas         : capture key array deltas\n"
-		  "  --key-array-refs           : capture key array references\n"
-		  "  --key-array-signals        : capture key array signals\n"
+	  "  --key-array-deltas         : capture key array deltas\n"
+	  "  --key-array-refs           : capture key array references\n"
+	  "  --key-array-signals        : capture key array signals\n"
           "  --active-stylus-deltas     : capture active stylus deltas\n"
           "  --active-stylus-refs       : capture active stylus references\n"
           "\n"
@@ -300,6 +302,7 @@ int main (int argc, char *argv[])
     c = getopt_long(argc, argv,
                     "C:d:D:fF:ghiI:M::m:n:p:qRr:St::T:v:W",
                     long_options, &option_index);
+
     if (c == -1)
       break;
 
@@ -897,7 +900,7 @@ int main (int argc, char *argv[])
     mxt_verb(ctx, "CMD_DEBUG_DUMP");
     mxt_verb(ctx, "mode:%u", t37_mode);
     mxt_verb(ctx, "frames:%u", t37_frames);
-    ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames);
+    ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames, instance, format);
     break;
 
   case CMD_ZERO_CFG:
