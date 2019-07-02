@@ -452,6 +452,7 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
 #endif
 
   case E_I2C_DEV:
+    fw->i2c_adapter = fw->conn->i2c_dev.adapter;
     if (fw->conn->i2c_dev.address < 0x4a) {
       mxt_info(fw->ctx, "Using bootloader address");
       fw->appmode_address = -1;
@@ -528,6 +529,7 @@ static int mxt_enter_bootloader_mode(struct flash_context *fw)
   }
 
   if (fw->conn->type == E_I2C_DEV) {
+    fw->i2c_adapter = fw->conn->i2c_dev.adapter;
     fw->appmode_address = fw->conn->i2c_dev.address;
 
     fw->conn->i2c_dev.address = lookup_bootloader_addr(fw, fw->appmode_address);
