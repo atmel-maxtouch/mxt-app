@@ -41,6 +41,7 @@
 /* USB device configuration */
 #define VENDOR_ID    0x03EB
 #define ENDPOINT_1_IN  0x81
+#define ENDPOINT_1_OUT 0x01
 #define ENDPOINT_2_OUT 0x02
 
 /* timeout in ms */
@@ -150,7 +151,7 @@ static int usb_transfer(struct mxt_device *mxt, void *cmd, int cmd_size,
   /* Send command to request read */
   ret = libusb_interrupt_transfer
         (
-          mxt->usb.handle, ENDPOINT_2_OUT, cmd,
+          mxt->usb.handle, mxt->usb.request_ep, cmd,
           cmd_size, &bytes_transferred, USB_TRANSFER_TIMEOUT
         );
 
@@ -390,7 +391,8 @@ static int usb_scan_for_control_if(struct mxt_device *mxt,
 {
   int j, k, ret;
   char buf[128];
-  const char control_if[] = "Atmel maXTouch Control";
+  const char control_if_mxt[] = "Atmel maXTouch Control";
+  const char control_if_tnx[] = "TNxPB-004 Digitizer Control";
   const char bootloader_if[] = "Atmel maXTouch Bootloader";
 
   for (j = 0; j < config->bNumInterfaces; j++) {
@@ -402,12 +404,21 @@ static int usb_scan_for_control_if(struct mxt_device *mxt,
         ret = libusb_get_string_descriptor_ascii(mxt->usb.handle,
               altsetting->iInterface, (unsigned char *)buf, sizeof(buf));
         if (ret > 0) {
-          if (!strncmp(buf, control_if, sizeof(control_if))) {
+          if (!strncmp(buf, control_if_mxt, sizeof(control_if_mxt))) {
             mxt_dbg(mxt->ctx, "Found %s at interface %d altsetting %d",
                     buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
 
             mxt->usb.bootloader = false;
             mxt->usb.interface = altsetting->bInterfaceNumber;
+	    mxt->usb.request_ep = ENDPOINT_2_OUT;
+            return MXT_SUCCESS;
+	  } else if (!strncmp(buf, control_if_tnx, sizeof(control_if_tnx))) {
+            mxt_dbg(mxt->ctx, "Found %s at interface %d altsetting %d",
+                    buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
+
+            mxt->usb.bootloader = false;
+            mxt->usb.interface = altsetting->bInterfaceNumber;
+	    mxt->usb.request_ep = ENDPOINT_1_OUT;
             return MXT_SUCCESS;
           } else if (!strncmp(buf, bootloader_if, sizeof(bootloader_if))) {
             mxt_dbg(mxt->ctx, "Found %s at interface %d altsetting %d",
@@ -572,7 +583,8 @@ static int usb_find_device(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt)
     usb_device = libusb_get_device_address(devs[i]);
 
     if (mxt->conn->usb.bus == usb_bus && mxt->conn->usb.device == usb_device) {
-      if (desc.idProduct == 0x6123) {
+      if ((desc.idProduct == 0x6123) ||
+	  (desc.idProduct == 0x2f02)) {
         mxt->usb.bridge_chip = true;
         mxt_dbg(mxt->ctx, "Found usb:%03d-%03d 5030 bridge chip",
                 usb_bus, usb_device);
@@ -748,7 +760,8 @@ static bool usb_supported_pid_vid(struct libusb_device_descriptor desc)
            (desc.idProduct >= 0x2135 && desc.idProduct <= 0x2139) ||
            (desc.idProduct >= 0x213A && desc.idProduct <= 0x21FC) ||
            (desc.idProduct >= 0x8000 && desc.idProduct <= 0x8FFF) ||
-           (desc.idProduct == 0x6123)));
+           (desc.idProduct == 0x6123) ||
+	   (desc.idProduct == 0x2F02)));
 }
 
 //******************************************************************************
