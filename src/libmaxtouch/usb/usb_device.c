@@ -258,7 +258,10 @@ int usb_read_register(struct mxt_device *mxt, unsigned char *buf,
 
   /* Command packet */
 
-  ret = usb_transfer(mxt, &pkt, cmd_size, &pkt, sizeof(pkt), false);
+  ret = usb_transfer(mxt, &pkt,
+		     mxt->usb.ep1_in_use_max_packet_size ?
+		     mxt->usb.ep1_in_max_packet_size : cmd_size,
+		     &pkt, sizeof(pkt), false);
   if (ret)
     return ret;
 
@@ -341,7 +344,10 @@ static int write_data(struct mxt_device *mxt, unsigned char const *buf,
   mxt_verb(mxt->ctx, "Writing %" PRIuPTR " bytes to address %d",
            count, start_register);
 
-  ret = usb_transfer(mxt, pkt, packet_size, pkt, sizeof(pkt), ignore_response);
+  ret = usb_transfer(mxt, pkt,
+		     mxt->usb.ep1_in_use_max_packet_size ?
+		     mxt->usb.ep1_in_max_packet_size : cmd_size,
+		     pkt, sizeof(pkt), ignore_response);
   if (ret)
     return ret;
 
@@ -410,6 +416,7 @@ static int usb_scan_for_control_if(struct mxt_device *mxt,
 
             mxt->usb.bootloader = false;
             mxt->usb.interface = altsetting->bInterfaceNumber;
+	    mxt->usb.ep1_in_use_max_packet_size = false;
 	    mxt->usb.request_ep = ENDPOINT_2_OUT;
             return MXT_SUCCESS;
 	  } else if (!strncmp(buf, control_if_tnx, sizeof(control_if_tnx))) {
@@ -418,6 +425,7 @@ static int usb_scan_for_control_if(struct mxt_device *mxt,
 
             mxt->usb.bootloader = false;
             mxt->usb.interface = altsetting->bInterfaceNumber;
+	    mxt->usb.ep1_in_use_max_packet_size = true;
 	    mxt->usb.request_ep = ENDPOINT_1_OUT;
             return MXT_SUCCESS;
           } else if (!strncmp(buf, bootloader_if, sizeof(bootloader_if))) {

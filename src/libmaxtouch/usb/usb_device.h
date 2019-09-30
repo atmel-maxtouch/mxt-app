@@ -58,6 +58,7 @@ struct usb_device {
   libusb_device_handle *handle;
   struct libusb_device_descriptor desc;
   int ep1_in_max_packet_size;
+  bool ep1_in_use_max_packet_size;
   int request_ep;
   int interface;
   bool bootloader;
