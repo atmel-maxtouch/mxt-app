@@ -33,6 +33,7 @@
 #include <string.h>
 #include <poll.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include "libmaxtouch.h"
 #include "libmaxtouch/sysfs/dmesg.h"
@@ -473,6 +474,8 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode)
         (
           mxt, &write_value, t6_addr + MXT_T6_RESET_OFFSET, 1
         );
+
+  usleep(200000);
 
   return ret;
 }
