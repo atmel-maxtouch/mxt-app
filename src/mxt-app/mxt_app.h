@@ -163,6 +163,7 @@ struct t37_ctx {
 
   struct t37_diagnostic_data *t37_buf;
   uint16_t *data_buf;
+  uint16_t *temp_buf;
   uint8_t *key_buf;
 
   FILE *hawkeye;
@@ -210,7 +211,7 @@ int print_raw_messages(struct mxt_device *mxt, int timeout, uint16_t object_type
 int print_raw_messages_t44(struct mxt_device *mxt);
 void print_t6_status(uint8_t status);
 int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd);
-int mxt_read_diagnostic_data_frame(struct t37_ctx *ctx);
+int mxt_read_diagnostic_data_frame(struct mxt_device *mxt, struct t37_ctx *ctx);
 int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx);
 sig_atomic_t mxt_get_sigint_flag(void);
 int mxt_read_messages_sigint(struct mxt_device *mxt, int timeout_seconds, void *context, int (*msg_func)(struct mxt_device *mxt, uint8_t *msg, void *context, uint8_t size));

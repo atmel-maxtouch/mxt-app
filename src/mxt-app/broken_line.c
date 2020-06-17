@@ -251,7 +251,7 @@ int mxt_broken_line(struct mxt_device *mxt, struct broken_line_options *bl_opts)
   if (ret)
     return ret;
 
-  ret = mxt_read_diagnostic_data_frame(&frame);
+  ret = mxt_read_diagnostic_data_frame(mxt, &frame);
   if (ret)
     goto free;
 

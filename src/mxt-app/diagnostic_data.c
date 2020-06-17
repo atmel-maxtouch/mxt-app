@@ -324,6 +324,50 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
 }
 
 //******************************************************************************
+/// \brief Sort interleaved debug data
+/// \return #mxt_rc
+static int sort_debug_data(struct mxt_device *mxt, struct t37_ctx *ctx)
+{
+  uint16_t offset1 = 0;
+  uint16_t offset2 = 0;
+  uint16_t count = 0;
+  int i, j;
+
+  ctx->temp_buf = (uint16_t *)calloc(ctx->data_values, sizeof(uint16_t));
+  if (!ctx->temp_buf)
+    mxt_err(ctx->lc, "Buffer calloc failure");
+  
+  offset2 = ctx->y_size/2;    //For interleaved
+
+  while (count < ctx->data_values)
+  {
+    for (i = 0; i < 2; i++) {	//Odd and Even sort
+      for (j = 0; j < ctx->y_size/2 ; j++) {
+
+        ctx->temp_buf[count] = ctx->data_buf[j + offset1]; //First data element
+        ctx->temp_buf[count + 1] = ctx->data_buf[j + offset2];	//Second data element
+        count = count + 2;
+      
+      }
+      //Inc offsets to next odd/even data values
+      offset1 = offset1 + (ctx->y_size);
+      offset2 = offset2 + (ctx->y_size);
+    }
+  }
+
+  count = 0;
+
+  while (count < ctx->data_values)
+  {
+    //Reorder data elements into data_buf
+    ctx->data_buf[count] = ctx->temp_buf[count];
+    count++;
+  }
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
 /// \brief Insert page of data into buffer at appropriate co-ordinates
 /// \return #mxt_rc
 static int mxt_debug_insert_data_self_cap(struct t37_ctx *ctx)
@@ -799,8 +843,9 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
 //******************************************************************************
 /// \brief Read one frame of diagnostic data
 /// \return #mxt_rc
-int mxt_read_diagnostic_data_frame(struct t37_ctx* ctx)
+int mxt_read_diagnostic_data_frame(struct mxt_device *mxt, struct t37_ctx* ctx)
 {
+  struct mxt_id_info *id = mxt->info.id;
   int ret;
 
     /* iterate through stripes */
@@ -820,6 +865,20 @@ int mxt_read_diagnostic_data_frame(struct t37_ctx* ctx)
         return ret;
 
       mxt_debug_insert_data(ctx);
+    }
+
+    if (id->family == 0xA6 && ctx->mode == REFS_MODE) {
+
+      switch (id->variant) {
+      case 0x06 ... 0x08:
+      case 0x0A:
+      case 0x0C ... 0x14:
+	sort_debug_data(mxt, ctx);
+        break;
+
+      default:
+        break;
+      }
     }
 
   return MXT_SUCCESS;
@@ -944,7 +1003,7 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
     } else if (ctx.t15_keyarray) {
       ret = mxt_read_diagnostic_data_t15key(&ctx);
     } else {
-      ret = mxt_read_diagnostic_data_frame(&ctx);
+      ret = mxt_read_diagnostic_data_frame(mxt, &ctx);
     }
     if (ret)
       goto close;
