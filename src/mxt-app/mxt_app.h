@@ -113,7 +113,7 @@ typedef enum mxt_app_cmd_t {
 
 //******************************************************************************
 /// \brief Signal handler semaphore
-volatile sig_atomic_t mxt_sigint_rx;
+extern volatile sig_atomic_t mxt_sigint_rx;
 
 struct t37_diagnostic_data;
 struct mxt_conn_info;
