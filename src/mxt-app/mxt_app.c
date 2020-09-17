@@ -112,6 +112,7 @@ static void print_usage(char *prog_name)
           "  --load FILE                : upload cfg from FILE in .xcfg or OBP_RAW format\n"
           "  --save FILE                : save cfg to FILE in .xcfg or OBP_RAW format\n"
           "  --checksum FILE            : verify .xcfg or OBP_RAW file config checksum\n"
+          "  --verify-loaded FILE       : verify configuration file is what is loaded\n"
           "\n"
           "Register read/write commands:\n"
           "  -R [--read]                : read from object\n"
@@ -232,6 +233,7 @@ int main (int argc, char *argv[])
   strbuf[0] = '\0';
   strbuf2[0] = '\0';
   mxt_app_cmd cmd = CMD_NONE;
+  uint32_t cfcrc = 0;
 
   while (1) {
     int option_index = 0;
@@ -256,6 +258,7 @@ int main (int argc, char *argv[])
       {"info",             no_argument,       0, 'i'},
       {"instance",         required_argument, 0, 'I'},
       {"load",             required_argument, 0, 0},
+      {"verify-loaded",    required_argument, 0, 0},
       {"save",             required_argument, 0, 0},
       {"messages",         optional_argument, 0, 'M'},
       {"broken-line",      no_argument,       0, 0},
@@ -470,6 +473,15 @@ int main (int argc, char *argv[])
       } else if (!strcmp(long_options[option_index].name, "load")) {
         if (cmd == CMD_NONE) {
           cmd = CMD_LOAD_CFG;
+          strncpy(strbuf, optarg, sizeof(strbuf));
+          strbuf[sizeof(strbuf) - 1] = '\0';
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "verify-loaded")) {
+        if (cmd == CMD_NONE) {
+          cmd = CMD_VERIFYLOADED_CFG;
           strncpy(strbuf, optarg, sizeof(strbuf));
           strbuf[sizeof(strbuf) - 1] = '\0';
         } else {
@@ -935,6 +947,21 @@ int main (int argc, char *argv[])
     }
     break;
 
+  case CMD_VERIFYLOADED_CFG:
+    mxt_verb(ctx, "CMD_VERIFYLOADED_CFG");
+    uint32_t nvcrc = mxt_get_config_crc(mxt);
+    mxt_checkcrc(ctx, mxt, strbuf, &cfcrc);
+    printf("CRC from config file  : 0x%06X\n", cfcrc);
+    printf("CRC from NVRAM        : 0x%06X\n", nvcrc);
+    if (cfcrc == nvcrc) {
+      mxt_info(ctx, "CRC's match, configuration already loaded");
+      ret = 0;
+    } else {
+      mxt_err(ctx, "CRC's do not match, configuration is not loaded");
+      ret = 1;
+    }
+    break;
+
   case CMD_SAVE_CFG:
     mxt_verb(ctx, "CMD_SAVE_CFG");
     mxt_verb(ctx, "filename:%s", strbuf);
@@ -950,7 +977,7 @@ int main (int argc, char *argv[])
   case CMD_CRC_CHECK:
     mxt_verb(ctx, "CMD_CRC_CHECK");
     mxt_verb(ctx, "filename:%s", strbuf);
-    ret = mxt_checkcrc(ctx, mxt, strbuf);
+    ret = mxt_checkcrc(ctx, mxt, strbuf, cfcrc);
     break;
 
   case CMD_NONE:
