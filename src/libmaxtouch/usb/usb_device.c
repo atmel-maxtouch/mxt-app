@@ -953,7 +953,7 @@ free_device_list:
 //******************************************************************************
 /// \brief  Reset the maxtouch chip, in normal or bootloader mode
 /// \return #mxt_rc
-int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
+int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode, uint16_t reset_time_ms)
 {
   int ret;
   uint16_t t6_addr;

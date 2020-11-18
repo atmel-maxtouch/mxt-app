@@ -103,6 +103,14 @@ struct mxt_info {
   uint8_t max_report_id;
 };
 
+
+struct mxt_crc_device {
+  bool crc_enabled;
+  bool processing_msg;
+  bool config_triggered;
+  bool reset_triggered;
+};
+
 /*!
  * @brief Struct holding the object type / instance info.
  *
@@ -130,9 +138,9 @@ struct mxt_report_id_map {
   f(GEN_POWERCONFIG_T7, 7) \
   f(GEN_ACQUISITIONCONFIG_T8, 8) \
   f(TOUCH_MULTITOUCHSCREEN_T9, 9) \
-  f(TOUCH_SINGLETOUCHSCREEN_T10, 10) \
-  f(TOUCH_XSLIDER_T11, 11) \
-  f(TOUCH_YSLIDER_T12, 12) \
+  f(SPT_SELFTESTCONTROL_T10, 10) \
+  f(SPT_SELFTESTPINFAULT_T11, 11) \
+  f(SPT_SELFTESTSIGLIMIT_T12, 12) \
   f(TOUCH_XWHEEL_T13, 13) \
   f(PROCI_KEYTHRESHOLD_T14, 14) \
   f(TOUCH_KEYARRAY_T15, 15) \
@@ -241,6 +249,8 @@ struct mxt_report_id_map {
   f(PROCI_HOVERGESTUREPROCESSOR_T129, 129) \
   f(SPT_MESSAGEFILTER_T132, 132)\
   f(SPT_SELFCAPVOLTAGEMOD_T133, 133) \
+  f(SPT_MESSAGECOUNT_T144, 144) \
+  f(SPT_IGNORENODESCONTROL_T145, 145)\
   f(GEN_INFOBLOCK16BIT_T254, 254) \
   f(SPT_PROTOTYPE_T220, 220) \
   f(SPT_PROTOTYPE_T221, 221) \

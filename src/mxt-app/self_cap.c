@@ -146,7 +146,7 @@ int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd)
   if (ret)
     return ret;
 
-  ret = mxt_reset_chip(mxt, false);
+  ret = mxt_reset_chip(mxt, false, 0);
   if (ret)
     return ret;
 

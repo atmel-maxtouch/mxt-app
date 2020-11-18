@@ -79,6 +79,8 @@ libmaxtouch_la_SOURCES =\
 	src/libmaxtouch/config.c \
 	src/libmaxtouch/sysfs/sysfs_device.h \
 	src/libmaxtouch/sysfs/sysfs_device.c \
+	src/libmaxtouch/debugfs/debugfs_device.h \
+	src/libmaxtouch/debugfs/debugfs_device.c \
 	src/libmaxtouch/sysfs/dmesg.h \
 	src/libmaxtouch/sysfs/dmesg.c \
 	src/libmaxtouch/i2c_dev/i2c_dev_device.h \

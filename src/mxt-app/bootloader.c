@@ -371,11 +371,6 @@ static int send_frames(struct flash_context *fw)
       if (cur_percent % 10 == 0 || (cur_percent - last_percent) > 10) {
         /* No need to repeat for the same percentage */
         if (last_percent != cur_percent) {
-          /* clear previous line after first progress report */
-          if (cur_percent != 0) {
-            /* \033[F = Previous line, \033[J = clear line */
-            mxt_info(fw->ctx, "\033[F\033[J\033[F");
-          }
           mxt_info(fw->ctx, "Sent %d frames, %d bytes. % 3d%%", frame, bytes_sent, cur_percent);
           last_percent = cur_percent;
         }
@@ -520,7 +515,7 @@ static int mxt_enter_bootloader_mode(struct flash_context *fw)
 {
   int ret;
   /* Change to the bootloader mode */
-  ret = mxt_reset_chip(fw->mxt, true);
+  ret = mxt_reset_chip(fw->mxt, true, 0);
   if (ret) {
     mxt_err(fw->ctx, "Reset failure - aborting");
     return ret;

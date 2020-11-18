@@ -40,14 +40,16 @@ struct libmaxtouch_ctx;
 struct mxt_device;
 struct mxt_conn_info;
 
+#include "info_block.h"
 #include "log.h"
 #include "sysfs/sysfs_device.h"
+#include "debugfs/debugfs_device.h"
 #include "i2c_dev/i2c_dev_device.h"
+
 #ifdef HAVE_LIBUSB
 #include "usb/usb_device.h"
 #endif
 #include "hidraw/hidraw_device.h"
-#include "info_block.h"
 
 /* GEN_COMMANDPROCESSOR_T6 Register offsets from T6 base address */
 #define MXT_T6_RESET_OFFSET      0x00
@@ -71,6 +73,9 @@ struct mxt_conn_info;
 
 /* Calibrate timeout */
 #define MXT_CALIBRATE_TIMEOUT 10
+
+/* Soft reset time, no i2c activity */
+#define MXT_SOFT_RESET_TIME  1000000
 
 //******************************************************************************
 /// \brief Return codes
@@ -112,6 +117,13 @@ enum mxt_rc {
   MXT_DEVICE_IN_BOOTLOADER = 34,             /*!< Device is in bootloader mode */
   MXT_ERROR_OBJECT_IS_VOLATILE = 35,         /*!< Object is volatile */
   MXT_SENSOR_VARIANT_DETECTED = 36,          /*!< Sensor variant issue detected */
+  MXT_CTE_TEST_FAILURE = 37,                 /*!< Capacitive Touch Engine (CTE) failed */
+  MXT_MEM_RAM_FAILURE = 38,                  /*!< RAM memory test failure */
+  MXT_FLASH_MEM_FAILURE = 39,                /*!< Flash memory test failure */
+  MXT_CLOCK_FAILURE = 40,                    /*!< Clock related test failure */
+  MXT_POWER_FAILURE = 41,                    /*!< Power related test failure */
+  MXT_BIST_OVERRUN = 42,                     /*!< BIST test cycle overrun */
+  MXT_OND_TEST_FAILURE = 43,                 /*!< On-Demand test falure */
 };
 
 //******************************************************************************
@@ -167,9 +179,11 @@ struct mxt_device {
   struct mxt_info info;
   struct mxt_report_id_map *report_id_map;
   char msg_string[255];
+  struct mxt_crc_device mxt_crc;
 
   union {
     struct sysfs_device sysfs;
+    struct debugfs_device debug_fs;
 #ifdef HAVE_LIBUSB
     struct usb_device usb;
 #endif
@@ -186,12 +200,17 @@ struct mxt_conn_info *mxt_unref_conn(struct mxt_conn_info *conn);
 int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn, struct mxt_device **mxt);
 void mxt_set_log_fn(struct libmaxtouch_ctx *ctx, void (*log_fn)(struct libmaxtouch_ctx *ctx, enum mxt_log_level level, const char *format, va_list args));
 void mxt_free_device(struct mxt_device *mxt);
+uint8_t mxt_calc_crc8(unsigned char crc, unsigned char data);
 int mxt_get_info(struct mxt_device *mxt);
 int mxt_read_register(struct mxt_device *mxt, uint8_t *buf, int start_register, size_t count);
 int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf, int start_register, size_t count);
+int mxt_write_bytes(struct mxt_device *mxt, uint8_t const *buf, int start_register, size_t count);
+int sysfs_get_tx_seq_num(struct mxt_device *mxt, uint16_t *value);
+int sysfs_set_tx_seq_num(struct mxt_device *mxt, uint8_t value);
+int sysfs_get_debug_ha(struct mxt_device *mxt, bool *value);
 int mxt_set_debug(struct mxt_device *mxt, bool debug_state);
 int mxt_get_debug(struct mxt_device *mxt, bool *value);
-int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode);
+int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode, uint16_t reset_time_ms);
 int mxt_calibrate_chip(struct mxt_device *mxt);
 int mxt_backup_config(struct mxt_device *mxt, uint8_t backup_command);
 int mxt_load_config_file(struct mxt_device *mxt, const char *cfg_file);
@@ -201,6 +220,7 @@ int mxt_get_msg_count(struct mxt_device *mxt, int *count);
 char *mxt_get_msg_string(struct mxt_device *mxt);
 int mxt_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen, int *count);
 int mxt_msg_reset(struct mxt_device *mxt);
+int mxt_dump_messages(struct mxt_device *mxt);
 int mxt_get_msg_poll_fd(struct mxt_device *mxt);
 int mxt_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count);
 int mxt_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int count);

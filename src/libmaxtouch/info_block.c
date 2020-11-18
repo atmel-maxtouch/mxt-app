@@ -102,6 +102,8 @@ int mxt_calculate_crc(struct libmaxtouch_ctx *ctx, uint32_t *crc_result,
  */
 int mxt_read_info_block(struct mxt_device *mxt)
 {
+  uint32_t calc_crc;
+  bool crc_flag = false;
   int ret;
 
   /* Read the ID Information from the chip */
@@ -109,6 +111,32 @@ int mxt_read_info_block(struct mxt_device *mxt)
   if (info_blk == NULL) {
     mxt_err(mxt->ctx, "Memory allocation failure");
     return MXT_ERROR_NO_MEM;
+  }
+
+  if (mxt->conn->type == E_I2C_DEV) {
+
+    ret = debugfs_scan(mxt);
+
+    if (ret == MXT_SUCCESS) {
+      ret = debugfs_open(mxt);
+
+      if (ret)
+        mxt_err(mxt->ctx, "Could not register debugfs interface");
+
+        ret = debugfs_get_crc_enabled(mxt, &crc_flag);
+      
+      if (ret)
+        mxt_err(mxt->ctx, "Coud not get crc_enabled flag");
+
+      if (crc_flag)
+        mxt->mxt_crc.crc_enabled = true;
+
+      mxt->debug_fs.enabled = true;
+
+    } else {
+      mxt_dbg(mxt->ctx, "Debugfs attributes not found");
+      mxt->debug_fs.enabled = false;
+    }
   }
 
   ret = mxt_read_register(mxt, info_blk, 0, sizeof(struct mxt_id_info));
@@ -147,7 +175,7 @@ int mxt_read_info_block(struct mxt_device *mxt)
   mxt->info.crc = convert_crc((struct mxt_raw_crc*) (info_blk + crc_area_size));
 
   /* Calculate and compare Information Block Checksum */
-  uint32_t calc_crc;
+  
   ret = mxt_calculate_crc(mxt->ctx, &calc_crc, info_blk, crc_area_size);
   if (ret)
     return ret;
@@ -242,7 +270,10 @@ void mxt_display_chip_info(struct mxt_device *mxt)
   struct mxt_object obj;
   char firmware_version[MXT_FW_VER_LEN];
   struct mxt_id_info *id = mxt->info.id;
+  uint16_t t144_addr = 0x0000;
   int i;
+
+  mxt->mxt_crc.crc_enabled = false;
 
   mxt_get_firmware_version(mxt, (char *)&firmware_version);
 
@@ -265,6 +296,15 @@ void mxt_display_chip_info(struct mxt_device *mxt)
             obj.type, MXT_SIZE(obj),
             MXT_INSTANCES(obj), mxt_get_start_position(obj, 0));
   }
+
+    t144_addr = mxt_get_object_address(mxt, SPT_MESSAGECOUNT_T144, 0);
+    
+    if (t144_addr == OBJECT_NOT_FOUND) {
+      mxt->mxt_crc.crc_enabled = false;
+      mxt_dbg(mxt->ctx, "T144 Object not Found\n");
+    } else{
+      mxt->mxt_crc.crc_enabled = true;
+    }
 }
 
 /*!

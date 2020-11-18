@@ -270,7 +270,7 @@ JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_BackupConfig
 JNIEXPORT jint JNICALL Java_com_atmel_Maxtouch_MaxtouchJni_ResetChip
   (JNIEnv *env, jobject this)
 {
-  return mxt_reset_chip(mxt, false);
+  return mxt_reset_chip(mxt, false, 0);
 }
 
 //******************************************************************************

@@ -145,7 +145,7 @@ static int broken_line_calc(struct t37_ctx *frame,
 
     // Skip using border points
     for (y = ts->yorigin + 1; y <= last_y - 1; y++) {
-      average += fabs(get_value(frame, x, y));
+      average += abs(get_value(frame, x, y));
       num_points++;
     }
 
@@ -178,7 +178,7 @@ static int broken_line_calc(struct t37_ctx *frame,
 
     // Skip using border points
     for (x = ts->xorigin + 1; x <= last_x - 1; x++) {
-      average += fabs(get_value(frame, x, y));
+      average += abs(get_value(frame, x, y));
       num_points++;
     }
 
@@ -265,7 +265,7 @@ int mxt_broken_line(struct mxt_device *mxt, struct broken_line_options *bl_opts)
     ret = broken_line_calc(&frame, mxt_ts_info, bl_opts);
 
   mxt_info(frame.lc, "Resetting device");
-  if (mxt_reset_chip(mxt, false))
+  if (mxt_reset_chip(mxt, false, 0))
     mxt_err(frame.lc, "Unable to reset device");
 
   ret = MXT_SUCCESS;

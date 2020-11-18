@@ -280,7 +280,7 @@ static bool mxt_app_command(struct mxt_device *mxt, char selection)
     break;
   case 't':
     /* Run the self-test */
-    self_test_menu(mxt);
+    self_test_main_menu(mxt);
     break;
   case 'b':
     /* Backup the config data */
@@ -292,7 +292,7 @@ static bool mxt_app_command(struct mxt_device *mxt, char selection)
     break;
   case 'r':
     /* Reset the chip */
-    if (mxt_reset_chip(mxt, false) == MXT_SUCCESS) {
+    if (mxt_reset_chip(mxt, false, 0) == MXT_SUCCESS) {
       printf("Successfully forced a reset of the device\n");
     } else {
       printf("Failed to force a reset\n");

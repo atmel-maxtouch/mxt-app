@@ -345,11 +345,11 @@ static int sort_debug_data(struct mxt_device *mxt, struct t37_ctx *ctx)
       for (j = 0; j < ctx->y_size/2 ; j++) {
 
         ctx->temp_buf[count] = ctx->data_buf[j + offset1]; //First data element
-        ctx->temp_buf[count + 1] = ctx->data_buf[j + offset2];	//Second data element
+        ctx->temp_buf[count + 1] = ctx->data_buf[j + offset2];  //Second data element
         count = count + 2;
       
       }
-      //Inc offsets to next odd/even data values
+      //zero the counts and continue to next two rows until all data_values are done
       offset1 = offset1 + (ctx->y_size);
       offset2 = offset2 + (ctx->y_size);
     }
@@ -359,7 +359,8 @@ static int sort_debug_data(struct mxt_device *mxt, struct t37_ctx *ctx)
 
   while (count < ctx->data_values)
   {
-    //Reorder data elements into data_buf
+
+    //Reorder data elements into data buf
     ctx->data_buf[count] = ctx->temp_buf[count];
     count++;
   }
@@ -390,7 +391,7 @@ static int mxt_debug_insert_data_self_cap(struct t37_ctx *ctx)
 
     val = (ctx->t37_buf->data[i+1] << 8) | ctx->t37_buf->data[i];
 
-    ctx->data_buf[ofs] = val;
+	ctx->data_buf[ofs] = val;
   }
 
   return MXT_SUCCESS;
@@ -536,7 +537,7 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
 
         if (ret < 0)
           return MXT_ERROR_IO;
-      } else {
+      } else {  //Start of format 1
 
         pass = ctx->instance;
         
@@ -563,7 +564,7 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
          
         /* Insert y data per rows */
         for (y = 0; y < ts_info[pass].ysize; y++) {
-        
+
           ret = fprintf(ctx->hawkeye, "Y%d_%s16", (y + ts_info[pass].yorigin), 
                          (ctx->mode == DELTAS_MODE) ? "Deltas" : "Refs"); 
            
@@ -577,7 +578,7 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
         
           for (x = 0; x < ts_info[pass].xsize; x++) {
             value = (int16_t)ctx->data_buf[y + data_ofs];
-            
+   
             ret = fprintf(ctx->hawkeye, "%d",
                        (ctx->mode == DELTAS_MODE) ? (int16_t) value: value);
             if (ret < 0)
@@ -823,6 +824,8 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
   ctx->t37_buf = (struct t37_diagnostic_data *)calloc(1, ctx->t37_size);
   if (!ctx->t37_buf) {
     mxt_err(ctx->lc, "calloc failure");
+    free(ctx->t37_buf);
+    ctx->t37_buf = NULL;
     return MXT_ERROR_NO_MEM;
   }
 
@@ -832,8 +835,8 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
     mxt_err(ctx->lc, "calloc failure");
 
     /* free other buffer in error path */
-    free(ctx->t37_buf);
-    ctx->t37_buf = NULL;
+    free(ctx->data_buf);
+    ctx->data_buf = NULL;
     return MXT_ERROR_NO_MEM;
   }
 
@@ -873,7 +876,8 @@ int mxt_read_diagnostic_data_frame(struct mxt_device *mxt, struct t37_ctx* ctx)
       case 0x06 ... 0x08:
       case 0x0A:
       case 0x0C ... 0x14:
-	sort_debug_data(mxt, ctx);
+
+        sort_debug_data(mxt, ctx);
         break;
 
       default:
@@ -1590,6 +1594,12 @@ int mxt_disable_touch(struct mxt_device *mxt)
   if (!(addr == OBJECT_NOT_FOUND)) {
     mxt_write_register(mxt, &disable, addr, sizeof(disable));
     mxt_dbg(mxt->ctx, "Disabling TOUCH_MULTITOUCHSCREEN_T9 instance 1");
+  }
+
+  addr = mxt_get_object_address(mxt, TOUCH_MULTITOUCHSCREEN_T100, 0);
+  if (!(addr == OBJECT_NOT_FOUND)) {
+    mxt_write_register(mxt, &disable, addr, sizeof(disable));
+    mxt_dbg(mxt->ctx, "Disabling TOUCH_MULTITOUCHSCREEN_T100");
   }
 
   return MXT_SUCCESS;
