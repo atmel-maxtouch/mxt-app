@@ -38,14 +38,18 @@
 //******************************************************************************
 /// \brief  Get number of messages
 /// \return #mxt_rc
-int t44_get_msg_count(struct mxt_device *mxt, int *count_out)
+int t44_t144_get_msg_count(struct mxt_device *mxt, int *count_out)
 {
   uint16_t addr;
   int ret;
   uint8_t count;
 
-  addr = mxt_get_object_address(mxt, SPT_MESSAGECOUNT_T44, 0);
-  if (addr == OBJECT_NOT_FOUND)
+  if (mxt->mxt_crc.crc_enabled == true)
+    addr = mxt_get_object_address(mxt, SPT_MESSAGECOUNT_T144, 0);
+  else
+    addr = mxt_get_object_address(mxt, SPT_MESSAGECOUNT_T44, 0);
+
+  if (addr == OBJECT_NOT_FOUND) 
     return MXT_ERROR_OBJECT_NOT_FOUND;
 
   /* Get T44 count */
@@ -118,12 +122,12 @@ int t44_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf,
 //******************************************************************************
 /// \brief  Discard all messages
 /// \return #mxt_rc
-int t44_msg_reset(struct mxt_device *mxt)
+int t44_t144_msg_reset(struct mxt_device *mxt)
 {
   int count, i, ret, size;
   unsigned char databuf[20];
 
-  ret = t44_get_msg_count(mxt, &count);
+  ret = t44_t144_get_msg_count(mxt, &count);
   if (ret) {
     mxt_verb(mxt->ctx, "rc = %d", ret);
     return ret;
@@ -138,6 +142,26 @@ int t44_msg_reset(struct mxt_device *mxt)
   }
 
   return MXT_SUCCESS;
+}
+
+int mxt_dump_messages(struct mxt_device *mxt)
+{ 
+  int ret;
+  int count, len;
+  uint8_t buf[12];
+
+    ret = mxt_get_msg_count(mxt, &count);
+    if (ret)
+      return ret;
+
+    while (count--) {
+      len = 0;
+      ret = mxt_get_msg_bytes(mxt, buf, sizeof(buf), &len);
+      if (ret && ret != MXT_ERROR_NO_MESSAGE)
+        return ret;
+    }
+
+    return MXT_SUCCESS;
 }
 
 //******************************************************************************
@@ -159,8 +183,16 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
   int count, len;
   time_t now;
   time_t start_time = time(NULL);
-  uint8_t buf[10];
-  int ret;
+  uint8_t buf[12];    //Fixed size for MSG
+  int ret, err;
+  bool irq_val;
+
+  if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true) {
+    err = debugfs_set_irq(mxt, false);
+
+    if (err)
+      mxt_dbg(mxt->ctx, "Could not disable IRQ");
+  }
 
   while (!*flag) {
     mxt_msg_wait(mxt, MXT_MSG_POLL_DELAY_MS);
@@ -228,7 +260,7 @@ static int get_checksum_message(struct mxt_device *mxt, uint8_t *msg,
 /// \return #mxt_rc
 uint32_t mxt_get_config_crc(struct mxt_device *mxt)
 {
-  int ret;
+  int ret, err;
   int flag = false;
   uint32_t checksum;
 
@@ -236,9 +268,23 @@ uint32_t mxt_get_config_crc(struct mxt_device *mxt)
   if (ret)
     return 0;
 
+  if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true) {
+
+    err = debugfs_set_irq(mxt, false);
+    if (err)
+      mxt_dbg(mxt->ctx, "Could not disable IRQ");
+  }
+
   ret = mxt_read_messages(mxt, 2, &checksum, get_checksum_message, &flag);
   if (ret)
     return 0;
+  
+  if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true) {
+
+    err = debugfs_set_irq(mxt, true);
+    if (err)
+      mxt_dbg(mxt->ctx, "Could not disable IRQ");
+  }
 
   return checksum;
 }
@@ -251,7 +297,13 @@ void mxt_print_config_crc(struct mxt_device *mxt)
   int ret;
   uint32_t checksum;
 
+  if (mxt->conn->type == E_I2C_DEV)
+    mxt->mxt_crc.config_triggered = true;
+
   checksum = mxt_get_config_crc(mxt);
+
+    if (mxt->conn->type == E_I2C_DEV)
+    mxt->mxt_crc.config_triggered = false;
 	
   /* Show config CRC */
   printf("Configuration CRC: 0x%06X\n\n\n", checksum);

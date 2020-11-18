@@ -1,10 +1,11 @@
 #pragma once
+
 //------------------------------------------------------------------------------
-/// \file   i2c_dev_device.h
-/// \brief  headers for MXT device low level access via i2c-dev interface
-/// \author Nick Dyer
+/// \file   debugfs_device.h
+/// \brief  headers for MXT device low level debug access via I2C
+/// \author Michael Gong
 //------------------------------------------------------------------------------
-// Copyright 2011 Atmel Corporation. All rights reserved.
+// Copyright 2020 Microchip Corporation. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -28,24 +29,26 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-#define I2C_DEV_MAX_BLOCK 255
-
 //******************************************************************************
-/// \brief Device information for i2c-dev backend
-struct i2c_dev_conn_info {
-  int adapter;
-  int address;
+/// \brief debugfs device
+struct debugfs_device {
+  char *tmp_path;
+  size_t dir_max;
+  char *file_path;
+  bool enabled;
 };
 
-//******************************************************************************
-/// \brief Device information for i2c-dev backend
-struct i2c_dev_device {
-};
+int debugfs_scan(struct mxt_device *mxt);
+int debugfs_open(struct mxt_device *mxt);
+int debugfs_set_irq(struct mxt_device *mxt, bool enable);
+int debugfs_get_debug_irq(struct mxt_device *mxt, bool *value);
+int debugfs_set_debug_irq(struct mxt_device *mxt, bool debug_state);
+int debugfs_get_tx_seq_num(struct mxt_device *mxt, uint16_t *value);
+int debugfs_set_tx_seq_num(struct mxt_device *mxt, uint8_t value);
+int debugfs_get_crc_enabled(struct mxt_device *mxt, bool *value);
+static int read_debugfs_byte(struct mxt_device *mxt, char *filename, uint16_t *value);
+static int write_debugfs_byte(struct mxt_device *mxt, const char *filename, uint8_t value);
+int debugfs_update_seq_num(struct mxt_device *mxt, uint8_t value);
 
-int i2c_dev_open(struct mxt_device *mxt);
-void i2c_dev_release(struct mxt_device *mxt);
-int i2c_dev_read_register(struct mxt_device *mxt, unsigned char *buf, int start_register, int count, size_t *bytes_transferred);
-int i2c_dev_write_register(struct mxt_device *mxt, unsigned char const *buf, int start_register, size_t count);
-int i2c_dev_write_crc(struct mxt_device *mxt, unsigned char const *buf, int start_register, size_t count);
-int i2c_dev_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count);
-int i2c_dev_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int count, size_t *bytes_transferred);
+
+

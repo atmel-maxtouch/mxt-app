@@ -67,7 +67,7 @@ int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn);
 int usb_open(struct mxt_device *mxt);
 int usb_close(struct libmaxtouch_ctx *ctx);
 void usb_release(struct mxt_device *mxt);
-int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode);
+int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode, uint16_t reset_time_ms);
 int usb_read_register(struct mxt_device *mxt, unsigned char *buf, uint16_t start_register, size_t count, size_t *bytes_transferred);
 int usb_write_register(struct mxt_device *mxt, unsigned char const *buf, uint16_t start_register, size_t count);
 int usb_bootloader_read(struct mxt_device *mxt, unsigned char *buf, size_t count);

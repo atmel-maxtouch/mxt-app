@@ -28,10 +28,10 @@
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
 
-int t44_get_msg_count(struct mxt_device *mxt, int *count);
+int t44_t144_get_msg_count(struct mxt_device *mxt, int *count);
 char *t44_get_msg_string(struct mxt_device *mxt);
 int t44_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf, size_t buflen, int *count);
-int t44_msg_reset(struct mxt_device *mxt);
+int t44_t144_msg_reset(struct mxt_device *mxt);
 int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context, int (*msg_func)(struct mxt_device *mxt, uint8_t *msg, void *context, uint8_t size), int *flag);
 int mxt_get_calibrate_msgs(struct mxt_device *mxt, int timeout, int *state);
 int mxt_flush_msgs(struct mxt_device *mxt);

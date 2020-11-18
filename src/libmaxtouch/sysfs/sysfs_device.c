@@ -38,6 +38,7 @@
 #include <malloc.h>
 #include <stdio.h>
 #include <libgen.h>
+#include <stdlib.h>
 
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/libmaxtouch.h"
@@ -366,17 +367,27 @@ int sysfs_read_register(struct mxt_device *mxt, unsigned char *buf,
                         int start_register, size_t count, size_t *bytes_read)
 {
   int fd = -ENODEV;
+  struct mxt_id_info *id = mxt->info.id;
+  uint8_t register_buf[4]; 
+  int crc_bytes;
+  uint8_t crc_data;
+  uint8_t tx_header = 0x03;
+  uint32_t addr_offset = 0;
+  ssize_t read_rc;
   int ret;
+  int i;
 
   ret = open_device_file(mxt, &fd);
   if (ret)
     return ret;
 
+if ((start_register & 0xffff) != 0x0000) {
   if (lseek(fd, start_register, 0) < 0) {
     mxt_err(mxt->ctx, "lseek error %s (%d)", strerror(errno), errno);
     ret = mxt_errno_to_rc(errno);
     goto close;
   }
+}
 
   *bytes_read = 0;
   while (*bytes_read < count) {
@@ -497,11 +508,90 @@ static int read_boolean_file(struct mxt_device *mxt, char *filename,
     return MXT_ERROR_IO;
   }
 
-  if (val == 49) { // ASCII '0'
+  if (val == 49) { // ASCII '1'
     *value = true;
   } else {
     *value = false;
   }
+
+  fclose(file);
+
+  return MXT_SUCCESS;
+}
+
+
+//******************************************************************************
+/// \brief  Write sysfs byte to file
+/// \param  mxt Device context
+/// \param  filename Name of file to write
+/// \param  value Value to write
+/// \return #mxt_rc
+static int write_sysfs_byte(struct mxt_device *mxt, const char *filename,
+                              uint8_t value)
+{
+  
+  FILE *file;
+  int ret;
+  char in_str[3];
+
+  file = fopen(filename, "r+");
+  if (!file) {
+    mxt_err(mxt->ctx, "Could not open %s, error %s (%d)", filename, strerror(errno), errno);
+    return mxt_errno_to_rc(errno);
+  }
+
+  memset(in_str, '\0', 3);    //Set array to NULL
+
+  sprintf(in_str,"%x", value);   //String copy unsigned hex value to array
+
+  ret = fwrite(in_str, sizeof(char), strlen(in_str), file);
+    if (ret == 0) {
+      ret = MXT_ERROR_IO;
+      goto close;
+    } else if (ret < 0) {
+      mxt_err(mxt->ctx, "Error %s (%d) writing to register", strerror(errno), errno);
+      ret = mxt_errno_to_rc(errno);
+      goto close;
+    }
+
+close:
+
+  fclose(file);
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief  Read sysfs byte to file
+/// \param  mxt Device context
+/// \param  filename Name of file to read
+/// \param  value Value read from file
+/// \return #mxt_rc
+static int read_sysfs_byte(struct mxt_device *mxt, char *filename,
+                             uint16_t *value)
+{
+  FILE *file;
+  char val[3];   //Minimum 3 to hold NULL/EOF value
+  uint16_t dec_val;
+  int ret;
+  int i;
+
+  file = fopen(filename, "r");
+  if (!file) {
+    mxt_err(mxt->ctx, "Could not open %s, error %s (%d)\n", filename, strerror(errno), errno);
+    return mxt_errno_to_rc(errno);
+  }
+
+  ret = fread(val, sizeof(char), 6, file); 
+
+  if (ret < 0) {
+   mxt_err(mxt->ctx, "Error reading files");
+    return MXT_ERROR_IO;
+  }
+
+  dec_val = (int)strtol(val, NULL, 16); //Convert to a integer
+
+  *value = dec_val;
 
   fclose(file);
 
@@ -551,6 +641,26 @@ int sysfs_set_debug(struct mxt_device *mxt, bool debug_state)
 }
 
 //******************************************************************************
+/// \brief  Set debug irq state
+/// \param  mxt Device context
+/// \param  debug_state true = irq enabled, false = irq disabled
+/// \return #mxt_rc
+int sysfs_set_debug_irq(struct mxt_device *mxt, bool debug_state)
+{
+  int ret;
+
+  // Check device is initialised
+  if (!mxt) {
+    mxt_err(mxt->ctx, "Device uninitialised");
+    return MXT_ERROR_NO_DEVICE;
+  }
+
+    ret = write_boolean_file(mxt, make_path(mxt, "debug_irq"), debug_state);
+
+  return ret;
+}
+
+//******************************************************************************
 /// \brief  Get debug message string
 /// \param  mxt Device context
 /// \return C string or NULL
@@ -587,10 +697,13 @@ int sysfs_get_msg_bytes_v2(struct mxt_device *mxt, unsigned char *buf,
 {
   uint16_t t5_size;
 
-  if (!mxt->sysfs.debug_v2_msg_buf)
+  if (!mxt->sysfs.debug_v2_msg_buf) //If nothing in buffer, return error
     return MXT_INTERNAL_ERROR;
 
-  t5_size = mxt_get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5) - 1;
+  if (mxt->mxt_crc.crc_enabled == true)
+    t5_size = mxt_get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5);  //Must match Linux driver
+  else 
+    t5_size = mxt_get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5) - 1;
 
   if (buflen < t5_size)
     return MXT_ERROR_NO_MEM;
@@ -616,6 +729,12 @@ int sysfs_msg_reset_v2(struct mxt_device *mxt)
 {
   free(mxt->sysfs.debug_v2_msg_buf);
   mxt->sysfs.debug_v2_msg_buf = NULL;
+  
+  usleep(100000);   /* delay to get rid of messages */
+  
+  if (mxt->sysfs.debug_v2_msg_buf != NULL);
+    free(mxt->sysfs.debug_v2_msg_buf);
+
   return 0;
 }
 
@@ -668,7 +787,10 @@ int sysfs_get_msgs_v2(struct mxt_device *mxt, int *count)
     goto close;
   }
 
-  t5_size = mxt_get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5) - 1;
+  if (mxt->mxt_crc.crc_enabled == true)
+    t5_size = mxt_get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5);  // Must match Linux driver being used
+   else 
+    t5_size = mxt_get_object_size(mxt, GEN_MESSAGEPROCESSOR_T5) - 1;  //Size based on chip (non-CRC)
 
   num_bytes = read(fd, mxt->sysfs.debug_v2_msg_buf, mxt->sysfs.debug_v2_size);
   if (num_bytes < 0) {
@@ -682,7 +804,7 @@ int sysfs_get_msgs_v2(struct mxt_device *mxt, int *count)
 
   ret = MXT_SUCCESS;
   *count = mxt->sysfs.debug_v2_msg_count;
-  mxt_verb(mxt->ctx, "count = %d", mxt->sysfs.debug_v2_msg_count);
+  mxt_verb(mxt->ctx, "msg_count = %d", mxt->sysfs.debug_v2_msg_count);
 
 close:
   close(fd);
@@ -703,6 +825,72 @@ int sysfs_get_debug(struct mxt_device *mxt, bool *value)
   }
 
   return read_boolean_file(mxt, make_path(mxt, "debug_enable"), value);
+}
+
+//******************************************************************************
+/// \brief  Get crc status
+/// \param  mxt Device context
+/// \param  value true (debug HA found) or false (HA not found)
+/// \return #mxt_rc
+int sysfs_get_crc_enabled(struct mxt_device *mxt, bool *value)
+{
+  // Check device is initialised
+  if (!mxt) {
+    mxt_err(mxt->ctx, "Device uninitialised");
+    return false;
+  }
+
+  return read_boolean_file(mxt, make_path(mxt, "crc_enabled"), value);
+}
+
+//******************************************************************************
+/// \brief  Get tx seq number value
+/// \param  mxt Device context
+/// \param  value true (debug enabled) or false (debug disabled)
+/// \return #mxt_rc
+int sysfs_get_tx_seq_num(struct mxt_device *mxt, uint16_t *value)
+{
+
+  // Check device is initialised
+  if (!mxt) {
+    mxt_err(mxt->ctx, "Device uninitialised");
+    return false;
+  }
+
+  return read_sysfs_byte(mxt, make_path(mxt, "tx_seq_num"), value);
+}
+
+//******************************************************************************
+/// \brief  Set tx seq number value
+/// \param  mxt Device context
+/// \param  value true (debug enabled) or false (debug disabled)
+/// \return #mxt_rc
+int sysfs_set_tx_seq_num(struct mxt_device *mxt, uint8_t value)
+{
+
+  // Check device is initialised
+  if (!mxt) {
+    mxt_err(mxt->ctx, "Device uninitialised");
+    return false;
+  }
+
+  return write_sysfs_byte(mxt, make_path(mxt, "tx_seq_num"), value);
+}
+
+//******************************************************************************
+/// \brief  Get debug IRQ state
+/// \param  mxt Device context
+/// \param  value true (debug enabled) or false (debug disabled)
+/// \return #mxt_rc
+int sysfs_get_debug_irq(struct mxt_device *mxt, bool *value)
+{
+  // Check device is initialised
+  if (!mxt) {
+    mxt_err(mxt->ctx, "Device uninitialised");
+    return false;
+  }
+
+  return read_boolean_file(mxt, make_path(mxt, "debug_irq"), value);
 }
 
 //******************************************************************************

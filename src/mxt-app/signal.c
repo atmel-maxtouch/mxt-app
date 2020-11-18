@@ -64,6 +64,7 @@ static void mxt_init_sigint_handler(struct mxt_device *mxt, struct sigaction *sa
   sa->sa_handler = mxt_signal_handler;
   sigemptyset(&sa->sa_mask);
   sa->sa_flags = SA_RESTART;
+
   if (sigaction(SIGINT, sa, NULL) == -1)
     mxt_err(mxt->ctx, "Can't catch SIGINT");
 }
@@ -105,8 +106,18 @@ int mxt_read_messages_sigint(struct mxt_device *mxt, int timeout_seconds, void *
   struct sigaction sa;
 
   mxt_init_sigint_handler(mxt, &sa);
+  
+  if (mxt->conn->type == E_I2C_DEV){
+    mxt->mxt_crc.processing_msg = true;
+  }
+  
   ret = mxt_read_messages(mxt, timeout_seconds, context, (msg_func), (int *)&mxt_sigint_rx);
+
   mxt_release_sigint_handler(mxt, &sa);
+
+  if (mxt->conn->type == E_I2C_DEV){
+    mxt->mxt_crc.processing_msg = false;
+  }
 
   return ret;
 }

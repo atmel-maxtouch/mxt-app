@@ -44,11 +44,11 @@
 #define T9_XSIZE_OFFSET        0x03
 
 /* T15 Key Object offsets */
-#define T15_CTRL_OFFSET		   0x00
-#define T15_XORIGIN_OFFSET	   0x01
-#define T15_YORIGIN_OFFSET	   0x02
-#define T15_XSIZE_OFFSET	   0x03
-#define T15_YSIZE_OFFSET           0x04
+#define T15_CTRL_OFFSET			0x00
+#define T15_XORIGIN_OFFSET		0x01
+#define T15_YORIGIN_OFFSET		0x02
+#define T15_XSIZE_OFFSET		0x03
+#define T15_YSIZE_OFFSET		0x04
 
 /* T6 Debug Diagnostics Commands */
 #define PAGE_UP           0x01
@@ -76,6 +76,40 @@
 #define SELF_TEST_INVALID      0xFD
 #define SELF_TEST_TIMEOUT      0xFC
 
+/* T10 Status field  */
+#define OND_TEST_ALL_PASS      0x31
+#define OND_TEST_FAILED        0x32
+#define OND_TEST_INVALID       0x3F
+#define POST_TEST_ALL_PASS     0x11
+#define POST_TEST_FAILED       0x12
+#define BIST_TEST_ALL_PASS     0x21
+#define BIST_TEST_FAILED       0x22
+#define BIST_TEST_OVERRUN      0x23
+
+/* T10 Commands */
+#define OND_POWER_TEST         0x31
+#define OND_PIN_FAULT_TEST     0x32
+#define OND_SIGNAL_LIMIT_TEST  0x33
+#define OND_RUN_ALL_TEST       0x3E
+
+/* T10 Test Field Errors */
+
+#define CLOCK_FAILURE          0x02
+#define FLASH_MEM_FAILURE      0x03
+#define RAM_MEM_FAILURE        0x04
+#define CTE_TEST_FAILURE       0x05
+#define SIGNAL_LIMIT_FAILURE   0x06
+#define POWER_TEST_FAILURE     0x07
+#define PIN_FAULT_FAILURE      0x08
+
+/* SELF Test Errors */
+
+#define PIN_FAULT_TO_PWR       0x01
+#define PIN_FAULT_TO_GND       0x02
+#define PIN_SHORT_LOW          0x03
+#define PIN_SHORT_HIGH         0x04
+#define INIT_HIGH_VOLT         0x07
+
 /* Message Timeout Options */
 #define MSG_NO_WAIT            0
 #define MSG_CONTINUOUS         -1
@@ -87,6 +121,7 @@ typedef enum mxt_app_cmd_t {
   CMD_QUERY,
   CMD_INFO,
   CMD_TEST,
+  CMD_OD_TEST,
   CMD_WRITE,
   CMD_READ,
   CMD_GOLDEN_REFERENCES,
@@ -204,8 +239,9 @@ void mxt_stylus_menu(struct mxt_device *mxt, char selection);
 void mxt_key_array_menu(struct mxt_device *mxt, char selection);
 int mxt_store_golden_refs(struct mxt_device *mxt);
 int mxt_menu(struct mxt_device *mxt);
-uint8_t self_test_menu(struct mxt_device *mxt);
-int run_self_tests(struct mxt_device *mxt, uint8_t cmd);
+uint8_t self_test_main_menu(struct mxt_device *mxt);
+int run_self_tests(struct mxt_device *mxt, uint8_t cmd, bool type);
+uint8_t self_test_t10_menu(struct mxt_device *mxt);
 int mxt_serial_data_upload(struct mxt_device *mxt, const char *filename, uint16_t datatype);
 int print_raw_messages(struct mxt_device *mxt, int timeout, uint16_t object_type);
 int print_raw_messages_t44(struct mxt_device *mxt);

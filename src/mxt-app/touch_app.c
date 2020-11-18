@@ -73,9 +73,18 @@ static int print_message_hex(struct mxt_device *mxt, uint8_t *msg,
 /// \return #mxt_rc
 int print_raw_messages(struct mxt_device *mxt, int timeout, uint16_t object_type)
 {
+  int err;
+
   mxt_msg_reset(mxt);
 
   mxt_read_messages_sigint(mxt, timeout, &object_type, print_message_hex);
+
+  if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true){
+    err = debugfs_set_irq(mxt, true);
+
+    if (err)
+      mxt_dbg(mxt->ctx, "Could not disable IRQ");
+  }
 
   return MXT_SUCCESS;
 }

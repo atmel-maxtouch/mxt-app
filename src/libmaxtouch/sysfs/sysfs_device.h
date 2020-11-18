@@ -44,9 +44,7 @@ struct sysfs_device {
   char *mem_access_path;
   char *temp_path;
   size_t path_max;
-
   bool debug_v2;
-
   uint16_t debug_v2_msg_count;
   uint16_t debug_v2_msg_ptr;
   uint8_t *debug_v2_msg_buf;
@@ -71,6 +69,8 @@ int sysfs_read_register(struct mxt_device *mxt, unsigned char *buf, int start_re
 int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf, int start_register, size_t count);
 int sysfs_set_debug(struct mxt_device *mxt, bool debug_state);
 int sysfs_get_debug(struct mxt_device *mxt, bool *value);
+int sysfs_set_debug_irq(struct mxt_device *mxt, bool debug_state);
+int sysfs_get_crc_enabled(struct mxt_device *mxt, bool *value);
 char *sysfs_get_directory(struct mxt_device *mxt);
 bool sysfs_has_debug_v2(struct mxt_device *mxt);
 char *sysfs_get_msg_string_v2(struct mxt_device *mxt);

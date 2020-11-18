@@ -13,6 +13,7 @@ LOCAL_SRC_FILES := \
   sysfs/sysfs_device.c \
   sysfs/dmesg.c \
   i2c_dev/i2c_dev_device.c \
+  debugfs/debugfs_device.c \
   hidraw/hidraw_device.c
 LOCAL_MODULE := maxtouch
 

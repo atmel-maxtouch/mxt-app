@@ -82,6 +82,7 @@ static bool is_type_used_for_crc(const uint32_t type)
   case SPT_USERDATA_T38:
   case SPT_MESSAGECOUNT_T44:
   case SERIAL_DATA_COMMAND_T68:
+  case SPT_MESSAGECOUNT_T144:
     return false;
 
   default:
@@ -190,6 +191,7 @@ static int mxt_write_device_config(struct mxt_device *mxt,
 {
   struct mxt_object_config *objcfg = cfg->head;
   int ret;
+  int err;
 
   /* The Info Block CRC is calculated over mxt_id_info and the object table
    * If it does not match then we are trying to load the configuration
@@ -206,15 +208,38 @@ static int mxt_write_device_config(struct mxt_device *mxt,
     mxt_verb(mxt->ctx, "T%d instance %d size %d",
              objcfg->type, objcfg->instance, objcfg->size);
 
+    if (mxt->conn->type == E_I2C_DEV)
+      mxt->mxt_crc.config_triggered = true;
+
     ret = mxt_write_object_config(mxt, objcfg);
     if (ret == MXT_ERROR_OBJECT_NOT_FOUND)
       mxt_warn(mxt->ctx, "T%d not present", objcfg->type);
     else if (ret == MXT_ERROR_OBJECT_IS_VOLATILE)
       mxt_warn(mxt->ctx, "Skipping volatile T%d", objcfg->type);
-    else if (ret)
+    else if (ret){
+      mxt->mxt_crc.config_triggered = false;
+
+      if (mxt->conn->type == E_I2C_DEV  && mxt->debug_fs.enabled == true) {
+      	/* Allow messages to be read thru mxt-app */
+        err = debugfs_set_irq(mxt, true);
+      } else if (mxt->conn->type == E_SYSFS){
+        if (mxt->mxt_crc.crc_enabled == true)
+          err = sysfs_set_debug_irq(mxt, true);
+      }
+
       return ret;
+    }
 
     objcfg = objcfg->next;
+  }
+  
+  mxt->mxt_crc.config_triggered = false;
+  
+  if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true){
+    err = debugfs_set_irq(mxt, true);
+  } else if (mxt->conn->type == E_SYSFS){
+      if (mxt->mxt_crc.crc_enabled == true)
+        err = sysfs_set_debug_irq(mxt, true);
   }
 
   return MXT_SUCCESS;
@@ -840,12 +865,32 @@ static int mxt_get_config_from_file(struct libmaxtouch_ctx *ctx,
 /// \return #mxt_rc
 int mxt_load_config_file(struct mxt_device *mxt, const char *filename)
 {
+  uint8_t backup_cmd = BACKUPNV_COMMAND;
   struct mxt_config cfg = {{0}};
-  int ret = mxt_get_config_from_file(mxt->ctx, filename, &cfg);
+  int ret;
+
+  ret = mxt_get_config_from_file(mxt->ctx, filename, &cfg);
+
   if (ret == MXT_SUCCESS) {
     ret = mxt_write_device_config(mxt, &cfg);
     mxt_free_config(&cfg);
   }
+
+  ret = mxt_backup_config(mxt, backup_cmd);
+  
+  if (ret) {
+    mxt_err(mxt->ctx, "Error backing up");
+    } else {
+        mxt_info(mxt->ctx, "Configuration backed up");
+
+        ret = mxt_reset_chip(mxt, false, 0);
+      
+        if (ret) {
+          mxt_err(mxt->ctx, "Error resetting");
+        } else {
+            mxt_info(mxt->ctx, "Chip reset");
+          }
+      }
 
   return ret;
 }
@@ -857,12 +902,15 @@ int mxt_save_config_file(struct mxt_device *mxt, const char *filename)
 {
   int ret;
 
+ if (mxt->conn->type == E_I2C_DEV)
+      mxt->mxt_crc.config_triggered = true;
+
   char *extension = strrchr(filename, '.');
   struct mxt_config cfg = {{0}};
 
   ret = mxt_read_device_config(mxt, &cfg);
   if (ret)
-    return ret;
+    goto config_done;
 
   if (extension && !strcmp(extension, ".xcfg"))
     ret = mxt_save_xcfg_file(mxt->ctx, filename, &cfg);
@@ -870,6 +918,11 @@ int mxt_save_config_file(struct mxt_device *mxt, const char *filename)
     ret = mxt_save_raw_file(mxt->ctx, filename, &cfg);
 
   mxt_free_config(&cfg);
+
+config_done:
+
+ if (mxt->conn->type == E_I2C_DEV)
+      mxt->mxt_crc.config_triggered = false;
 
   return ret;
 }
@@ -992,7 +1045,7 @@ int mxt_checkcrc(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, char *file
   ret = mxt_calculate_crc(ctx, &calc_crc, buffer + start_pos, end_pos - start_pos);
 
   if (calc_crc == cfg.config_crc) {
-    mxt_info(ctx, "File checksum verified: %d", cfg.config_crc);
+    mxt_info(ctx, "File checksum verified: %06X", cfg.config_crc);
     ret = MXT_SUCCESS;
   } else {
     mxt_err(ctx, "Checksum error: calc=%06X file=%06X", calc_crc, cfg.config_crc);

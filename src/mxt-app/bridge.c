@@ -264,6 +264,14 @@ static int bridge_handle_reset(struct mxt_device *mxt,
   char *response;
   const char * const PREFIX = "RST ";
   size_t response_len = 8;
+  uint16_t reset_timeout = 0;
+
+  //Address argument used as reset time for chip
+  
+  if (address < (uint16_t) (MXT_SOFT_RESET_TIME/1000))
+    reset_timeout = (uint16_t) (MXT_SOFT_RESET_TIME/1000);
+  else
+    reset_timeout = address; 
 
   /* Allow for newline/null byte */
   response = calloc(response_len, sizeof(uint8_t));
@@ -274,7 +282,8 @@ static int bridge_handle_reset(struct mxt_device *mxt,
   }
 
   strcpy(response, PREFIX);
-  ret =  mxt_reset_chip(mxt, false);
+  ret =  mxt_reset_chip(mxt, false, reset_timeout);
+
   if (ret) {
     mxt_warn(mxt->ctx, "RST ERR");
     strcpy(response + strlen(PREFIX), "ERR\n");

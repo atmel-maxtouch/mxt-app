@@ -96,6 +96,7 @@ int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn,
 
   /* Scan the I2C bus first because it will return quicker */
   ret = sysfs_scan(ctx, conn);
+
 #ifdef HAVE_LIBUSB
   if (query || ret) {
     /* If no I2C devices are found then scan the USB */
@@ -283,21 +284,75 @@ void mxt_free_device(struct mxt_device *mxt)
 }
 
 //******************************************************************************
+/// \brief Calculate the 8bit CRC
+uint8_t mxt_calc_crc8(unsigned char crc, unsigned char data)
+{
+  static const uint8_t crcpoly = 0x8C;
+  uint8_t index;
+  uint8_t fb;
+  index = 8;
+
+  do {
+    fb = (crc ^ data) & 0x01;
+    data >>=1;
+    crc >>=1;
+    if (fb)
+      crc ^= crcpoly;
+  } while (--index);
+
+  return crc;
+}
+
+//******************************************************************************
 /// \brief  Read register from MXT chip
 /// \return #mxt_rc
 static int mxt_read_register_block(struct mxt_device *mxt, uint8_t *buf,
                                    int start_register, int count,
                                    size_t *bytes)
 {
-  int ret;
+  int ret, err;
+  bool irq_val = false;
 
   switch (mxt->conn->type) {
   case E_SYSFS:
+
+//Stop the handling of interrupts in driver
+  if (mxt->mxt_crc.crc_enabled == true) {
+    err = sysfs_set_debug_irq(mxt, false);
+    
+    if (err)
+      mxt_dbg(mxt->ctx, "Failed to disable debug_irq");
+  }
+
     ret = sysfs_read_register(mxt, buf, start_register, count, bytes);
+
+    if (ret)
+      mxt_err(mxt->ctx, "Error reading register");
+
+    if (mxt->mxt_crc.crc_enabled == true) {
+      if ((mxt->mxt_crc.reset_triggered == false) && (mxt->mxt_crc.config_triggered == false)) {
+        err = sysfs_set_debug_irq(mxt, true);
+    
+        if (err)
+          mxt_dbg(mxt->ctx, "Failed to enable debug_irq");
+      }
+    }
+
     break;
 
   case E_I2C_DEV:
+
     ret = i2c_dev_read_register(mxt, buf, start_register, count, bytes);
+
+    if ((mxt->mxt_crc.config_triggered == false) && (mxt->mxt_crc.processing_msg == false) &&
+      (mxt->debug_fs.enabled == true)) {
+
+      err = debugfs_set_irq(mxt, true);
+
+      if (err)
+        mxt_dbg(mxt->ctx, "Could not disable IRQ");
+    }
+
     break;
 
 #ifdef HAVE_LIBUSB
@@ -351,6 +406,67 @@ int mxt_read_register(struct mxt_device *mxt, uint8_t *buf,
 int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf,
                        int start_register, size_t count)
 {
+  int ret, err;
+
+  mxt_verb(mxt->ctx, "%s start_register:%d count:%zu", __func__,
+           start_register, count);
+
+  switch (mxt->conn->type) {
+  case E_SYSFS:
+    if (mxt->mxt_crc.crc_enabled == true) {
+      err = sysfs_set_debug_irq(mxt, false);
+
+      if (err)
+        mxt_dbg(mxt->ctx, "Failed to disable debug_irq");
+    }
+
+    ret = sysfs_write_register(mxt, buf, start_register, count);
+
+    if (mxt->mxt_crc.crc_enabled == true) {
+      if (mxt->mxt_crc.reset_triggered == false) {
+        err = sysfs_set_debug_irq(mxt, true);
+      
+      if (err)
+        mxt_dbg(mxt->ctx, "Failed to enable debug_irq");
+      }
+    }
+
+    break;
+
+  case E_I2C_DEV:
+    if (mxt->mxt_crc.crc_enabled)
+      ret = i2c_dev_write_crc(mxt, buf, start_register, count);
+    else
+      ret = i2c_dev_write_register(mxt, buf, start_register, count);
+    break;
+
+#ifdef HAVE_LIBUSB
+  case E_USB:
+    ret = usb_write_register(mxt, buf, start_register, count);
+    break;
+#endif /* HAVE_LIBUSB */
+
+  case E_HIDRAW:
+    ret = hidraw_write_register(mxt, buf, start_register, count);
+    break;
+
+  default:
+    mxt_err(mxt->ctx, "Device type not supported");
+    ret = MXT_ERROR_NOT_SUPPORTED;
+  }
+
+  if (ret == MXT_SUCCESS)
+    mxt_log_buffer(mxt->ctx, LOG_VERBOSE, "TX:", buf, count);
+
+  return ret;
+}
+
+//******************************************************************************
+/// \brief  Write bytes to MXT chip
+/// \return #mxt_rc
+int mxt_write_bytes(struct mxt_device *mxt, uint8_t const *buf,
+                       int start_register, size_t count)
+{
   int ret;
 
   mxt_verb(mxt->ctx, "%s start_register:%d count:%zu", __func__,
@@ -362,17 +478,10 @@ int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf,
     break;
 
   case E_I2C_DEV:
-    ret = i2c_dev_write_register(mxt, buf, start_register, count);
-    break;
-
-#ifdef HAVE_LIBUSB
-  case E_USB:
-    ret = usb_write_register(mxt, buf, start_register, count);
-    break;
-#endif /* HAVE_LIBUSB */
-
-  case E_HIDRAW:
-    ret = hidraw_write_register(mxt, buf, start_register, count);
+    if (mxt->mxt_crc.crc_enabled)
+      ret = i2c_dev_write_crc(mxt, buf, start_register, count);
+    else
+      ret = i2c_dev_write_register(mxt, buf, start_register, count);
     break;
 
   default:
@@ -403,7 +512,9 @@ int mxt_set_debug(struct mxt_device *mxt, bool debug_state)
 #endif
   case E_I2C_DEV:
   case E_HIDRAW:
-    /* No need to enable MSG output */
+   
+    /* Check for debugfs files */
+
     ret = MXT_SUCCESS;
     break;
 
@@ -450,11 +561,18 @@ int mxt_get_debug(struct mxt_device *mxt, bool *value)
 //******************************************************************************
 /// \brief  Perform fallback reset
 /// \return #mxt_rc
-static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode)
+static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, uint16_t reset_time_ms)
 {
-  int ret;
+  int ret, err;
   uint16_t t6_addr;
   unsigned char write_value = RESET_COMMAND;
+  uint16_t curr_tx_seqnum;
+  uint16_t tx_seq_num;
+  bool crc_state;
+  bool irq_val;
+  uint16_t reset_time;
+
+  reset_time = reset_time_ms;
 
   /* Obtain command processor's address */
   t6_addr = mxt_get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
@@ -463,19 +581,137 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode)
 
   /* The value written determines which mode the chip will boot into */
   if (bootloader_mode) {
+
+    if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true) {
+      err = debugfs_set_irq(mxt, false);
+
+      if (err)
+        mxt_dbg(mxt->ctx, "Could not disable IRQ");
+    }
+
     mxt_info(mxt->ctx, "Resetting in bootloader mode");
     write_value = BOOTLOADER_COMMAND;
   } else {
     mxt_info(mxt->ctx, "Sending reset command");
   }
 
+  if (mxt->conn->type == E_SYSFS) {
+    mxt->mxt_crc.reset_triggered = true;
+
+    if (mxt->mxt_crc.crc_enabled == true) {
+
+      err = sysfs_set_debug_irq(mxt, false);
+      if (err)
+        mxt_dbg(mxt->ctx, "failed to disable debug_irq\n");
+    }
+  }
+  else if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true) {
+    mxt->mxt_crc.reset_triggered = true;
+  }
+
+  /* Write to command processor register to perform command */
+  ret = mxt_write_register(mxt, &write_value, t6_addr + MXT_T6_RESET_OFFSET, 1);
+
+  if (reset_time == 0)
+    usleep(MXT_SOFT_RESET_TIME);
+  else
+    usleep(reset_time * 1000);  //Reset time for the chip, no i2c access
+
+  /* Determine if HA part exists */
+  if (mxt->conn->type == E_SYSFS) { 
+ 
+    if (mxt->mxt_crc.crc_enabled == true) {
+      err = sysfs_set_tx_seq_num(mxt, 0x00);
+
+      if (err) {
+        mxt_dbg(mxt->ctx, "Failed to reset tx_seq_num\n");
+      }
+    
+    printf("Turning IRQ back on\n");
+    err = sysfs_set_debug_irq(mxt, true);
+
+    if (err)
+      mxt_dbg(mxt->ctx, "Failed to enable debug_irq\n");
+    }
+
+    mxt->mxt_crc.reset_triggered = false;
+
+  } else if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true) {
+
+    err = debugfs_get_crc_enabled(mxt, &crc_state);
+
+    if (err)
+      mxt_dbg(mxt->ctx, "Failed to read crc_enabled");
+
+    if (crc_state == true) {
+      err = debugfs_set_tx_seq_num(mxt, 0x00);
+    
+      if (err) {
+        mxt_dbg(mxt->ctx, "Failed to set tx seq numer\n");
+      }
+
+      if (!bootloader_mode){
+
+        err = debugfs_set_irq(mxt, true);
+
+        if (err)
+          mxt_dbg(mxt->ctx, "Could not disable IRQ");
+
+        mxt->mxt_crc.reset_triggered = false; //Turn IRQ back on after reset
+      }
+    }
+  }
+
+reset_end:
+
+  return ret;
+}
+
+//******************************************************************************
+/// \brief  Perform fallback reset
+/// \return #mxt_rc
+static int mxt_send_flash_command(struct mxt_device *mxt, bool bootloader_mode, bool crc_state)
+{
+  int ret;
+  uint16_t t6_addr;
+  unsigned char write_value[5];
+  unsigned char flash_command = BOOTLOADER_COMMAND;
+  int i;
+  uint8_t crc_data;
+  uint8_t header = 0x03;
+  uint8_t count = 0;
+
+  /* Obtain command processor's address */
+  t6_addr = mxt_get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
+  if (t6_addr == OBJECT_NOT_FOUND)
+    return MXT_ERROR_OBJECT_NOT_FOUND;
+
+  /* The value written determines which mode the chip will boot into */
+  if (bootloader_mode) {
+    mxt_info(mxt->ctx, "Resetting into bootloader mode");
+  } else {
+    mxt_info(mxt->ctx, "Sending reset command");
+  }
+
+  if (mxt->mxt_crc.crc_enabled){
+    write_value[0] = BOOTLOADER_COMMAND;
+    write_value[1] = 0x00;    //Default to 0x00 for first sequence number as test
+    write_value[2] = t6_addr & 0xff;    //Get lower byte
+    write_value[3] = (t6_addr >> 8) & 0xff; //Get uppper byte
+
+  for (i=0; i < (header); i++){
+
+    crc_data = mxt_calc_crc8(crc_data, write_value[i]);
+
+    mxt_dbg(mxt->ctx, "Buffer[%d] = %x, count = %d, crc = 0x%x\n", i, write_value[i], count, crc_data);
+  }
+}
+
   /* Write to command processor register to perform command */
   ret = mxt_write_register
         (
-          mxt, &write_value, t6_addr + MXT_T6_RESET_OFFSET, 1
+          mxt, write_value, t6_addr + MXT_T6_RESET_OFFSET, 2
         );
-
-  usleep(200000);
 
   return ret;
 }
@@ -483,7 +719,7 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode)
 //******************************************************************************
 /// \brief  Restart the maxtouch chip, in normal or bootloader mode
 /// \return 0 = success, negative = fail
-int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
+int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode, uint16_t reset_time_ms)
 {
   int ret;
 
@@ -491,12 +727,12 @@ int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode)
   case E_SYSFS:
   case E_I2C_DEV:
   case E_HIDRAW:
-    ret = mxt_send_reset_command(mxt, bootloader_mode);
+    ret = mxt_send_reset_command(mxt, bootloader_mode, reset_time_ms);
     break;
 
 #ifdef HAVE_LIBUSB
   case E_USB:
-    ret = usb_reset_chip(mxt, bootloader_mode);
+    ret = usb_reset_chip(mxt, bootloader_mode, reset_time_ms);
     break;
 #endif /* HAVE_LIBUSB */
 
@@ -536,7 +772,7 @@ static int handle_calibrate_msg(struct mxt_device *mxt, uint8_t *msg,
 /// \return 0 = success, negative = fail
 int mxt_calibrate_chip(struct mxt_device *mxt)
 {
-  int ret;
+  int ret, err;
   uint16_t t6_addr;
   unsigned char write_value = CALIBRATE_COMMAND;
 
@@ -546,6 +782,15 @@ int mxt_calibrate_chip(struct mxt_device *mxt)
     return MXT_ERROR_OBJECT_NOT_FOUND;
 
   mxt_flush_msgs(mxt);
+
+  if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true) {
+    err = debugfs_set_irq(mxt, false);
+
+    if (err)
+      mxt_dbg(mxt->ctx, "Could not disable IRQ");
+
+    mxt->mxt_crc.processing_msg = true;
+  }
 
   /* Write to command processor register to perform command */
   ret = mxt_write_register(mxt, &write_value, t6_addr + MXT_T6_CALIBRATE_OFFSET, 1);
@@ -560,15 +805,26 @@ int mxt_calibrate_chip(struct mxt_device *mxt)
 
   ret = mxt_read_messages(mxt, MXT_CALIBRATE_TIMEOUT, &state,
                           handle_calibrate_msg, &flag);
+
   if (ret == MXT_ERROR_TIMEOUT) {
     mxt_warn(mxt->ctx, "WARN: timed out waiting for calibrate status");
-    return MXT_SUCCESS;
+    ret = MXT_SUCCESS;
   } else if (ret) {
     mxt_err(mxt->ctx, "FAIL: device calibration failed");
-    return ret;
   }
 
-  return MXT_SUCCESS;
+end:
+  
+  if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true) {
+    mxt->mxt_crc.processing_msg = false;
+
+    err = debugfs_set_irq(mxt, true);
+
+    if (err)
+     mxt_dbg(mxt->ctx, "Could not enable IRQ");
+    }
+
+  return ret;
 }
 
 //******************************************************************************
@@ -648,7 +904,7 @@ int mxt_get_msg_count(struct mxt_device *mxt, int *count)
 #endif /* HAVE_LIBUSB */
   case E_I2C_DEV:
   case E_HIDRAW:
-    ret = t44_get_msg_count(mxt, count);
+    ret = t44_t144_get_msg_count(mxt, count);
     break;
 
   default:
@@ -728,8 +984,8 @@ int mxt_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf,
     break;
   }
 
-  if (ret == MXT_SUCCESS)
-    mxt_log_buffer(mxt->ctx, LOG_DEBUG, MSG_PREFIX, buf, *count);
+ if (ret == MXT_SUCCESS)
+   mxt_log_buffer(mxt->ctx, LOG_DEBUG, MSG_PREFIX, buf, *count);
 
   return ret;
 }
@@ -755,7 +1011,7 @@ int mxt_msg_reset(struct mxt_device *mxt)
 #endif /* HAVE_LIBUSB */
   case E_I2C_DEV:
   case E_HIDRAW:
-    ret = t44_msg_reset(mxt);
+    ret = t44_t144_msg_reset(mxt);
     break;
 
   default:

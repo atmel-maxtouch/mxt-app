@@ -99,9 +99,7 @@ static void print_usage(char *prog_name)
           "  -M [--messages] [TIMEOUT]  : print the messages (for TIMEOUT seconds)\n"
           "  -F [--msg-filter] TYPE     : message filtering by object TYPE\n"
           "  --reset                    : reset device\n"
-          "  --reset-bootloader         : reset device in bootloader mode\n"
           "  --calibrate                : send calibrate command\n"
-          "  --backup[=COMMAND]         : backup configuration to NVRAM\n"
           "  -g                         : store golden references\n"
           "  --self-cap-tune-config     : tune self capacitance settings to config\n"
           "  --self-cap-tune-nvram      : tune self capacitance settings to NVRAM\n"
@@ -111,6 +109,7 @@ static void print_usage(char *prog_name)
           "Configuration file commands:\n"
           "  --load FILE                : upload cfg from FILE in .xcfg or OBP_RAW format\n"
           "  --save FILE                : save cfg to FILE in .xcfg or OBP_RAW format\n"
+          "  --backup[=COMMAND]         : backup configuration to NVRAM\n"
           "  --checksum FILE            : verify .xcfg or OBP_RAW file config checksum\n"
           "\n"
           "Register read/write commands:\n"
@@ -131,6 +130,7 @@ static void print_usage(char *prog_name)
           "Bootloader commands:\n"
           "  --bootloader-version       : query bootloader version\n"
           "  --flash FIRMWARE           : send FIRMWARE to bootloader\n"
+          "  --reset-bootloader         : reset device in bootloader mode\n"
           "  --firmware-version VERSION : check firmware VERSION "
           "before and after flash\n"
           "\n"
@@ -141,6 +141,9 @@ static void print_usage(char *prog_name)
           "T25 Self Test commands:\n"
           "  -t [--test]                : run all self tests\n"
           "  -tXX [--test=XX]           : run individual test, write XX to CMD register\n"
+          "\n"
+          "T10 On-Deman Test command:\n"
+          "  --odtest                   : run all on-demand self tests\n"
           "\n"
           "T37 Diagnostic Data commands:\n"
           "  --debug-dump FILE          : capture diagnostic data to FILE\n"
@@ -201,6 +204,7 @@ int main (int argc, char *argv[])
   bool msgs_enabled = false;
   uint8_t backup_cmd = BACKUPNV_COMMAND;
   unsigned char self_test_cmd = SELF_TEST_ALL;
+  unsigned char ondemand_test_cmd = OND_RUN_ALL_TEST;
   uint16_t address = 0;
   uint16_t count = 0;
   struct mxt_conn_info *conn = NULL;
@@ -291,6 +295,7 @@ int main (int argc, char *argv[])
       {"active-stylus-refs",    no_argument,       0, 0},
       {"bridge-server",    no_argument,       0, 'S'},
       {"test",             optional_argument, 0, 't'},
+      {"odtest",           no_argument,       0, 0},
       {"type",             required_argument, 0, 'T'},
       {"verbose",          required_argument, 0, 'v'},
       {"version",          no_argument,       0, 0},
@@ -452,7 +457,23 @@ int main (int argc, char *argv[])
         } else {
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
-        }
+        } 
+      } else if (!strcmp(long_options[option_index].name, "odtest")) { 
+        if (cmd == CMD_NONE) {
+          if (optarg) {
+            ret = mxt_convert_hex(optarg, &databuf, &count, sizeof(databuf));
+              if (ret) {
+                fprintf(stderr, "Hex convert error\n");
+                ret = MXT_ERROR_BAD_INPUT;
+              } else {
+                ondemand_test_cmd = databuf;
+              } 
+          }
+            cmd = CMD_OD_TEST;
+          } else {
+              print_usage(argv[0]);
+              return MXT_ERROR_BAD_INPUT;
+          }
       } else if (!strcmp(long_options[option_index].name, "self-cap-tune-config")) {
         if (cmd == CMD_NONE) {
           cmd = CMD_SELF_CAP_TUNE_CONFIG;
@@ -568,7 +589,7 @@ int main (int argc, char *argv[])
 
           conn->sysfs.path = (char *)calloc(strlen(optarg) + 1, sizeof(char));
           if (!conn->sysfs.path) {
-            fprintf(stderr, "malloc failure\n");
+            fprintf(stderr, "calloc failure\n");
             conn = mxt_unref_conn(conn);
             return MXT_ERROR_NO_MEM;
           }
@@ -845,7 +866,12 @@ int main (int argc, char *argv[])
 
   case CMD_TEST:
     mxt_verb(ctx, "CMD_TEST");
-    ret = run_self_tests(mxt, self_test_cmd);
+    ret = run_self_tests(mxt, self_test_cmd, 0);
+    break;
+
+  case CMD_OD_TEST:
+    mxt_verb(ctx, "CMD_TEST");
+    ret = run_self_tests(mxt, ondemand_test_cmd, 1);
     break;
 
   case CMD_FLASH:
@@ -855,7 +881,7 @@ int main (int argc, char *argv[])
 
   case CMD_RESET:
     mxt_verb(ctx, "CMD_RESET");
-    ret = mxt_reset_chip(mxt, false);
+    ret = mxt_reset_chip(mxt, false, 0);
     break;
 
   case CMD_BROKEN_LINE:
@@ -874,7 +900,7 @@ int main (int argc, char *argv[])
 
   case CMD_RESET_BOOTLOADER:
     mxt_verb(ctx, "CMD_RESET_BOOTLOADER");
-    ret = mxt_reset_chip(mxt, true);
+    ret = mxt_reset_chip(mxt, true, 0);
     break;
 
   case CMD_BOOTLOADER_VERSION:
@@ -918,21 +944,7 @@ int main (int argc, char *argv[])
       mxt_err(ctx, "Error loading the configuration");
     } else {
       mxt_info(ctx, "Configuration loaded");
-
-      ret = mxt_backup_config(mxt, backup_cmd);
-      if (ret) {
-        mxt_err(ctx, "Error backing up");
-      } else {
-        mxt_info(ctx, "Configuration backed up");
-
-        ret = mxt_reset_chip(mxt, false);
-        if (ret) {
-          mxt_err(ctx, "Error resetting");
-        } else {
-          mxt_info(ctx, "Chip reset");
-        }
       }
-    }
     break;
 
   case CMD_SAVE_CFG:

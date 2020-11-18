@@ -411,7 +411,7 @@ int mxt_sensor_variant(struct mxt_device *mxt, struct sensor_variant_options *sv
     goto free;
 
   mxt_info(frame->lc, "Resetting device");
-  if (mxt_reset_chip(mxt, false))
+  if (mxt_reset_chip(mxt, false, 0))
     mxt_err(frame->lc, "Unable to reset device");
 
   ret = MXT_SUCCESS;
