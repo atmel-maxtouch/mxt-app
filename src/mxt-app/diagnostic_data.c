@@ -1596,12 +1596,6 @@ int mxt_disable_touch(struct mxt_device *mxt)
     mxt_dbg(mxt->ctx, "Disabling TOUCH_MULTITOUCHSCREEN_T9 instance 1");
   }
 
-  addr = mxt_get_object_address(mxt, TOUCH_MULTITOUCHSCREEN_T100, 0);
-  if (!(addr == OBJECT_NOT_FOUND)) {
-    mxt_write_register(mxt, &disable, addr, sizeof(disable));
-    mxt_dbg(mxt->ctx, "Disabling TOUCH_MULTITOUCHSCREEN_T100");
-  }
-
   return MXT_SUCCESS;
 }
 
