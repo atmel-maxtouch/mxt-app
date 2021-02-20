@@ -104,7 +104,6 @@ int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn,
   ctx->query = query;
   ctx->scan_count = 0;
 
-
   /* Scan the I2C bus first because it will return quicker */
   ret = sysfs_scan(ctx, conn);
 
@@ -127,7 +126,6 @@ int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn,
   return ret;
 }
 
-
 //******************************************************************************
 /// \brief Create connection object
 /// \return #mxt_rc
@@ -144,7 +142,6 @@ int mxt_new_conn(struct mxt_conn_info **conn, enum mxt_device_type type)
     c->sysfs.spi_found = true;
 
   *conn = c;
-
   return MXT_SUCCESS;
 }
 
@@ -199,7 +196,6 @@ int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
   if (!new_dev)
     return MXT_ERROR_NO_MEM;
 
-  printf("mxt_new_device: enter in bus and cs #\n");
   new_dev->ctx = ctx;
   new_dev->conn = mxt_ref_conn(conn);
 
@@ -209,9 +205,6 @@ int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
   }
 
   switch (conn->type) {
-
-    printf("What is connector type: %d\n", conn->type);
-
   case E_SYSFS_SPI:
   case E_SYSFS_I2C:
     ret = sysfs_open(new_dev);
@@ -432,7 +425,6 @@ int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf,
                        int start_register, size_t count)
 {
   int ret, err;
-  int i;
 
   mxt_verb(mxt->ctx, "%s start_register:%d count:%zu", __func__,
            start_register, count);
@@ -444,12 +436,8 @@ int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf,
       err = sysfs_set_debug_irq(mxt, false);
 
       if (err)
-        mxt_info(mxt->ctx, "Failed to disable debug_irq");
+        mxt_dbg(mxt->ctx, "Failed to disable debug_irq");
     }
-
-   // for (i=0; i<count; i++) {
-   //   printf("What is write buffer %x\n", buf[i]);
-   // }
 
     ret = sysfs_write_register(mxt, buf, start_register, count);
 
@@ -458,7 +446,7 @@ int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf,
         err = sysfs_set_debug_irq(mxt, true);
       
       if (err)
-        mxt_info(mxt->ctx, "Failed to enable debug_irq");
+        mxt_dbg(mxt->ctx, "Failed to enable debug_irq");
       }
     }
 
@@ -699,8 +687,8 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
         mxt->mxt_crc.reset_triggered = false; //Turn IRQ back on after reset
       }
     }
-  } 
-  
+  }
+
 reset_end:
 
   return ret;
@@ -1121,7 +1109,6 @@ int mxt_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count)
 
   case E_SYSFS_SPI:
     ret = sysfs_bootloader_read(mxt, buf, count);
-
     break;
 
   case E_I2C_DEV:
