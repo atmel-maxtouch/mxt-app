@@ -592,9 +592,6 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
   uint16_t tx_seq_num;
   bool crc_state;
   bool irq_val;
-  uint16_t reset_time;
-
-  reset_time = reset_time_ms;
 
   /* Obtain command processor's address */
   t6_addr = mxt_get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
@@ -634,15 +631,10 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
   /* Write to command processor register to perform command */
   ret = mxt_write_register(mxt, &write_value, t6_addr + MXT_T6_RESET_OFFSET, 1);
 
-  //if (reset_time == 0)
-    //usleep(MXT_SOFT_RESET_TIME);
- // else
-    //usleep(reset_time * 1000);  //Reset time for the chip, no i2c access
-
-  //if (reset_time == 0)
-  //    msleep(1000);
-  //  else
-  //    msleep(reset_time);
+  if (reset_time_ms == 0)
+      msleep(MXT_SOFT_RESET_TIME);
+    else
+      msleep(reset_time_ms);
 
   /* Determine if HA part exists */
   if (mxt->conn->type == E_SYSFS_I2C) { 

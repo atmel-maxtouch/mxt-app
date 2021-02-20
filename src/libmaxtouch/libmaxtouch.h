@@ -75,7 +75,8 @@ struct mxt_conn_info;
 #define MXT_CALIBRATE_TIMEOUT 10
 
 /* Soft reset time, no i2c activity */
-#define MXT_SOFT_RESET_TIME  999999
+//#define MXT_SOFT_RESET_TIME  999999
+#define MXT_SOFT_RESET_TIME  1000
 
 //******************************************************************************
 /// \brief Return codes
