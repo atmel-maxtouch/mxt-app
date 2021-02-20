@@ -35,6 +35,10 @@ struct dmesg_item;
 struct sysfs_conn_info {
   char *path;
   bool acpi;
+  int spi_cs;
+  int spi_bus;
+  bool spi_found;
+  bool i2c_found;
 };
 
 //******************************************************************************
@@ -52,6 +56,8 @@ struct sysfs_device {
   int debug_msg_buf_size;
   int debug_notify_fd;
   size_t debug_v2_size;
+  bool b_i2c_device;
+  bool b_spi_device;
 
   int dmesg_count;
   struct dmesg_item *dmesg_head;
@@ -62,10 +68,13 @@ struct sysfs_device {
 };
 
 int sysfs_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn);
+int sysfs_spi_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn);
 int sysfs_open(struct mxt_device *mxt);
 void sysfs_release(struct mxt_device *mxt);
 int sysfs_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn, const char *dirname);
 int sysfs_read_register(struct mxt_device *mxt, unsigned char *buf, int start_register, size_t count, size_t *bytes_transferred);
+int sysfs_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count);
+int sysfs_bootloader_write(struct mxt_device *mxt, unsigned const char *buf, int count);
 int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf, int start_register, size_t count);
 int sysfs_set_debug(struct mxt_device *mxt, bool debug_state);
 int sysfs_get_debug(struct mxt_device *mxt, bool *value);

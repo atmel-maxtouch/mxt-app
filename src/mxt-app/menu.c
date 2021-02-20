@@ -94,7 +94,7 @@ static void flash_firmware_command(struct mxt_device *mxt)
   char fw_file[255];
   struct mxt_conn_info *conn = NULL;
 
-  /* Save config file */
+  /* Enter firmware file */
   printf("Give firmware .enc file name: ");
   if (scanf("%255s", fw_file) != 1) {
     printf("Input parse error\n");
@@ -333,7 +333,7 @@ int mxt_menu(struct mxt_device *mxt)
   bool exit_loop = false;
   int ret;
 
-  printf("Command line tool for Atmel maXTouch chips version: %s\n\n",
+  printf("\nCommand line tool for Atmel maXTouch chips version: %s\n\n",
          MXT_VERSION);
 
   while(!exit_loop) {

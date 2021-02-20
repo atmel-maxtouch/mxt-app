@@ -61,7 +61,7 @@
 
 #define FIRMWARE_BUFFER_SIZE     1024
 
-#define MXT_RESET_TIME           2
+#define MXT_RESET_TIME           1
 #define MXT_BOOTLOADER_DELAY     50000
 
 //******************************************************************************
@@ -421,7 +421,12 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
   }
 
   switch (fw->conn->type) {
-  case E_SYSFS:
+  case E_SYSFS_SPI:
+
+     mxt_info(fw->ctx, "SPI programming not yet available\n");
+     break;
+     
+  case E_SYSFS_I2C:
     mxt_info(fw->ctx, "Switching to i2c-dev mode");
 
     struct mxt_conn_info *new_conn;
@@ -514,6 +519,10 @@ static int mxt_check_firmware_version(struct flash_context *fw)
 static int mxt_enter_bootloader_mode(struct flash_context *fw)
 {
   int ret;
+
+  if (fw->conn->type == E_SYSFS_SPI)
+    ret = sysfs_set_debug_irq(fw->mxt, false);
+
   /* Change to the bootloader mode */
   ret = mxt_reset_chip(fw->mxt, true, 0);
   if (ret) {
@@ -536,6 +545,9 @@ static int mxt_enter_bootloader_mode(struct flash_context *fw)
     mxt_dbg(fw->ctx, "I2C Adapter:%d", fw->conn->i2c_dev.adapter);
     mxt_dbg(fw->ctx, "Bootloader addr:0x%02x", fw->conn->i2c_dev.address);
     mxt_dbg(fw->ctx, "App mode addr:0x%02x", fw->appmode_address);
+
+  } else if (fw->conn->type == E_SYSFS_SPI){
+    ret = sysfs_set_bootloader(fw->mxt, true);
   }
 
   mxt_free_device(fw->mxt);
@@ -585,22 +597,27 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
       mxt_dbg(fw.ctx, "check_version:%d", fw.check_version);
     }
 
-    ret = mxt_enter_bootloader_mode(&fw);
+   ret = mxt_enter_bootloader_mode(&fw);
     if (ret) {
       mxt_err(fw.ctx, "Could not enter bootloader mode");
       goto release;
     }
   }
 
-  ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
-  if (ret) {
-    mxt_info(fw.ctx, "Could not initialise chip");
-    return ret;
-  }
+  //if (fw.mxt->conn->type != E_SYSFS_SPI) {
+    ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
+    if (ret) {
+      mxt_info(fw.ctx, "Could not initialise chip");
+      return ret;
+    }
+  //}
 
   ret = send_frames(&fw);
   if (ret)
     return ret;
+
+  ret = sysfs_set_bootloader(fw.mxt, false);
+  ret = sysfs_set_debug_irq(fw.mxt, true);
 
   /* Handle transition back to appmode address */
   if (fw.mxt->conn->type == E_I2C_DEV) {
@@ -645,6 +662,17 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
       mxt_err(fw.ctx, "Did not find device after reset");
       return ret;
     }
+  } else if (fw.mxt->conn->type == E_SYSFS_SPI) {
+
+    mxt_info(fw.ctx, "WAIT: Reset Time\n");
+    sleep(MXT_RESET_TIME);
+
+    mxt_info(fw.ctx, "Sent all firmware frames");
+    ret = 0;
+    goto release;
+
+    /* Finish flashing now recover */
+
   }
 #endif
 

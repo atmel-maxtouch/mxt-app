@@ -34,10 +34,20 @@
 #include <poll.h>
 #include <errno.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #include "libmaxtouch.h"
 #include "libmaxtouch/sysfs/dmesg.h"
 #include "msg.h"
+
+void msleep(int tms)
+{ 
+  struct timeval tv;
+  tv.tv_sec = tms/1000;
+  tv.tv_usec = (tms % 1000) * 1000;
+  select (0, NULL, NULL, NULL, &tv);
+
+}
 
 //******************************************************************************
 /// \brief  Initialise libmaxtouch library
@@ -94,6 +104,7 @@ int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn,
   ctx->query = query;
   ctx->scan_count = 0;
 
+
   /* Scan the I2C bus first because it will return quicker */
   ret = sysfs_scan(ctx, conn);
 
@@ -116,6 +127,7 @@ int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn,
   return ret;
 }
 
+
 //******************************************************************************
 /// \brief Create connection object
 /// \return #mxt_rc
@@ -128,7 +140,11 @@ int mxt_new_conn(struct mxt_conn_info **conn, enum mxt_device_type type)
   c->type = type;
   c->refcount = 1;
 
+  if (c->type == E_SYSFS_SPI)
+    c->sysfs.spi_found = true;
+
   *conn = c;
+
   return MXT_SUCCESS;
 }
 
@@ -156,7 +172,8 @@ struct mxt_conn_info *mxt_unref_conn(struct mxt_conn_info *conn)
     return conn;
 
   switch (conn->type) {
-  case E_SYSFS:
+  case E_SYSFS_SPI:
+  case E_SYSFS_I2C:
     free(conn->sysfs.path);
     break;
 
@@ -176,11 +193,13 @@ int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
 {
   int ret;
   struct mxt_device *new_dev;
+  struct mxt_conn_info **new_conn;
 
   new_dev = calloc(1, sizeof(struct mxt_device));
   if (!new_dev)
     return MXT_ERROR_NO_MEM;
 
+  printf("mxt_new_device: enter in bus and cs #\n");
   new_dev->ctx = ctx;
   new_dev->conn = mxt_ref_conn(conn);
 
@@ -190,7 +209,11 @@ int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
   }
 
   switch (conn->type) {
-  case E_SYSFS:
+
+    printf("What is connector type: %d\n", conn->type);
+
+  case E_SYSFS_SPI:
+  case E_SYSFS_I2C:
     ret = sysfs_open(new_dev);
     break;
 
@@ -253,7 +276,8 @@ int mxt_get_info(struct mxt_device *mxt)
 void mxt_free_device(struct mxt_device *mxt)
 {
   switch (mxt->conn->type) {
-  case E_SYSFS:
+  case E_SYSFS_SPI:
+  case E_SYSFS_I2C:
     sysfs_release(mxt);
     break;
 
@@ -314,7 +338,8 @@ static int mxt_read_register_block(struct mxt_device *mxt, uint8_t *buf,
   bool irq_val = false;
 
   switch (mxt->conn->type) {
-  case E_SYSFS:
+  case E_SYSFS_SPI:  
+  case E_SYSFS_I2C:
 
 //Stop the handling of interrupts in driver
   if (mxt->mxt_crc.crc_enabled == true) {
@@ -407,18 +432,24 @@ int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf,
                        int start_register, size_t count)
 {
   int ret, err;
+  int i;
 
   mxt_verb(mxt->ctx, "%s start_register:%d count:%zu", __func__,
            start_register, count);
 
   switch (mxt->conn->type) {
-  case E_SYSFS:
+  case E_SYSFS_SPI:
+  case E_SYSFS_I2C:
     if (mxt->mxt_crc.crc_enabled == true) {
       err = sysfs_set_debug_irq(mxt, false);
 
       if (err)
-        mxt_dbg(mxt->ctx, "Failed to disable debug_irq");
+        mxt_info(mxt->ctx, "Failed to disable debug_irq");
     }
+
+   // for (i=0; i<count; i++) {
+   //   printf("What is write buffer %x\n", buf[i]);
+   // }
 
     ret = sysfs_write_register(mxt, buf, start_register, count);
 
@@ -427,7 +458,7 @@ int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf,
         err = sysfs_set_debug_irq(mxt, true);
       
       if (err)
-        mxt_dbg(mxt->ctx, "Failed to enable debug_irq");
+        mxt_info(mxt->ctx, "Failed to enable debug_irq");
       }
     }
 
@@ -473,7 +504,8 @@ int mxt_write_bytes(struct mxt_device *mxt, uint8_t const *buf,
            start_register, count);
 
   switch (mxt->conn->type) {
-  case E_SYSFS:
+  case E_SYSFS_SPI:
+  case E_SYSFS_I2C:
     ret = sysfs_write_register(mxt, buf, start_register, count);
     break;
 
@@ -503,7 +535,8 @@ int mxt_set_debug(struct mxt_device *mxt, bool debug_state)
   int ret;
 
   switch (mxt->conn->type) {
-  case E_SYSFS:
+  case E_SYSFS_SPI:
+  case E_SYSFS_I2C:
     ret = sysfs_set_debug(mxt, debug_state);
     break;
 
@@ -537,7 +570,8 @@ int mxt_get_debug(struct mxt_device *mxt, bool *value)
   int ret;
 
   switch (mxt->conn->type) {
-  case E_SYSFS:
+  case E_SYSFS_SPI:
+  case E_SYSFS_I2C:
     ret = sysfs_get_debug(mxt, value);
     break;
 
@@ -595,7 +629,7 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
     mxt_info(mxt->ctx, "Sending reset command");
   }
 
-  if (mxt->conn->type == E_SYSFS) {
+  if (mxt->conn->type == E_SYSFS_I2C) {
     mxt->mxt_crc.reset_triggered = true;
 
     if (mxt->mxt_crc.crc_enabled == true) {
@@ -612,13 +646,18 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
   /* Write to command processor register to perform command */
   ret = mxt_write_register(mxt, &write_value, t6_addr + MXT_T6_RESET_OFFSET, 1);
 
-  if (reset_time == 0)
-    usleep(MXT_SOFT_RESET_TIME);
-  else
-    usleep(reset_time * 1000);  //Reset time for the chip, no i2c access
+  //if (reset_time == 0)
+    //usleep(MXT_SOFT_RESET_TIME);
+ // else
+    //usleep(reset_time * 1000);  //Reset time for the chip, no i2c access
+
+  //if (reset_time == 0)
+  //    msleep(1000);
+  //  else
+  //    msleep(reset_time);
 
   /* Determine if HA part exists */
-  if (mxt->conn->type == E_SYSFS) { 
+  if (mxt->conn->type == E_SYSFS_I2C) { 
  
     if (mxt->mxt_crc.crc_enabled == true) {
       err = sysfs_set_tx_seq_num(mxt, 0x00);
@@ -627,7 +666,7 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
         mxt_dbg(mxt->ctx, "Failed to reset tx_seq_num\n");
       }
     
-    printf("Turning IRQ back on\n");
+    mxt_dbg(mxt->ctx, "Turning IRQ back on\n");
     err = sysfs_set_debug_irq(mxt, true);
 
     if (err)
@@ -660,8 +699,8 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
         mxt->mxt_crc.reset_triggered = false; //Turn IRQ back on after reset
       }
     }
-  }
-
+  } 
+  
 reset_end:
 
   return ret;
@@ -724,7 +763,8 @@ int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode, uint16_t reset_
   int ret;
 
   switch (mxt->conn->type) {
-  case E_SYSFS:
+  case E_SYSFS_SPI:
+  case E_SYSFS_I2C:
   case E_I2C_DEV:
   case E_HIDRAW:
     ret = mxt_send_reset_command(mxt, bootloader_mode, reset_time_ms);
@@ -891,7 +931,8 @@ int mxt_get_msg_count(struct mxt_device *mxt, int *count)
   int ret;
 
   switch (mxt->conn->type) {
-  case E_SYSFS:
+  case E_SYSFS_I2C:
+  case E_SYSFS_SPI:
     if (sysfs_has_debug_v2(mxt))
       ret = sysfs_get_msgs_v2(mxt, count);
     else
@@ -924,7 +965,8 @@ char *mxt_get_msg_string(struct mxt_device *mxt)
   char *msg_string = NULL;
 
   switch (mxt->conn->type) {
-  case E_SYSFS:
+  case E_SYSFS_SPI:
+  case E_SYSFS_I2C:
     if (sysfs_has_debug_v2(mxt))
       msg_string = sysfs_get_msg_string_v2(mxt);
     else
@@ -963,7 +1005,8 @@ int mxt_get_msg_bytes(struct mxt_device *mxt, unsigned char *buf,
   int ret;
 
   switch (mxt->conn->type) {
-  case E_SYSFS:
+  case E_SYSFS_SPI:
+  case E_SYSFS_I2C:
     if (sysfs_has_debug_v2(mxt))
       ret = sysfs_get_msg_bytes_v2(mxt, buf, buflen, count);
     else
@@ -998,7 +1041,8 @@ int mxt_msg_reset(struct mxt_device *mxt)
   int ret;
 
   switch (mxt->conn->type) {
-  case E_SYSFS:
+  case E_SYSFS_SPI:
+  case E_SYSFS_I2C:
     if (sysfs_has_debug_v2(mxt))
       ret = sysfs_msg_reset_v2(mxt);
     else
@@ -1075,6 +1119,11 @@ int mxt_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count)
     break;
 #endif /* HAVE_LIBUSB */
 
+  case E_SYSFS_SPI:
+    ret = sysfs_bootloader_read(mxt, buf, count);
+
+    break;
+
   case E_I2C_DEV:
     ret = i2c_dev_bootloader_read(mxt, buf, count);
     break;
@@ -1122,6 +1171,10 @@ int mxt_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int c
     ret = usb_bootloader_write(mxt, buf, count);
     break;
 #endif /* HAVE_LIBUSB */
+
+  case E_SYSFS_SPI:
+    ret = sysfs_bootloader_write(mxt, buf, count);
+    break;
 
   case E_I2C_DEV:
     ret = i2c_dev_bootloader_write_blks(mxt, buf, count);

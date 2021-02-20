@@ -48,7 +48,6 @@
 
 #define BUF_SIZE 1024
 
-
 //******************************************************************************
 /// \brief Initialize mXT device and read the info block
 /// \return #mxt_rc
@@ -57,17 +56,16 @@ static int mxt_init_chip(struct libmaxtouch_ctx *ctx, struct mxt_device **mxt,
 {
   int ret;
 
-  if (!*conn) {
-    ret = mxt_scan(ctx, conn, false);
-    if (ret == MXT_ERROR_NO_DEVICE) {
-      mxt_err(ctx, "Unable to find a device");
-      return ret;
-    } else if (ret) {
-      mxt_err(ctx, "Failed to find device");
-      return ret;
-    }
+  ret = mxt_scan(ctx, conn, false);
+  
+  if (ret == MXT_ERROR_NO_DEVICE) {
+    mxt_err(ctx, "Unable to find a device");
+    return ret;
+  } else if (ret) {
+    mxt_err(ctx, "Failed to find device");
+    return ret;
   }
-
+  
   ret = mxt_new_device(ctx, *conn, mxt);
   if (ret)
     return ret;
@@ -583,7 +581,7 @@ int main (int argc, char *argv[])
             return MXT_ERROR_NO_MEM;
           }
         } else if (!strncmp(optarg, "sysfs:", 6)) {
-          ret = mxt_new_conn(&conn, E_SYSFS);
+          ret = mxt_new_conn(&conn, E_SYSFS_I2C);
           if (ret)
             return ret;
 
@@ -595,6 +593,27 @@ int main (int argc, char *argv[])
           }
 
           memcpy(conn->sysfs.path, optarg + 6, strlen(optarg) - 6);
+        } else if (!strncmp(optarg, "sysfs_spi:", 10)) {
+          ret = mxt_new_conn(&conn, E_SYSFS_SPI);
+          if (ret)
+            return ret;
+
+          if (sscanf(optarg, "sysfs_spi:%d-%d",
+                     &conn->sysfs.spi_bus, &conn->sysfs.spi_cs) != 2) {
+            fprintf(stderr, "Invalid device string %s\n", optarg);
+            conn = mxt_unref_conn(conn);
+            return MXT_ERROR_NO_MEM;
+          }
+          
+          conn->sysfs.path = (char *)calloc(strlen(optarg) + 255, sizeof(char));
+
+          if (!conn->sysfs.path) {
+              fprintf(stderr, "calloc failure\n");
+              conn = mxt_unref_conn(conn);
+              return MXT_ERROR_NO_MEM;
+            }
+
+          memcpy(conn->sysfs.path, optarg, strlen(optarg));
         }
 #ifdef HAVE_LIBUSB
         else if (!strncmp(optarg, "usb:", 4)) {

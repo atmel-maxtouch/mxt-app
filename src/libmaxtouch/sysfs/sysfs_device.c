@@ -46,6 +46,10 @@
 #include "dmesg.h"
 
 #define SYSFS_I2C_ROOT "/sys/bus/i2c/drivers/"
+#define SYSFS_SPI_ROOT "/sys/bus/spi/drivers/"
+#define CONVERTTOSTRING(x) #x
+#define TOSTRING(x) CONVERTTOSTRING(x)
+
 
 //******************************************************************************
 /// \brief Construct filename of path
@@ -94,7 +98,11 @@ static int sysfs_new_connection(struct libmaxtouch_ctx *ctx,
   int ret;
   struct mxt_conn_info *c;
 
-  ret = mxt_new_conn(&c, E_SYSFS);
+ if (strcmp(dir, TOSTRING(SYSFS_I2C_ROOT)) == 0)
+    ret = mxt_new_conn(&c, E_SYSFS_I2C);
+  else
+    ret = mxt_new_conn(&c, E_SYSFS_SPI);
+
   if (ret)
     return ret;
 
@@ -119,7 +127,7 @@ int sysfs_get_debug_v2_fd(struct mxt_device *mxt)
 /// \return #mxt_rc
 static int scan_sysfs_directory(struct libmaxtouch_ctx *ctx,
                                 struct mxt_conn_info **conn,
-                                struct dirent *i2c_dir,
+                                struct dirent *dev_dir,
                                 const char *dir,
                                 bool acpi)
 {
@@ -132,14 +140,14 @@ static int scan_sysfs_directory(struct libmaxtouch_ctx *ctx,
   bool debug_v2_found = false;
   int ret;
 
-  length = strlen(dir) + strlen(i2c_dir->d_name) + 2;
+  length = strlen(dir) + strlen(dev_dir->d_name) + 2;
 
   if ((pszDirname = (char *)calloc(length, sizeof(char))) == NULL) {
     ret = MXT_ERROR_NO_MEM;
     goto free;
   }
 
-  snprintf(pszDirname, length, "%s/%s", dir, i2c_dir->d_name);
+  snprintf(pszDirname, length, "%s/%s", dir, dev_dir->d_name);
 
   pDirectory = opendir(pszDirname);
   if (!pDirectory) {
@@ -169,7 +177,7 @@ static int scan_sysfs_directory(struct libmaxtouch_ctx *ctx,
              debug_v2_found ? "Debug V2" : "Debug");
     } else {
       ret = sysfs_new_connection(ctx, conn, pszDirname, acpi);
-      mxt_dbg(ctx, "Found %s", pszDirname);
+      mxt_dbg(ctx, "Found new device connection at: %s", pszDirname);
       goto close;
     }
   } else {
@@ -197,9 +205,11 @@ static int scan_driver_directory(struct libmaxtouch_ctx *ctx,
   size_t length;
   DIR *pDirectory;
   struct dirent *pEntry;
+  unsigned char acpi[PATH_MAX];
   int adapter;
   unsigned int address;
-  unsigned char acpi[PATH_MAX];
+  unsigned int bus_num;
+  unsigned int cs_num;
   int ret;
 
   length = strlen(path) + strlen(dir->d_name) + 1;
@@ -223,12 +233,16 @@ static int scan_driver_directory(struct libmaxtouch_ctx *ctx,
 
     if (sscanf(pEntry->d_name, "%d-%x", &adapter, &address) == 2) {
       ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname, false);
-
       if (ret != MXT_ERROR_NO_DEVICE) goto close;
+
     } else if (sscanf(pEntry->d_name, "i2c-%s", acpi) == 1) {
       ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname, true);
-
       if (ret != MXT_ERROR_NO_DEVICE) goto close;
+
+    } else if (sscanf(pEntry->d_name, "spi%d.%d", &bus_num, &cs_num) == 2) {
+      ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname, false);
+      if (ret != MXT_ERROR_NO_DEVICE) goto close;
+
     }
   }
 
@@ -242,7 +256,6 @@ free:
   return ret;
 }
 
-
 //******************************************************************************
 /// \brief  Scan for devices
 /// \return #mxt_rc
@@ -253,19 +266,45 @@ int sysfs_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
   int ret;
 
   // Look in sysfs for driver entries
+  // Scan for I2C first
+ 
   pDirectory = opendir(SYSFS_I2C_ROOT);
-  if (!pDirectory)
-    return MXT_ERROR_NO_DEVICE;
+  
+  if (!pDirectory) {
+    pDirectory = opendir(SYSFS_SPI_ROOT);
+
+    if (!pDirectory)
+      return MXT_ERROR_NO_DEVICE;
+    else 
+      goto spi_root;
+	}
 
   while ((pEntry = readdir(pDirectory)) != NULL) {
     if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
-      continue;
+        continue;
 
     ret = scan_driver_directory(ctx, conn, SYSFS_I2C_ROOT, pEntry);
 
     // If found or error finish
     if (ret != MXT_ERROR_NO_DEVICE) goto close;
+
   }
+
+spi_root:
+  (void)closedir(pDirectory);
+
+  pDirectory = opendir(SYSFS_SPI_ROOT);
+
+  while ((pEntry = readdir(pDirectory)) != NULL) {
+    if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
+      continue;
+
+    ret = scan_driver_directory(ctx, conn, SYSFS_SPI_ROOT, pEntry);
+
+    // If found or error finish
+    if (ret != MXT_ERROR_NO_DEVICE) goto close;
+
+    }
 
   ret = MXT_ERROR_NO_DEVICE;
 
@@ -358,6 +397,36 @@ static int open_device_file(struct mxt_device *mxt, int *fd_out)
 
   *fd_out = fd;
   return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief  sysfs bootloader read from MXT chip
+/// \return #mxt_rc
+int sysfs_bootloader_read(struct mxt_device *mxt, unsigned char *buf,
+                        int count)
+{
+  uint16_t start_register = 0x0000;
+  size_t bytes_read;
+  int ret;
+
+  ret = sysfs_read_register(mxt, buf, start_register, count, &bytes_read);
+
+  return ret;
+}
+
+//******************************************************************************
+/// \brief  sysfs bootloader write from MXT chip
+/// \return #mxt_rc
+int sysfs_bootloader_write(struct mxt_device *mxt, unsigned const char *buf, 
+                        int count)
+{
+  int ret;
+  size_t *bytes;
+
+  ret =  sysfs_write_register(mxt, buf, 0x0000, count);
+
+  return ret;
+
 }
 
 //******************************************************************************
@@ -825,6 +894,42 @@ int sysfs_get_debug(struct mxt_device *mxt, bool *value)
   }
 
   return read_boolean_file(mxt, make_path(mxt, "debug_enable"), value);
+}
+
+//******************************************************************************
+/// \brief  Set in_bootloader state
+/// \param  mxt Device context
+/// \param  debug_state true = irq enabled, false = irq disabled
+/// \return #mxt_rc
+int sysfs_set_bootloader(struct mxt_device *mxt, bool value)
+{
+  int ret;
+
+  // Check device is initialised
+  if (!mxt) {
+    mxt_err(mxt->ctx, "Device uninitialised");
+    return MXT_ERROR_NO_DEVICE;
+  }
+
+    ret = write_boolean_file(mxt, make_path(mxt, "in_bootloader"), value);
+
+  return ret;
+}
+
+//******************************************************************************
+/// \brief  Get in_bootloader state
+/// \param  mxt Device context
+/// \param  value true (debug enabled) or false (debug disabled)
+/// \return #mxt_rc
+int sysfs_get_bootloader(struct mxt_device *mxt, bool *value)
+{
+  // Check device is initialised
+  if (!mxt) {
+    mxt_err(mxt->ctx, "Device uninitialised");
+    return false;
+  }
+
+  return read_boolean_file(mxt, make_path(mxt, "in_bootloader"), value);
 }
 
 //******************************************************************************
