@@ -406,14 +406,14 @@ static int usb_scan_for_control_if(struct mxt_device *mxt,
 
         if (ret > 0) {
           if (!strncmp(buf, control_if, sizeof(control_if))) {
-            mxt_info(mxt->ctx, "Found %s at interface %d altsetting %d",
+            mxt_dbg(mxt->ctx, "Found %s at interface %d altsetting %d",
                 buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
 
             mxt->usb.bootloader = false;
             mxt->usb.interface = altsetting->bInterfaceNumber;
             return MXT_SUCCESS;
           } else if (!strncmp(buf, bootloader_if, sizeof(bootloader_if))) {
-            mxt_info(mxt->ctx, "Found %s at interface %d altsetting %d",
+            mxt_dbg(mxt->ctx, "Found %s at interface %d altsetting %d",
                     buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
       
             mxt->usb.bootloader = true;
@@ -426,7 +426,7 @@ static int usb_scan_for_control_if(struct mxt_device *mxt,
 
             if (ret > 0) {
                 if (!strncmp(buf, bootloader_if_b, sizeof(bootloader_if_b))) {
-                  mxt_info(mxt->ctx, "Found %s at interface %d altsetting %d",
+                  mxt_dbg(mxt->ctx, "Found %s at interface %d altsetting %d",
                       buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
 
                   mxt->usb.bootloader = true;
