@@ -392,19 +392,22 @@ static int usb_scan_for_control_if(struct mxt_device *mxt,
   char buf[128];
   const char control_if[] = "Atmel maXTouch Control";
   const char bootloader_if[] = "Atmel maXTouch Bootloader";
+  const char bootloader_if_b[] = "Atmel_maXTouch_Bootloader";
 
   for (j = 0; j < config->bNumInterfaces; j++) {
     const struct libusb_interface *interface = &config->interface[j];
     for (k = 0; k < interface->num_altsetting; k++) {
       const struct libusb_interface_descriptor *altsetting = &interface->altsetting[k];
 
-      if (altsetting->iInterface > 0) {
-        ret = libusb_get_string_descriptor_ascii(mxt->usb.handle,
+      if (altsetting->iInterface >= 0) {
+
+         ret = libusb_get_string_descriptor_ascii(mxt->usb.handle,
               altsetting->iInterface, (unsigned char *)buf, sizeof(buf));
+
         if (ret > 0) {
           if (!strncmp(buf, control_if, sizeof(control_if))) {
             mxt_dbg(mxt->ctx, "Found %s at interface %d altsetting %d",
-                    buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
+                buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
 
             mxt->usb.bootloader = false;
             mxt->usb.interface = altsetting->bInterfaceNumber;
@@ -412,14 +415,29 @@ static int usb_scan_for_control_if(struct mxt_device *mxt,
           } else if (!strncmp(buf, bootloader_if, sizeof(bootloader_if))) {
             mxt_dbg(mxt->ctx, "Found %s at interface %d altsetting %d",
                     buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
-
+      
             mxt->usb.bootloader = true;
             mxt->usb.interface = altsetting->bInterfaceNumber;
             return MXT_SUCCESS;
-          } else {
-            mxt_verb(mxt->ctx, "Ignoring %s at interface %d altsetting %d",
-                     buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
-          }
+          } 
+        } else {
+            ret = libusb_get_string_descriptor_ascii(mxt->usb.handle,
+                mxt->usb.desc.iProduct, (unsigned char *)buf, sizeof(buf));
+
+            if (ret > 0) {
+                if (!strncmp(buf, bootloader_if_b, sizeof(bootloader_if_b))) {
+                  mxt_dbg(mxt->ctx, "Found %s at interface %d altsetting %d",
+                      buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
+
+                  mxt->usb.bootloader = true;
+                  mxt->usb.interface = altsetting->bInterfaceNumber;
+                  return MXT_SUCCESS;
+
+                } else {
+                  mxt_verb(mxt->ctx, "Ignoring %s at interface %d altsetting %d",
+                      buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
+                }
+            }
         }
       }
     }
@@ -996,7 +1014,7 @@ retry:
 
   tries = 10;
   while (tries--) {
-    /* sleep 500 ms */
+    /* sleep 500 ms, may need more depending on device*/
     usleep(500000);
 
     ret = usb_rediscover_device(mxt, bus_devices);
