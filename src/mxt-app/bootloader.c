@@ -423,8 +423,8 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
   switch (fw->conn->type) {
   case E_SYSFS_SPI:
 
-     mxt_info(fw->ctx, "SPI programming not yet available\n");
-     break;
+     //Do nothing, no init needed
+    break;
      
   case E_SYSFS_I2C:
     mxt_info(fw->ctx, "Switching to i2c-dev mode");
@@ -547,7 +547,7 @@ static int mxt_enter_bootloader_mode(struct flash_context *fw)
     mxt_dbg(fw->ctx, "App mode addr:0x%02x", fw->appmode_address);
 
   } else if (fw->conn->type == E_SYSFS_SPI){
-    ret = sysfs_set_bootloader(fw->mxt, true);
+      ret = sysfs_set_bootloader(fw->mxt, true);
   }
 
   mxt_free_device(fw->mxt);
@@ -604,13 +604,11 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
     }
   }
 
-  //if (fw.mxt->conn->type != E_SYSFS_SPI) {
-    ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
-    if (ret) {
-      mxt_info(fw.ctx, "Could not initialise chip");
-      return ret;
-    }
-  //}
+  ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
+  if (ret) {
+    mxt_info(fw.ctx, "Could not initialise chip");
+    return ret;
+  }
 
   ret = send_frames(&fw);
   if (ret)

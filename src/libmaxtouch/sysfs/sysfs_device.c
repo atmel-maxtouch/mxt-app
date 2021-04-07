@@ -47,6 +47,7 @@
 
 #define SYSFS_I2C_ROOT "/sys/bus/i2c/drivers/"
 #define SYSFS_SPI_ROOT "/sys/bus/spi/drivers/"
+#define SYSFS_I2C_DRIVER_DIR /sys/bus/i2c/drivers/atmel_mxt_ts/
 #define CONVERTTOSTRING(x) #x
 #define TOSTRING(x) CONVERTTOSTRING(x)
 
@@ -98,10 +99,12 @@ static int sysfs_new_connection(struct libmaxtouch_ctx *ctx,
   int ret;
   struct mxt_conn_info *c;
 
- if (strcmp(dir, TOSTRING(SYSFS_I2C_ROOT)) == 0)
+ if (strncmp(dir, TOSTRING(SYSFS_I2C_DRIVER_DIR), 33) == 0)
+ {
     ret = mxt_new_conn(&c, E_SYSFS_I2C);
-  else
+ } else {
     ret = mxt_new_conn(&c, E_SYSFS_SPI);
+ }
 
   if (ret)
     return ret;
@@ -277,11 +280,11 @@ int sysfs_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
       return MXT_ERROR_NO_DEVICE;
     else 
       goto spi_root;
-	}
+  }
 
   while ((pEntry = readdir(pDirectory)) != NULL) {
     if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
-        continue;
+      continue;
 
     ret = scan_driver_directory(ctx, conn, SYSFS_I2C_ROOT, pEntry);
 
@@ -303,8 +306,7 @@ spi_root:
 
     // If found or error finish
     if (ret != MXT_ERROR_NO_DEVICE) goto close;
-
-    }
+  }
 
   ret = MXT_ERROR_NO_DEVICE;
 
@@ -665,6 +667,26 @@ static int read_sysfs_byte(struct mxt_device *mxt, char *filename,
   fclose(file);
 
   return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief  Set debug irq state
+/// \param  mxt Device context
+/// \param  debug_state true = irq enabled, false = irq disabled
+/// \return #mxt_rc
+int sysfs_reset_chip(struct mxt_device *mxt, bool reset_chip)
+{
+  int ret;
+
+  // Check device is initialised
+  if (!mxt) {
+    mxt_err(mxt->ctx, "Device uninitialised");
+    return MXT_ERROR_NO_DEVICE;
+  }
+
+    ret = write_boolean_file(mxt, make_path(mxt, "mxt_reset"), reset_chip);
+
+  return ret;
 }
 
 //******************************************************************************

@@ -190,7 +190,6 @@ int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
 {
   int ret;
   struct mxt_device *new_dev;
-  struct mxt_conn_info **new_conn;
 
   new_dev = calloc(1, sizeof(struct mxt_device));
   if (!new_dev)
@@ -598,6 +597,8 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
   if (t6_addr == OBJECT_NOT_FOUND)
     return MXT_ERROR_OBJECT_NOT_FOUND;
 
+  mxt->mxt_crc.reset_triggered = true;
+
   /* The value written determines which mode the chip will boot into */
   if (bootloader_mode) {
 
@@ -612,20 +613,21 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
     write_value = BOOTLOADER_COMMAND;
   } else {
     mxt_info(mxt->ctx, "Sending reset command");
-  }
 
-  if (mxt->conn->type == E_SYSFS_I2C) {
-    mxt->mxt_crc.reset_triggered = true;
+    if (mxt->conn->type == E_SYSFS_I2C && mxt->mxt_crc.crc_enabled == true)
+      {
 
-    if (mxt->mxt_crc.crc_enabled == true) {
+        err = sysfs_reset_chip(mxt, true);
 
-      err = sysfs_set_debug_irq(mxt, false);
-      if (err)
-        mxt_dbg(mxt->ctx, "failed to disable debug_irq\n");
-    }
-  }
-  else if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true) {
-    mxt->mxt_crc.reset_triggered = true;
+        if (reset_time_ms == 0)
+          msleep(MXT_SOFT_RESET_TIME);
+        else
+          msleep(reset_time_ms);
+
+        mxt->mxt_crc.reset_triggered = false;
+
+        return err;
+      }
   }
 
   /* Write to command processor register to perform command */
@@ -636,26 +638,7 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
     else
       msleep(reset_time_ms);
 
-  /* Determine if HA part exists */
-  if (mxt->conn->type == E_SYSFS_I2C) { 
- 
-    if (mxt->mxt_crc.crc_enabled == true) {
-      err = sysfs_set_tx_seq_num(mxt, 0x00);
-
-      if (err) {
-        mxt_dbg(mxt->ctx, "Failed to reset tx_seq_num\n");
-      }
-    
-    mxt_dbg(mxt->ctx, "Turning IRQ back on\n");
-    err = sysfs_set_debug_irq(mxt, true);
-
-    if (err)
-      mxt_dbg(mxt->ctx, "Failed to enable debug_irq\n");
-    }
-
-    mxt->mxt_crc.reset_triggered = false;
-
-  } else if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true) {
+if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true) {
 
     err = debugfs_get_crc_enabled(mxt, &crc_state);
 
@@ -680,8 +663,6 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
       }
     }
   }
-
-reset_end:
 
   return ret;
 }
