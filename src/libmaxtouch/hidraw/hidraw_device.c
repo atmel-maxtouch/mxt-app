@@ -85,7 +85,7 @@ struct hid_packet {
 /// \return #mxt_rc
 int hidraw_register(struct mxt_device *mxt)
 {
-  mxt_info(mxt->ctx, "Device registered on hidraw adapter:%s", mxt->conn->hidraw.node );
+  mxt_info(mxt->ctx, "\nDevice registered on hidraw adapter:%s", mxt->conn->hidraw.node );
 
   return MXT_SUCCESS;
 }
