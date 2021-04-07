@@ -53,7 +53,7 @@ struct mxt_conn_info;
 int i2c_dev_open(struct mxt_device *mxt)
 {
   mxt_info(
-    mxt->ctx, "Registered i2c-dev adapter:%d address:0x%x",
+    mxt->ctx, "Device registered on i2c-dev adapter:%d address:0x%x",
     mxt->conn->i2c_dev.adapter, mxt->conn->i2c_dev.address
   );
 

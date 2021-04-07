@@ -811,9 +811,6 @@ int main (int argc, char *argv[])
   mxt_set_log_level(ctx, verbose);
   mxt_verb(ctx, "verbose:%u", verbose);
 
-  /* Debug does not work until mxt_set_verbose() is called */
-  mxt_info(ctx, "Version:%s", MXT_VERSION);
-
   /* Update the i2c block size */
   if (i2c_block_size != I2C_DEV_MAX_BLOCK) {
     mxt_verb(ctx, "Setting i2c_block_size from %d to %d", ctx->i2c_block_size, i2c_block_size);

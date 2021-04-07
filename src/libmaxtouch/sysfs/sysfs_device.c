@@ -357,7 +357,7 @@ int sysfs_open(struct mxt_device *mxt)
     mxt->sysfs.debug_v2 = true;
   }
 
-  mxt_info(mxt->ctx, "Registered sysfs path:%s", conn->path);
+  mxt_info(mxt->ctx, "Device registered on sysfs path:%s", conn->path);
 
   return MXT_SUCCESS;
 }

@@ -749,7 +749,7 @@ retry:
   }
 
   mxt->usb.device_connected = true;
-  mxt_info(mxt->ctx, "Registered usb:%03d-%03d VID=0x%04X PID=0x%04X Interface=%d",
+  mxt_info(mxt->ctx, "Device registered on usb:%03d-%03d VID=0x%04X PID=0x%04X Interface=%d",
            mxt->conn->usb.bus, mxt->conn->usb.device,
            mxt->usb.desc.idVendor, mxt->usb.desc.idProduct, mxt->usb.interface);
 

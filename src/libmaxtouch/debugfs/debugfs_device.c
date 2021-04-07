@@ -73,7 +73,7 @@ int debugfs_open(struct mxt_device *mxt)
   if (!mxt->debug_fs.tmp_path)
     return MXT_ERROR_NO_MEM;
 
-  mxt_info(mxt->ctx, "Registered debug_fs path:%s", mxt->debug_fs.file_path);
+  mxt_info(mxt->ctx, "Device registered on debug_fs path:%s", mxt->debug_fs.file_path);
 
   return MXT_SUCCESS;
 
