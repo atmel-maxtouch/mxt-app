@@ -211,6 +211,10 @@ static int mxt_write_device_config(struct mxt_device *mxt,
     if (mxt->conn->type == E_I2C_DEV)
       mxt->mxt_crc.config_triggered = true;
 
+    if (mxt->conn->type == E_SYSFS_SPI) {
+      err = sysfs_set_debug_irq(mxt, false);
+    }
+
     ret = mxt_write_object_config(mxt, objcfg);
     if (ret == MXT_ERROR_OBJECT_NOT_FOUND)
       mxt_warn(mxt->ctx, "T%d not present", objcfg->type);
@@ -219,10 +223,13 @@ static int mxt_write_device_config(struct mxt_device *mxt,
     else if (ret){
       mxt->mxt_crc.config_triggered = false;
 
+    if (mxt->conn->type == E_SYSFS_SPI)
+      err = sysfs_set_debug_irq(mxt, true);
+
       if (mxt->conn->type == E_I2C_DEV  && mxt->debug_fs.enabled == true) {
       	/* Allow messages to be read thru mxt-app */
         err = debugfs_set_irq(mxt, true);
-      } else if (mxt->conn->type == E_SYSFS){
+      } else if (mxt->conn->type == E_SYSFS_I2C){
         if (mxt->mxt_crc.crc_enabled == true)
           err = sysfs_set_debug_irq(mxt, true);
       }
@@ -237,10 +244,13 @@ static int mxt_write_device_config(struct mxt_device *mxt,
   
   if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true){
     err = debugfs_set_irq(mxt, true);
-  } else if (mxt->conn->type == E_SYSFS){
+  } else if (mxt->conn->type == E_SYSFS_I2C){
       if (mxt->mxt_crc.crc_enabled == true)
         err = sysfs_set_debug_irq(mxt, true);
   }
+
+  if (mxt->conn->type == E_SYSFS_SPI)
+      err = sysfs_set_debug_irq(mxt, true);
 
   return MXT_SUCCESS;
 }

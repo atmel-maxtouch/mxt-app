@@ -286,6 +286,9 @@ uint32_t mxt_get_config_crc(struct mxt_device *mxt)
       mxt_dbg(mxt->ctx, "Could not disable IRQ");
   }
 
+  // May need to be increased if more reports enabled
+  msleep(100);  //Added delay for SPI transfers
+
   return checksum;
 }
 

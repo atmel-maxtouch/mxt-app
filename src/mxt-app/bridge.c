@@ -358,7 +358,7 @@ static int bridge_info_connection(struct mxt_device *mxt, struct bridge_context 
     break;
 #endif
 
-  case E_SYSFS:
+  case E_SYSFS_I2C:
     ret = sysfs_get_i2c_address(mxt->ctx, mxt->conn,
                                 &i2c_adapter, &i2c_address);
     if (ret)

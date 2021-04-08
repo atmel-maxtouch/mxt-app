@@ -94,7 +94,7 @@ static void flash_firmware_command(struct mxt_device *mxt)
   char fw_file[255];
   struct mxt_conn_info *conn = NULL;
 
-  /* Save config file */
+  /* Enter firmware file */
   printf("Give firmware .enc file name: ");
   if (scanf("%255s", fw_file) != 1) {
     printf("Input parse error\n");

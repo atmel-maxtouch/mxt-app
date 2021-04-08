@@ -75,7 +75,7 @@ struct mxt_conn_info;
 #define MXT_CALIBRATE_TIMEOUT 10
 
 /* Soft reset time, no i2c activity */
-#define MXT_SOFT_RESET_TIME  1000000
+#define MXT_SOFT_RESET_TIME  1000
 
 //******************************************************************************
 /// \brief Return codes
@@ -129,12 +129,14 @@ enum mxt_rc {
 //******************************************************************************
 /// \brief Device connection type
 enum mxt_device_type {
-  E_SYSFS,
-#ifdef HAVE_LIBUSB
+  E_SYSFS_I2C,
+  E_SYSFS_SPI,
+  #ifdef HAVE_LIBUSB
   E_USB,
 #endif
   E_I2C_DEV,
   E_HIDRAW,
+  E_SPI,
 };
 
 //******************************************************************************
@@ -193,6 +195,7 @@ struct mxt_device {
 
 int mxt_new(struct libmaxtouch_ctx **ctx);
 int mxt_free(struct libmaxtouch_ctx *ctx);
+void msleep(int tms);
 int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn, bool query);
 int mxt_new_conn(struct mxt_conn_info **conn, enum mxt_device_type type);
 struct mxt_conn_info *mxt_ref_conn(struct mxt_conn_info *conn);
@@ -207,6 +210,8 @@ int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf, int start_reg
 int mxt_write_bytes(struct mxt_device *mxt, uint8_t const *buf, int start_register, size_t count);
 int sysfs_get_tx_seq_num(struct mxt_device *mxt, uint16_t *value);
 int sysfs_set_tx_seq_num(struct mxt_device *mxt, uint8_t value);
+int sysfs_set_bootloader(struct mxt_device *mxt, bool value);
+int sysfs_get_bootloader(struct mxt_device *mxt, bool *value);
 int sysfs_get_debug_ha(struct mxt_device *mxt, bool *value);
 int mxt_set_debug(struct mxt_device *mxt, bool debug_state);
 int mxt_get_debug(struct mxt_device *mxt, bool *value);
