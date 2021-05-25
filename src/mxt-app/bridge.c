@@ -50,7 +50,7 @@
 #include "mxt_app.h"
 #include "buffer.h"
 
-#define MAX_LINESIZE 10000
+#define MAX_LINESIZE 12000
 
 struct bridge_context {
   int sockfd;
