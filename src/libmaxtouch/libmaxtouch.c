@@ -610,59 +610,53 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
     }
 
     mxt_info(mxt->ctx, "Resetting in bootloader mode");
+   
     write_value = BOOTLOADER_COMMAND;
+
+    ret = mxt_write_register(mxt, &write_value, t6_addr + MXT_T6_RESET_OFFSET, 1);
+
   } else {
-    mxt_info(mxt->ctx, "Sending reset command");
+      mxt_info(mxt->ctx, "Sending reset command");
 
-    if (mxt->conn->type == E_SYSFS_I2C && mxt->mxt_crc.crc_enabled == true)
-      {
-
+      if (mxt->conn->type == E_SYSFS_I2C && mxt->mxt_crc.crc_enabled == true)
         err = sysfs_reset_chip(mxt, true);
 
-        if (reset_time_ms == 0)
-          msleep(MXT_SOFT_RESET_TIME);
-        else
-          msleep(reset_time_ms);
+      /* Write to command processor, if not supported by sysfs */
+      if (err)
+        ret = mxt_write_register(mxt, &write_value, t6_addr + MXT_T6_RESET_OFFSET, 1);
+    }
 
-        mxt->mxt_crc.reset_triggered = false;
+    mxt->mxt_crc.reset_triggered = false;
 
-        return err;
-      }
-  }
-
-  /* Write to command processor register to perform command */
-  ret = mxt_write_register(mxt, &write_value, t6_addr + MXT_T6_RESET_OFFSET, 1);
-
-  if (reset_time_ms == 0)
-      msleep(MXT_SOFT_RESET_TIME);
+    if (reset_time_ms == 0)
+        msleep(MXT_SOFT_RESET_TIME);
     else
-      msleep(reset_time_ms);
+        msleep(reset_time_ms);
 
-if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true) {
+    if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true) {
 
-    err = debugfs_get_crc_enabled(mxt, &crc_state);
+      err = debugfs_get_crc_enabled(mxt, &crc_state);
 
-    if (err)
-      mxt_dbg(mxt->ctx, "Failed to read crc_enabled");
+      if (err)
+        mxt_dbg(mxt->ctx, "Failed to read crc_enabled");
 
-    if (crc_state == true) {
-      err = debugfs_set_tx_seq_num(mxt, 0x00);
+      if (crc_state == true) {
+        err = debugfs_set_tx_seq_num(mxt, 0x00);
     
-      if (err) {
-        mxt_dbg(mxt->ctx, "Failed to set tx seq numer\n");
-      }
-
-      if (!bootloader_mode){
-
-        err = debugfs_set_irq(mxt, true);
-
         if (err)
-          mxt_dbg(mxt->ctx, "Could not disable IRQ");
+          mxt_dbg(mxt->ctx, "Failed to set tx seq numer\n");
 
-        mxt->mxt_crc.reset_triggered = false; //Turn IRQ back on after reset
+        if (!bootloader_mode) {
+
+          err = debugfs_set_irq(mxt, true);
+
+          if (err)
+            mxt_dbg(mxt->ctx, "Could not disable IRQ");
+
+          mxt->mxt_crc.reset_triggered = false; //Turn IRQ back on after reset
+        }
       }
     }
-  }
 
   return ret;
 }
