@@ -614,8 +614,13 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
   if (ret)
     return ret;
 
-  ret = sysfs_set_bootloader(fw.mxt, false);
-  ret = sysfs_set_debug_irq(fw.mxt, true);
+  if (fw.mxt->conn->type == E_SYSFS_SPI) {
+    ret = sysfs_set_bootloader(fw.mxt, false);
+    ret = sysfs_set_debug_irq(fw.mxt, true);
+  } else if (fw.mxt->conn->type == E_SYSFS_I2C) {
+      if (fw.mxt->mxt_crc.crc_enabled == true)
+        ret = sysfs_set_debug_irq(fw.mxt, true);
+  }
 
   /* Handle transition back to appmode address */
   if (fw.mxt->conn->type == E_I2C_DEV) {
@@ -734,21 +739,22 @@ int mxt_bootloader_version(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, 
   ret = mxt_bootloader_init_chip(&fw);
   if (ret && ret != MXT_DEVICE_IN_BOOTLOADER) {
     mxt_err(fw.ctx, "Could not init device");
-    return ret;
+    goto release;
   }
 
   if (ret != MXT_DEVICE_IN_BOOTLOADER) {
     ret = mxt_enter_bootloader_mode(&fw);
     if (ret) {
       mxt_err(fw.ctx, "Could not enter bootloader mode");
-      return ret;
+
+      goto release;
     }
   }
 
   ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
   if (ret) {
     mxt_err(fw.ctx, "Could not open device");
-    return ret;
+    goto release;
   }
 
   ret = mxt_check_bootloader(&fw, MXT_WAITING_BOOTLOAD_CMD);
@@ -767,9 +773,18 @@ int mxt_bootloader_version(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, 
 
 release:
   mxt_info(fw.ctx, "Reset into app mode");
-  send_zero_frame(&fw);
 
+  if (fw.mxt->conn->type == E_SYSFS_SPI) {
+    ret = sysfs_set_bootloader(fw.mxt, false);
+    ret = sysfs_set_debug_irq(fw.mxt, true);
+  } else if (fw.mxt->conn->type == E_SYSFS_I2C) {
+      if (fw.mxt->mxt_crc.crc_enabled == true)
+        ret = sysfs_set_debug_irq(fw.mxt, true);
+  }
+
+  send_zero_frame(&fw);
   mxt_free_device(fw.mxt);
   mxt_unref_conn(fw.conn);
+
   return ret;
 }
