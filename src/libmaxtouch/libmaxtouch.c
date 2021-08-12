@@ -622,8 +622,17 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
         err = sysfs_reset_chip(mxt, true);
 
       /* Write to command processor, if not supported by sysfs */
-      if (err)
+      if (err) {
         ret = mxt_write_register(mxt, &write_value, t6_addr + MXT_T6_RESET_OFFSET, 1);
+        
+        ret = sysfs_set_tx_seq_num(mxt, 0x00);
+
+        ret = sysfs_set_debug_irq(mxt, true);
+
+        if (ret) 
+          mxt_err(mxt->ctx, "Reset issuede with possible errors\n");
+
+      }
     }
 
     mxt->mxt_crc.reset_triggered = false;
