@@ -630,7 +630,7 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
         ret = sysfs_set_debug_irq(mxt, true);
 
         if (ret) 
-          mxt_err(mxt->ctx, "Reset issuede with possible errors\n");
+          mxt_err(mxt->ctx, "Reset issued with possible errors\n");
 
       }
     }
