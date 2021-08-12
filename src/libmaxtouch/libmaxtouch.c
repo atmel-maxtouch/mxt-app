@@ -618,20 +618,25 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
   } else {
       mxt_info(mxt->ctx, "Sending reset command");
 
-      if (mxt->conn->type == E_SYSFS_I2C && mxt->mxt_crc.crc_enabled == true)
-        err = sysfs_reset_chip(mxt, true);
+      /* Possible error out, new sysfs attr */
+      err = sysfs_reset_chip(mxt, true);
 
       /* Write to command processor, if not supported by sysfs */
       if (err) {
-        ret = mxt_write_register(mxt, &write_value, t6_addr + MXT_T6_RESET_OFFSET, 1);
-        
-        ret = sysfs_set_tx_seq_num(mxt, 0x00);
 
-        ret = sysfs_set_debug_irq(mxt, true);
+        ret = mxt_write_register(mxt, &write_value, t6_addr + MXT_T6_RESET_OFFSET, 1);
+        mxt_info(mxt->ctx, "Issuing legacy reset command\n");
 
         if (ret) 
           mxt_err(mxt->ctx, "Reset issued with possible errors\n");
+      }
 
+      if (mxt->mxt_crc.crc_enabled == true) {
+        err = sysfs_set_tx_seq_num(mxt, 0x00);
+        err = sysfs_set_debug_irq(mxt, true);
+
+        if (err)
+          mxt_dbg(mxt->ctx, "tx_seq_num/debug_irq not available\n");
       }
     }
 
