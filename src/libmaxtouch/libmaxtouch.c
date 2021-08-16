@@ -584,7 +584,7 @@ int mxt_get_debug(struct mxt_device *mxt, bool *value)
 /// \return #mxt_rc
 static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, uint16_t reset_time_ms)
 {
-  int ret, err;
+  int ret = 0, err = 0;
   uint16_t t6_addr;
   unsigned char write_value = RESET_COMMAND;
   uint16_t curr_tx_seqnum;
@@ -632,7 +632,6 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
       }
 
       if (mxt->mxt_crc.crc_enabled == true) {
-        err = sysfs_set_tx_seq_num(mxt, 0x00);
         err = sysfs_set_debug_irq(mxt, true);
 
         if (err)
