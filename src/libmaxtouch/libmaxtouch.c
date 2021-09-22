@@ -99,7 +99,7 @@ void mxt_set_log_fn(struct libmaxtouch_ctx *ctx,
 int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn,
              bool query)
 {
-  int ret;
+  int ret = 0;
 
   ctx->query = query;
   ctx->scan_count = 0;
@@ -142,6 +142,7 @@ int mxt_new_conn(struct mxt_conn_info **conn, enum mxt_device_type type)
     c->sysfs.spi_found = true;
 
   *conn = c;
+
   return MXT_SUCCESS;
 }
 
@@ -204,9 +205,12 @@ int mxt_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info *conn,
   }
 
   switch (conn->type) {
-  case E_SYSFS_SPI:
   case E_SYSFS_I2C:
-    ret = sysfs_open(new_dev);
+    ret = sysfs_open_i2c(new_dev);
+    break;
+
+  case E_SYSFS_SPI:
+    ret = sysfs_open_spi(new_dev);
     break;
 
   case E_I2C_DEV:
@@ -728,10 +732,15 @@ static int mxt_send_flash_command(struct mxt_device *mxt, bool bootloader_mode, 
 /// \return 0 = success, negative = fail
 int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode, uint16_t reset_time_ms)
 {
-  int ret;
+  int ret = 0;
+  struct mxt_id_info *id = mxt->info.id;
 
   switch (mxt->conn->type) {
   case E_SYSFS_SPI:
+    if ((id->family == 0xa6) && (id->variant == 0x15)) {
+      mxt_info(mxt->ctx, "Reset not supported on secondary interface\n");
+      break;
+  }
   case E_SYSFS_I2C:
   case E_I2C_DEV:
   case E_HIDRAW:

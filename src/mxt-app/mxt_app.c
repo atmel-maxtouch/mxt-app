@@ -594,6 +594,7 @@ int main (int argc, char *argv[])
 
           memcpy(conn->sysfs.path, optarg + 6, strlen(optarg) - 6);
         } else if (!strncmp(optarg, "sysfs_spi:", 10)) {
+          printf("Found E_SYSFS_SPI\n");
           ret = mxt_new_conn(&conn, E_SYSFS_SPI);
           if (ret)
             return ret;
@@ -829,6 +830,8 @@ int main (int argc, char *argv[])
     ret = mxt_scan(ctx, &conn, true);
     goto free;
 
+
+  /* Initialization of chip, scan new device */
   } else if (cmd != CMD_FLASH && cmd != CMD_BOOTLOADER_VERSION) {
     ret = mxt_init_chip(ctx, &mxt, &conn);
     if (ret && cmd != CMD_CRC_CHECK )

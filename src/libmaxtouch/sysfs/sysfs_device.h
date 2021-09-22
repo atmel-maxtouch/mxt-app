@@ -70,7 +70,8 @@ struct sysfs_device {
 int sysfs_reset_chip(struct mxt_device *mxt, bool reset_chip);
 int sysfs_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn);
 int sysfs_spi_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn);
-int sysfs_open(struct mxt_device *mxt);
+int sysfs_open_i2c(struct mxt_device *mxt);
+int sysfs_open_spi(struct mxt_device *mxt);
 void sysfs_release(struct mxt_device *mxt);
 int sysfs_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn, const char *dirname);
 int sysfs_read_register(struct mxt_device *mxt, unsigned char *buf, int start_register, size_t count, size_t *bytes_transferred);

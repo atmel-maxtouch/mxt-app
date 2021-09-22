@@ -96,16 +96,14 @@ static int sysfs_new_connection(struct libmaxtouch_ctx *ctx,
                                 struct mxt_conn_info **conn,
                                 const char *dir, bool acpi)
 {
-  int ret;
+  int ret = 0;
   struct mxt_conn_info *c;
 
  if (strncmp(dir, TOSTRING(SYSFS_I2C_DRIVER_DIR), 33) == 0)
- {
-    ret = mxt_new_conn(&c, E_SYSFS_I2C);
- } else {
+     ret = mxt_new_conn(&c, E_SYSFS_I2C);
+  else 
     ret = mxt_new_conn(&c, E_SYSFS_SPI);
- }
-
+ 
   if (ret)
     return ret;
 
@@ -141,7 +139,7 @@ static int scan_sysfs_directory(struct libmaxtouch_ctx *ctx,
   bool mem_access_found = false;
   bool debug_found = false;
   bool debug_v2_found = false;
-  int ret;
+  int ret = 0;
 
   length = strlen(dir) + strlen(dev_dir->d_name) + 2;
 
@@ -213,7 +211,7 @@ static int scan_driver_directory(struct libmaxtouch_ctx *ctx,
   unsigned int address;
   unsigned int bus_num;
   unsigned int cs_num;
-  int ret;
+  int ret = 0;
 
   length = strlen(path) + strlen(dir->d_name) + 1;
 
@@ -265,21 +263,40 @@ free:
 int sysfs_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
 {
   struct dirent *pEntry;
+  struct mxt_conn_info *c = calloc(1, sizeof(struct mxt_conn_info));
   DIR *pDirectory;
-  int ret;
+  int ret = 0;
 
-  // Look in sysfs for driver entries
-  // Scan for I2C first
- 
+  /* Check if connection type SPI */
+
+  if ( *conn == NULL) {
+    c->type = E_SYSFS_I2C;
+    *conn = c;
+  } else{
+    c = *conn;
+  }
+
+  if (c->type == E_SYSFS_SPI) {
+
+    pDirectory = opendir(SYSFS_SPI_ROOT);
+
+    while ((pEntry = readdir(pDirectory)) != NULL) {
+      if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
+        continue;
+
+      ret = scan_driver_directory(ctx, conn, SYSFS_SPI_ROOT, pEntry);
+
+      /* If found or memory error close, otherwise no device check I2C */ 
+      if (ret != MXT_ERROR_NO_DEVICE) 
+        goto close;
+    }
+  } 
+
+  /* Check for I2C */
   pDirectory = opendir(SYSFS_I2C_ROOT);
   
   if (!pDirectory) {
-    pDirectory = opendir(SYSFS_SPI_ROOT);
-
-    if (!pDirectory)
-      return MXT_ERROR_NO_DEVICE;
-    else 
-      goto spi_root;
+      goto close;
   }
 
   while ((pEntry = readdir(pDirectory)) != NULL) {
@@ -288,28 +305,10 @@ int sysfs_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
 
     ret = scan_driver_directory(ctx, conn, SYSFS_I2C_ROOT, pEntry);
 
-    // If found or error finish
-    if (ret != MXT_ERROR_NO_DEVICE) goto close;
-
+    if (ret != MXT_ERROR_NO_DEVICE)
+      goto close;
   }
-
-spi_root:
-  (void)closedir(pDirectory);
-
-  pDirectory = opendir(SYSFS_SPI_ROOT);
-
-  while ((pEntry = readdir(pDirectory)) != NULL) {
-    if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
-      continue;
-
-    ret = scan_driver_directory(ctx, conn, SYSFS_SPI_ROOT, pEntry);
-
-    // If found or error finish
-    if (ret != MXT_ERROR_NO_DEVICE) goto close;
-  }
-
-  ret = MXT_ERROR_NO_DEVICE;
-
+  
 close:
   (void)closedir(pDirectory);
 
@@ -317,9 +316,55 @@ close:
 }
 
 //******************************************************************************
-/// \brief  Open device
+/// \brief  Open I2C device
 /// \return #mxt_rc
-int sysfs_open(struct mxt_device *mxt)
+int sysfs_open_i2c(struct mxt_device *mxt)
+{
+  struct sysfs_conn_info *conn = &mxt->conn->sysfs;
+  char *filename;
+  struct stat filestat;
+  int ret;
+
+  mxt->sysfs.path_max = strlen(conn->path) + 20;
+
+  // Allocate temporary path space
+  mxt->sysfs.temp_path = calloc(mxt->sysfs.path_max + 1, sizeof(char));
+  if (!mxt->sysfs.temp_path)
+    return MXT_ERROR_NO_MEM;
+
+  // Cache memory access path for fast access
+  mxt->sysfs.mem_access_path = calloc(mxt->sysfs.path_max + 1, sizeof(char));
+  if (!mxt->sysfs.mem_access_path)
+    return MXT_ERROR_NO_MEM;
+
+  snprintf(mxt->sysfs.mem_access_path, mxt->sysfs.path_max,
+           "%s/mem_access", conn->path);
+
+  // Check whether debug v2 or not
+  filename = make_path(mxt, "debug_msg");
+
+  ret = stat(filename, &filestat);
+  if (ret < 0) {
+    if (errno == ENOENT) {
+      mxt->sysfs.debug_v2 = false;
+    } else {
+      mxt_err(mxt->ctx, "Could not stat %s, error %s (%d)",
+              filename, strerror(errno), errno);
+      return mxt_errno_to_rc(errno);
+    }
+  } else {
+    mxt->sysfs.debug_v2 = true;
+  }
+
+  mxt_info(mxt->ctx, "\nDevice registered on sysfs path:%s", conn->path);
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief  Open SPI device
+/// \return #mxt_rc
+int sysfs_open_spi(struct mxt_device *mxt)
 {
   struct sysfs_conn_info *conn = &mxt->conn->sysfs;
   char *filename;

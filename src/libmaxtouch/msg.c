@@ -219,7 +219,7 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
     } else if (timeout_seconds > 0) {
       now = time(NULL);
       if ((now - start_time) > timeout_seconds) {
-        mxt_err(mxt->ctx, "Timeout");
+        mxt_err(mxt->ctx, "Readmsg: Timeout");
         return MXT_ERROR_TIMEOUT;
       }
     }
