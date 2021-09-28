@@ -175,7 +175,7 @@ recheck:
     bootloader_id = buf[1] & MXT_BOOT_ID_MASK;
     bootloader_version = buf[2];
 
-    mxt_info(fw->ctx, "Bootloader ID:%d Version:%d",
+    mxt_info(fw->ctx, "Bootloader ID: %d Version: %d",
              bootloader_id, bootloader_version);
 
     fw->have_bootloader_version = true;
@@ -514,6 +514,23 @@ static int mxt_check_firmware_version(struct flash_context *fw)
 }
 
 //******************************************************************************
+/// \brief Check if device can be flashed
+/// \return #mxt_rc
+static int mxt_check_device_flashable(struct flash_context *fw)
+{
+
+  if (fw->conn->type == E_SYSFS_SPI){
+    if (fw->mxt->info.id->family == 0xa6 && fw->mxt->info.id->variant == 0x15) {
+      mxt_info(fw->ctx, "Flashing is not with this device on secondary interface\n");
+
+      return MXT_ERROR_FIRMWARE_UPDATE_FAILED;
+    }
+  }
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
 /// \brief Reset into bootloader mode
 /// \return #mxt_rc
 static int mxt_enter_bootloader_mode(struct flash_context *fw)
@@ -596,6 +613,13 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
       fw.check_version = false;
       mxt_dbg(fw.ctx, "check_version:%d", fw.check_version);
     }
+
+  ret = mxt_check_device_flashable(&fw);
+
+    if (ret) {
+      mxt_info(fw.ctx, "Flash upgrade not supported on this interface\n");
+      return MXT_ERROR_FIRMWARE_UPDATE_FAILED;
+  }
 
    ret = mxt_enter_bootloader_mode(&fw);
     if (ret) {
@@ -708,7 +732,6 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
     ret = MXT_SUCCESS;
     goto release;
   }
-
 
   if (!strcmp(fw.curr_version, fw.new_version)) {
     mxt_info(fw.ctx, "SUCCESS - version %s verified", fw.curr_version);
