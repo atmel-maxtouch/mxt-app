@@ -594,7 +594,6 @@ int main (int argc, char *argv[])
 
           memcpy(conn->sysfs.path, optarg + 6, strlen(optarg) - 6);
         } else if (!strncmp(optarg, "sysfs_spi:", 10)) {
-          printf("Found E_SYSFS_SPI\n");
           ret = mxt_new_conn(&conn, E_SYSFS_SPI);
           if (ret)
             return ret;
