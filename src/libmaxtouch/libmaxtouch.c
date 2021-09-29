@@ -100,11 +100,23 @@ int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn,
              bool query)
 {
   int ret = 0;
+  struct mxt_conn_info *cn;
 
   ctx->query = query;
   ctx->scan_count = 0;
 
-  /* Scan the I2C bus first because it will return quicker */
+  if (*conn == NULL) {
+    mxt_new_conn(&cn, E_SYSFS_I2C);
+    *conn = cn;
+  } else {
+    cn = *conn;
+  }
+
+  /* Return if connector type I2C_DEV */
+
+  if (cn->type == E_I2C_DEV)
+    return MXT_SUCCESS;
+
   ret = sysfs_scan(ctx, conn);
 
 #ifdef HAVE_LIBUSB
@@ -139,7 +151,7 @@ int mxt_new_conn(struct mxt_conn_info **conn, enum mxt_device_type type)
   c->refcount = 1;
 
   if (c->type == E_SYSFS_SPI)
-    c->sysfs.spi_found = true;
+    c->sysfs.spi_found = true; 
 
   *conn = c;
 

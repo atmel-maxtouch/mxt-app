@@ -263,20 +263,13 @@ free:
 int sysfs_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
 {
   struct dirent *pEntry;
-  struct mxt_conn_info *c = calloc(1, sizeof(struct mxt_conn_info));
+  struct mxt_conn_info *cn;
   DIR *pDirectory;
   int ret = 0;
 
-  /* Check if connection type SPI */
+  cn = *conn;
 
-  if ( *conn == NULL) {
-    c->type = E_SYSFS_I2C;
-    *conn = c;
-  } else{
-    c = *conn;
-  }
-
-  if (c->type == E_SYSFS_SPI) {
+  if (cn->type == E_SYSFS_SPI) {
 
     pDirectory = opendir(SYSFS_SPI_ROOT);
 
@@ -290,24 +283,24 @@ int sysfs_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
       if (ret != MXT_ERROR_NO_DEVICE) 
         goto close;
     }
-  } 
+  }
 
-  /* Check for I2C */
-  pDirectory = opendir(SYSFS_I2C_ROOT);
+    /* Check for I2C */
+    pDirectory = opendir(SYSFS_I2C_ROOT);
   
-  if (!pDirectory) {
-      goto close;
-  }
+    if (!pDirectory) {
+        goto close;
+    }
 
-  while ((pEntry = readdir(pDirectory)) != NULL) {
-    if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
-      continue;
+    while ((pEntry = readdir(pDirectory)) != NULL) {
+      if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
+        continue;
 
-    ret = scan_driver_directory(ctx, conn, SYSFS_I2C_ROOT, pEntry);
+      ret = scan_driver_directory(ctx, conn, SYSFS_I2C_ROOT, pEntry);
 
-    if (ret != MXT_ERROR_NO_DEVICE)
-      goto close;
-  }
+      if (ret != MXT_ERROR_NO_DEVICE)
+        goto close;
+    }
   
 close:
   (void)closedir(pDirectory);
