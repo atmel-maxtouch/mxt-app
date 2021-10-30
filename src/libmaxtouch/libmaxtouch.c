@@ -117,6 +117,8 @@ int mxt_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn,
   if (cn->type == E_I2C_DEV)
     return MXT_SUCCESS;
 
+  /* Check if i2c bus and address exist */
+
   ret = sysfs_scan(ctx, conn);
 
 #ifdef HAVE_LIBUSB

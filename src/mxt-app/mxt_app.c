@@ -65,7 +65,7 @@ static int mxt_init_chip(struct libmaxtouch_ctx *ctx, struct mxt_device **mxt,
     mxt_err(ctx, "Failed to find device");
     return ret;
   }
-  
+
   ret = mxt_new_device(ctx, *conn, mxt);
   if (ret)
     return ret;
@@ -580,10 +580,17 @@ int main (int argc, char *argv[])
             conn = mxt_unref_conn(conn);
             return MXT_ERROR_NO_MEM;
           }
-        } else if (!strncmp(optarg, "sysfs:", 6)) {
+        } else if (!strncmp(optarg, "sysfs_i2c:", 10)) {
           ret = mxt_new_conn(&conn, E_SYSFS_I2C);
           if (ret)
             return ret;
+
+          if (sscanf(optarg, "sysfs_i2c:%d-%x",
+                     &conn->sysfs.i2c_bus, &conn->sysfs.i2c_addr) != 2) {
+            fprintf(stderr, "Invalid device string %s\n", optarg);
+            conn = mxt_unref_conn(conn);
+            return MXT_ERROR_NO_MEM;
+          }
 
           conn->sysfs.path = (char *)calloc(strlen(optarg) + 1, sizeof(char));
           if (!conn->sysfs.path) {
@@ -592,7 +599,7 @@ int main (int argc, char *argv[])
             return MXT_ERROR_NO_MEM;
           }
 
-          memcpy(conn->sysfs.path, optarg + 6, strlen(optarg) - 6);
+          memcpy(conn->sysfs.path, optarg + 10, strlen(optarg) - 10);
         } else if (!strncmp(optarg, "sysfs_spi:", 10)) {
           ret = mxt_new_conn(&conn, E_SYSFS_SPI);
           if (ret)
