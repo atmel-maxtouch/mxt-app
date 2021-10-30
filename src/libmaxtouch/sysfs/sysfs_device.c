@@ -212,6 +212,9 @@ static int scan_driver_directory(struct libmaxtouch_ctx *ctx,
   unsigned int bus_num;
   unsigned int cs_num;
   int ret = 0;
+  struct mxt_conn_info *c;
+
+  c = *conn;
 
   length = strlen(path) + strlen(dir->d_name) + 1;
 
@@ -228,19 +231,38 @@ static int scan_driver_directory(struct libmaxtouch_ctx *ctx,
     goto free;
   }
 
+  /* readdir does not read in alpha or numeric order */
+  
   while ((pEntry = readdir(pDirectory)) != NULL) {
     if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
       continue;
 
     if (sscanf(pEntry->d_name, "%d-%x", &adapter, &address) == 2) {
-      ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname, false);
-      if (ret != MXT_ERROR_NO_DEVICE) goto close;
+
+      if (c->sysfs.i2c_bus == adapter && c->sysfs.i2c_addr == address) {
+        mxt_info(ctx, "\nFound I2C device on bus[%d] address[%x]", adapter, address);
+      } else if (address == 0x4a) {
+        mxt_info(ctx, "\nSearching for device at 0x4a");
+      } else if (address == 0x4b) {
+        mxt_info(ctx, "\nSeaching for device at 0x4b");
+      } else {
+         continue; 
+      }
+
+        ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname, false);
+        if (ret != MXT_ERROR_NO_DEVICE) goto close;
 
     } else if (sscanf(pEntry->d_name, "i2c-%s", acpi) == 1) {
       ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname, true);
       if (ret != MXT_ERROR_NO_DEVICE) goto close;
 
     } else if (sscanf(pEntry->d_name, "spi%d.%d", &bus_num, &cs_num) == 2) {
+      if (c->sysfs.spi_cs == cs_num && c->sysfs.spi_bus == bus_num) {
+        mxt_info(ctx, "\nFound SPI device on bus[%d] CS[%d]", bus_num, cs_num);
+      } else{
+        continue;
+      }
+
       ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname, false);
       if (ret != MXT_ERROR_NO_DEVICE) goto close;
 

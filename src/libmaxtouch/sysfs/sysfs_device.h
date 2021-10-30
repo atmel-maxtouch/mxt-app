@@ -35,6 +35,8 @@ struct dmesg_item;
 struct sysfs_conn_info {
   char *path;
   bool acpi;
+  int i2c_bus;
+  int i2c_addr;
   int spi_cs;
   int spi_bus;
   bool spi_found;
