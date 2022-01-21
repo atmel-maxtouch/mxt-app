@@ -883,7 +883,7 @@ int sysfs_msg_reset_v2(struct mxt_device *mxt)
   
   usleep(100000);   /* delay to get rid of messages */
   
-  if (mxt->sysfs.debug_v2_msg_buf != NULL);
+  if (mxt->sysfs.debug_v2_msg_buf != NULL)
     free(mxt->sysfs.debug_v2_msg_buf);
 
   return 0;
