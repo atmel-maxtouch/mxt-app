@@ -60,6 +60,7 @@ struct sysfs_device {
   size_t debug_v2_size;
   bool b_i2c_device;
   bool b_spi_device;
+  char *diag_msg_path;
 
   int dmesg_count;
   struct dmesg_item *dmesg_head;

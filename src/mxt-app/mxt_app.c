@@ -140,7 +140,7 @@ static void print_usage(char *prog_name)
           "  -t [--test]                : run all self tests\n"
           "  -tXX [--test=XX]           : run individual test, write XX to CMD register\n"
           "\n"
-          "T10 On-Deman Test command:\n"
+          "T10 On-Demand Test command:\n"
           "  --odtest                   : run all on-demand self tests\n"
           "\n"
           "T37 Diagnostic Data commands:\n"
@@ -149,6 +149,7 @@ static void print_usage(char *prog_name)
           "  --instance INSTANCE        : select object INSTANCE\n"
 	  "  --format 0/1               : capture using format 0 or 1\n"
           "  --references               : capture references data\n"
+          "  --diagnostics              : capture T37 enhanced diagnostics\n"
           "  --self-cap-signals         : capture self cap signals\n"
           "  --self-cap-deltas          : capture self cap deltas\n"
           "  --self-cap-refs            : capture self cap references\n"
@@ -157,6 +158,9 @@ static void print_usage(char *prog_name)
 	  "  --key-array-signals        : capture key array signals\n"
           "  --active-stylus-deltas     : capture active stylus deltas\n"
           "  --active-stylus-refs       : capture active stylus references\n"
+          "\n"
+          "T33 Enhanced Diagnostic command\n"
+          "  --diagnostic-msgs FILE    : parse T33 diagnostic messages to a file\n"
           "\n"
           "Broken line detection commands:\n"
           "  --broken-line              : run broken line detection\n"
@@ -257,6 +261,7 @@ int main (int argc, char *argv[])
       {"help",             no_argument,       0, 'h'},
       {"info",             no_argument,       0, 'i'},
       {"instance",         required_argument, 0, 'I'},
+      {"diagnostic-msgs",  required_argument, 0, 0},
       {"load",             required_argument, 0, 0},
       {"save",             required_argument, 0, 0},
       {"messages",         optional_argument, 0, 'M'},
@@ -281,6 +286,7 @@ int main (int argc, char *argv[])
       {"reset-bootloader", no_argument,       0, 0},
       {"register",         required_argument, 0, 'r'},
       {"references",       no_argument,       0, 0},
+      {"diagnostics",      no_argument,       0, 0},
       {"self-cap-tune-config", no_argument,       0, 0},
       {"self-cap-tune-nvram",  no_argument,       0, 0},
       {"self-cap-signals", no_argument,       0, 0},
@@ -362,6 +368,15 @@ int main (int argc, char *argv[])
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
         }
+      } else if (!strcmp(long_options[option_index].name, "diagnostic-msgs")) { 
+        if (cmd == CMD_NONE) {
+          cmd = CMD_LD_PARSE;
+          strncpy(strbuf, optarg, sizeof(strbuf));
+          strbuf[sizeof(strbuf) - 1] = '\0';
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+          }
       } else if (!strcmp(long_options[option_index].name, "broken-line")) {
         if (cmd == CMD_NONE) {
           cmd = CMD_BROKEN_LINE;
@@ -540,6 +555,8 @@ int main (int argc, char *argv[])
         t37_frames = strtol(optarg, NULL, 0);
       } else if (!strcmp(long_options[option_index].name, "references")) {
         t37_mode = REFS_MODE;
+      } else if (!strcmp(long_options[option_index].name, "diagnostics")) {
+        t37_mode = DIAG_DBG_MODE;
       } else if (!strcmp(long_options[option_index].name, "self-cap-signals")) {
         t37_mode = SELF_CAP_SIGNALS;
       } else if (!strcmp(long_options[option_index].name, "self-cap-refs")) {
@@ -952,6 +969,12 @@ int main (int argc, char *argv[])
     mxt_verb(ctx, "mode:%u", t37_mode);
     mxt_verb(ctx, "frames:%u", t37_frames);
     ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames, instance, format);
+    break;
+
+  case CMD_LD_PARSE:
+
+    mxt_verb(ctx, "CMD_LD_PARSE");
+    ret = parse_diag_messages(mxt, strbuf);
     break;
 
   case CMD_ZERO_CFG:

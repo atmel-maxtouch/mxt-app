@@ -47,6 +47,9 @@
 #include "libmaxtouch/utilfuncs.h"
 
 #include "mxt_app.h"
+#define DIAG_MSG_ROOT "/sys/bus/i2c/drivers/atmel_mxt_ts/"
+#define AVDD  0x01
+#define XVDD  0x02
 
 #define MAX_FILENAME_LENGTH     255
 
@@ -170,7 +173,7 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
   int i, pass, num_keys;
   int num_frames;
 
-  if (ctx->fformat == false) {
+  if (ctx->fformat == false && ctx->mode != DIAG_DBG_MODE) {
     ret = fprintf(ctx->hawkeye, "time,TIN,");
     if (ret < 0)
     return MXT_ERROR_IO;
@@ -301,6 +304,11 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
           return MXT_ERROR_IO;
       }       
     }
+  } else if (ctx->t33_diagnostics) {
+      /* Setup header only */
+      ret = fprintf(ctx->hawkeye,
+          "T37 Enhanced Diagnostic Debug Data\n\n");
+
   } else {  /* For Mutual Cap */
 
     if (ctx->fformat == false) {    /* Check for format 0 */
@@ -426,6 +434,29 @@ static int mxt_debug_insert_data_key_array(struct t37_ctx *ctx)
 }
 
 //******************************************************************************
+/// \brief Insert page of enhanced diagnostic data
+/// into data buffer, byte wide
+/// \return #mxt_rc
+static int mxt_debug_insert_diag_data(struct t37_ctx *ctx)
+{
+
+  int i;
+
+  for (i = 0; i < ctx->page_size; i++) {
+
+    ctx->diag_buf[ctx->y_ptr] = ctx->t37_buf->data[i];
+
+    if (ctx->y_ptr == (ctx->data_values - 1))
+      return MXT_SUCCESS;
+
+    ctx->y_ptr++;
+  }
+
+  return MXT_SUCCESS;
+
+}
+
+//******************************************************************************
 /// \brief Insert page of data into buffer at appropriate co-ordinates
 /// \return #mxt_rc
 static int mxt_debug_insert_data(struct t37_ctx *ctx)
@@ -458,22 +489,23 @@ static int mxt_debug_insert_data(struct t37_ctx *ctx)
 /// \return #mxt_rc
 static int mxt_hawkeye_output(struct t37_ctx *ctx)
 {
-  int x, y, i;
-  int pass;
-  int ret;
-  int num_frames;
-  int ofs = 0;
-  int data_ofs = 0;
-  int32_t value = 0;
+  struct mxt_t15_info *mxt_key = NULL;
+  struct mxt_touchscreen_info *ts_info = NULL;
   uint8_t totalkeys = 0;
   uint8_t ts_xsize = 0;
   uint8_t ts_ysize = 0;
   uint8_t ts_xorigin = 0;
-  uint8_t ts_yorigin = 0;  
-  struct mxt_t15_info *mxt_key = NULL;
-  struct mxt_touchscreen_info *ts_info = NULL;
+  uint8_t ts_yorigin = 0; 
+  uint8_t fpc_pins = 0; 
+  uint8_t pin_faults = 0;
+  int num_frames;
+  int data_ofs = 0;
+  int32_t value = 0;
+  int x, y, i, j;
+  int pass;
+  int ret;
   
-  if (ctx->fformat == false) {
+  if (ctx->fformat == false && ctx->t33_diagnostics == false) {
      ret = mxt_print_timestamp(ctx->hawkeye, false);
      if (ret)
         return ret;
@@ -516,15 +548,136 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
         if (ret < 0)
           return MXT_ERROR_IO;
     }
+  } else if (ctx->t33_diagnostics) {
+
+    /* Display T37 Power Supply Failures */
+    ret = fprintf(ctx->hawkeye, "Power Supply Status\n"); 
+
+    if (ctx->diag_buf[data_ofs] & 0x03) {
+      if ((ctx->diag_buf[data_ofs] & XVDD) == XVDD)
+        ret = fprintf(ctx->hawkeye, "XVDD Power Failure\n");
+      if ((ctx->diag_buf[data_ofs] & AVDD) == AVDD)
+        ret = fprintf(ctx->hawkeye, "AVDD Power Failure\n");
+    } else {
+      ret = fprintf(ctx->hawkeye, "No Power Failures\n");
+    }
+    
+    ret = fprintf(ctx->hawkeye, "\n");
+    
+    /* FPC GPIO status */
+    data_ofs++;
+
+    /* Display T37 FPC GPIO Failures, if present */
+    ret = fprintf(ctx->hawkeye, "FPC GPIO Failures\n");
+
+    /* Copy byte into buffer to be shifted */
+    fpc_pins = ctx->diag_buf[data_ofs];
+
+    if (fpc_pins == 0x00) {
+      ret = fprintf(ctx->hawkeye, "No FPC Failures\n");
+    } else {
+      for (i = 1; i < 9; i++) {
+
+          if (fpc_pins & 0x80)
+            ret = fprintf(ctx->hawkeye, "GPIO[%d]: Fail\n", (8 - i));
+
+          fpc_pins = fpc_pins << 1;
+      }
+    }
+
+    ret = fprintf(ctx->hawkeye, "\n");
+
+    /* X Line status */
+    data_ofs++;
+
+    ret = fprintf(ctx->hawkeye, "Sensor Line Status X Lines\n");
+
+    /* Display T37 Pin Faults for each X pin */
+      ret = fprintf(ctx->hawkeye, 
+      "SIGLIM OPENRC SHORTADJ SHORTGND\n");
+      
+      for (i = 0; i < (ctx->x_size); i++) {
+
+        pin_faults = ctx->diag_buf[data_ofs];  /* Get next byte */
+
+        ret = fprintf(ctx->hawkeye, "X%d ", i);
+
+        for (j = 0; j < 4; j++) {
+
+          if (pin_faults & 0x08)
+            ret = fprintf(ctx->hawkeye, "Y ");
+          else
+            ret = fprintf(ctx->hawkeye, "N ");
+
+          pin_faults = pin_faults << 1;
+
+        }
+        ret = fprintf(ctx->hawkeye, "\n");
+        data_ofs++;
+      }
+
+      ret = fprintf(ctx->hawkeye, "\n");
+
+      ret = fprintf(ctx->hawkeye, "Sensor Line Status Y Lines\n");
+
+    /* Display T37 Pin Faults for each Y pin */
+      ret = fprintf(ctx->hawkeye, 
+      "SIGLIM OPENRC SHORTADJ SHORTGND\n");
+      
+      for (i = 0; i < (ctx->y_size); i++) {
+
+        pin_faults = ctx->diag_buf[data_ofs];  /* Get next byte */
+
+        ret = fprintf(ctx->hawkeye, "Y%d ", i);
+
+        for (j = 0; j < 4; j++) {
+
+          if (pin_faults & 0x08)
+            ret = fprintf(ctx->hawkeye, "Y ");
+          else
+            ret = fprintf(ctx->hawkeye, "N ");
+
+          pin_faults = pin_faults << 1;
+
+        }
+
+        ret = fprintf(ctx->hawkeye, "\n");
+
+        data_ofs++;
+      }
+
+      ret = fprintf(ctx->hawkeye, "\n");
+
+      ret = fprintf(ctx->hawkeye, "Sensor Line DS0 Status\n");
+
+      /* Display DS0 Pin Fault Status s*/
+      ret = fprintf(ctx->hawkeye, 
+      "SIGLIM OPENRC SHORTADJ SHORTGND\n");
+
+      pin_faults = ctx->diag_buf[data_ofs];  /* Get next byte */
+
+      for (j = 0; j < 4; j++) {
+
+          if (pin_faults & 0x08)
+            ret = fprintf(ctx->hawkeye, "Y ");
+          else
+            ret = fprintf(ctx->hawkeye, "N ");
+
+          pin_faults = pin_faults << 1;
+
+      }
+
+      ret = fprintf(ctx->hawkeye, "\n");
+
   } else {
 
       if (ctx->fformat == false ) {
         /* iterate through columns */
         for (x = 0; x < ctx->x_size; x++) {
           for (y = 0; y < ctx->y_size; y++) {
-            ofs = y + x * ctx->y_size;
+            data_ofs = y + x * ctx->y_size;
 
-              value = ctx->data_buf[ofs];
+              value = ctx->data_buf[data_ofs];
 
               ret = fprintf(ctx->hawkeye, "%d,", 
                             (ctx->mode == DELTAS_MODE) ? (int16_t)value : value);
@@ -673,6 +826,7 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
   ctx->active_stylus = false;
   ctx->self_cap = false;
   ctx->t15_keyarray = false;
+  ctx->t33_diagnostics = false;
 
   ret = get_objects_addr(ctx);
   if (ret) {
@@ -806,6 +960,20 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
                           ctx->page_size;
     break;
 
+  case DIAG_DBG_MODE:
+
+    ctx->t33_diagnostics = true;
+
+    ctx->x_size = id->matrix_x_size;
+    ctx->y_size = id->matrix_y_size;
+
+    /* Includes Power, Line and DSO bytes */
+    ctx->data_values = (ctx->x_size + ctx->y_size) + 3; 
+    ctx->passes = 1;
+    ctx->pages_per_pass = 1;
+
+    break;
+
   default:
     mxt_err(ctx->lc, "Unsupported mode %02X", ctx->mode);
     return MXT_INTERNAL_ERROR;
@@ -829,18 +997,53 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
     return MXT_ERROR_NO_MEM;
   }
 
-  /* allocate data buffer */
-  ctx->data_buf = (uint16_t *)calloc(ctx->data_values, sizeof(uint16_t));
-  if (!ctx->data_buf) {
-    mxt_err(ctx->lc, "calloc failure");
+  /* allocate buffer for bytewide or wordwide data */
 
-    /* free other buffer in error path */
-    free(ctx->data_buf);
-    ctx->data_buf = NULL;
-    return MXT_ERROR_NO_MEM;
-  }
+  if (ctx->t33_diagnostics) {
+    ctx->diag_buf = (uint8_t *)calloc(ctx->data_values, sizeof(uint8_t));
 
+    if (!ctx->diag_buf) {
+      mxt_err(ctx->lc, "calloc failure");
+      free(ctx->diag_buf);
+      ctx->diag_buf = NULL;
+      return MXT_ERROR_NO_MEM;
+    } 
+
+  } else {
+      ctx->data_buf = (uint16_t *)calloc(ctx->data_values, sizeof(uint16_t));
+    
+      if (!ctx->data_buf) {
+        mxt_err(ctx->lc, "calloc failure");
+        free(ctx->data_buf);
+        ctx->data_buf = NULL;
+        return MXT_ERROR_NO_MEM;
+      }
+    }
   return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief Read enhanced diagnostic data
+/// \return #mxt_rc
+int mxt_read_enhanced_diag(struct t37_ctx *ctx)
+{
+  int ret;
+
+    ctx->pages_per_pass = 1;
+    ctx->page = 0;
+    ctx->passes = 1;
+    ctx->y_ptr = 0;
+
+    /* Only need one page of T37 */
+    ret = mxt_get_t37_page(ctx);
+    if (ret)
+      return ret;
+
+    ret = mxt_debug_insert_diag_data(ctx);
+    if (ret)
+      return ret;
+
+    return MXT_SUCCESS;
 }
 
 //******************************************************************************
@@ -944,6 +1147,266 @@ static int mxt_read_diagnostic_data_t15key (struct t37_ctx* ctx)
 }
 
 //******************************************************************************
+/// \brief Initialize the crc8 lookup table
+/// \return #mxt_rc
+void mxt_calc_crc8_init(struct t37_ctx *ctx)
+{
+  uint8_t _crc;
+  uint8_t bit;
+  int i;
+
+  for (i = 0; i < 0x100; i++) {
+
+    _crc = i;
+
+    for (bit = 0; bit < 8; bit++) {
+      _crc = (_crc & 0x80) ? ((_crc << 1) ^ 0x1D) : (_crc << 1);
+    }
+
+    ctx->crcTable[i] = _crc;
+
+  }
+
+}
+
+//******************************************************************************
+/// \brief Calculate diagnostic message
+/// \return #mxt_rc
+uint8_t mxt_calc_crc8_ld(struct t37_ctx *ctx, uint8_t *crc, 
+  unsigned int len)
+{
+  const uint8_t *ptr = crc;
+  uint8_t _crc = 0x00; /* Initial value */
+
+  while (len--) {
+
+    _crc = ctx->crcTable[_crc ^ *ptr++];
+
+    mxt_dbg(ctx->lc, "MSG[%d] = [%x], crc8 =  %x\n", len,
+      *ptr, _crc);
+
+  }
+
+  return _crc;
+}
+
+//******************************************************************************
+/// \brief Parse live diagnostic message and retrieve
+/// detailed debug data from T37
+/// \return #mxt_rc
+int parse_diag_messages(struct mxt_device *mxt, const char *filename)
+{
+  struct t37_ctx ctx;
+  struct sysfs_conn_info *conn = &mxt->conn->sysfs;
+  struct mxt_id_info *id = mxt->info.id;
+  int ret, i;
+  int val;
+  char line[255];  
+  int offset = 0;
+  int position = 0;
+  uint8_t byte_count = 0;
+  uint8_t crc_data = 0;
+  uint8_t status = 0;
+  uint8_t pin_faults= 0;
+  int rows = 0;
+  int columns = 0;
+  int buf_ofs = 0;
+
+  ctx.lc = mxt->ctx;
+  ctx.mxt = mxt;
+  ctx.mode = DIAG_DBG_MODE;
+
+  /* Initialize T37 parameters */
+  ctx.x_size = id->matrix_x_size;
+  ctx.y_size = id->matrix_y_size;
+   
+  /* Setup message directory */
+  mxt->sysfs.diag_msg_path = calloc(mxt->sysfs.path_max + 1, sizeof(char));
+  if (!mxt->sysfs.diag_msg_path)
+    return MXT_ERROR_NO_MEM;
+
+  snprintf(mxt->sysfs.diag_msg_path, mxt->sysfs.path_max, 
+    "%s/diagnostic_msg", conn->path);
+  
+  mxt_info(mxt->ctx, "Opening diagnostic file");
+
+  /* Open source file */
+  ctx.diag_file = fopen(mxt->sysfs.diag_msg_path,"r");
+
+  if (!ctx.diag_file) {
+    mxt_err(ctx.lc, "Failed to open file!");
+    ret = MXT_ERROR_IO;
+    goto free;
+  }
+
+  /* Allocate enough buffer space to hold diagnostic message */
+  ctx.diag_buf = calloc(MAX_FILENAME_LENGTH, sizeof(char)); 
+
+  /* Get content of file as a string */
+  if (fgets(line, sizeof(line), ctx.diag_file) == NULL) 
+    mxt_err(mxt->ctx, "Unexpected EOF");
+
+  /* Convert hex values into integer, store in buffer */
+  while (1) {
+
+    ret = sscanf(line + position, "%2x%*c%n", &val, &offset);
+
+    if (ret == EOF)
+      break;
+
+    position += offset;
+    ctx.diag_buf[byte_count] = val;
+
+    byte_count++;
+  }
+
+  /* Initialize the crc8 table */
+  mxt_calc_crc8_init(&ctx);
+
+  mxt_info(mxt->ctx, "Calculating message CRC");
+
+  //Calculate the CRC to make sure it matches */
+  crc_data = mxt_calc_crc8_ld(&ctx, ctx.diag_buf + 1, (byte_count-1));
+
+  /* Open Hawkeye output file */
+  ctx.hawkeye = fopen(filename,"w");
+
+  if (!ctx.hawkeye) {
+    mxt_err(ctx.lc, "Failed to open output file!");
+    ret = MXT_ERROR_IO;
+    goto free;
+  }
+
+  ret = fprintf(ctx.hawkeye, "DIAGNOSTIC MESSAGE\n");
+
+  for (i = 0; i < byte_count; i++) {
+    fprintf(ctx.hawkeye, "%02x ", ctx.diag_buf[i]);
+  }
+
+  ret = fprintf(ctx.hawkeye, "\n\n");
+
+  ret = fprintf(ctx.hawkeye, "CRC value: 0x%02x ", ctx.diag_buf[0]);
+
+  if (crc_data == ctx.diag_buf[0])
+    ret = fprintf(ctx.hawkeye, "(CRC Passed)\n\n");
+  else
+    ret = fprintf(ctx.hawkeye, "(CRC Failed)\n\n");
+
+  /* Check for current state of failures */
+  status = ctx.diag_buf[1] & 0x0F;
+
+  ret = fprintf(ctx.hawkeye, "ERROR STATUS: 0x%02x\n", status);
+
+  if (status & 0x0F) {
+    if ((status & BULK_ERROR) == BULK_ERROR) 
+      ret = fprintf(ctx.hawkeye, "BULK_ERROR ");
+    if ((status &  LINE_ERROR) == LINE_ERROR)
+      ret = fprintf(ctx.hawkeye, "LINE_ERROR ");
+    if ((status & FPC_ERROR) == FPC_ERROR)
+      ret = fprintf(ctx.hawkeye, "FFC_ERROR ");
+    if ((status & POWER_ERROR) == POWER_ERROR)
+      ret = fprintf(ctx.hawkeye, "POWER_ERROR");
+  } else {
+    ret = fprintf(ctx.hawkeye, "NO FAILURES");
+  }
+
+  /* Goto newline */
+  ret = fprintf(ctx.hawkeye, "\n\n");
+
+  /* Write counter value to file */
+  ret = fprintf(ctx.hawkeye, "Counter: 0x%02x\n", ctx.diag_buf[40]);
+
+  byte_count = 0;
+
+ret = fprintf(ctx.hawkeye, "\n");
+
+  ret = fprintf(ctx.hawkeye, 
+      "FIELD,BIT[7],BIT[6],BIT[5],BIT[4],BIT[3],BIT[2],BIT[1],BIT[0]\n");
+
+  while (byte_count < ctx.x_size) {
+
+    pin_faults = ctx.diag_buf[buf_ofs + 2];
+
+    rows++;
+
+    ret = fprintf(ctx.hawkeye, "XBITMAP[%d],", columns);
+    
+      for (i = 1; i < 9; i++) {
+
+        byte_count++;
+
+        if (pin_faults & 0x80)
+        ret = fprintf(ctx.hawkeye, "X%d,", ((8 * rows) - i));
+        else
+        ret = fprintf(ctx.hawkeye, "%d,", 0);
+
+        pin_faults = pin_faults << 1;
+
+      }
+
+      columns++;
+      buf_ofs++;
+
+      ret = fprintf(ctx.hawkeye, "\n");
+  
+}
+
+byte_count = 0;
+columns = 0;
+rows = 0;
+
+while (byte_count < ctx.y_size) {
+
+  pin_faults = ctx.diag_buf[buf_ofs + 2];
+
+  rows++;
+
+  ret = fprintf(ctx.hawkeye, "YBITMAP[%d],", columns);
+    
+    for (i = 1; i < 9; i++) {
+
+      byte_count++;
+
+      if (pin_faults & 0x80)
+        ret = fprintf(ctx.hawkeye, "Y%d,", ((8 * rows) - i));
+      else
+        ret = fprintf(ctx.hawkeye, "%d,", 0);
+
+      pin_faults = pin_faults << 1;
+
+    }
+
+    columns++;
+    buf_ofs++;
+
+    ret = fprintf(ctx.hawkeye, "\n");
+  
+  }
+  
+  ret = fprintf(ctx.hawkeye, "YBITMAP[18],");
+
+  if (ctx.diag_buf[39] & 0x80) 
+    ret = fprintf(ctx.hawkeye, "DS0 Failure\n\n");
+  else
+    ret = fprintf(ctx.hawkeye, "No DS0 Failure\n\n");
+
+  mxt_info(mxt->ctx, "Diagnostic message parsed\n");
+
+close:
+  fclose(ctx.diag_file);
+  fclose(ctx.hawkeye);
+
+free:
+  free(ctx.diag_buf);
+  ctx.diag_buf = NULL;
+  free(ctx.t37_buf);
+  ctx.t37_buf = NULL;
+
+
+  return ret;
+}
+
+//******************************************************************************
 /// \brief Retrieve data from the T37 Diagnostic Data object
 /// \return #mxt_rc
 int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
@@ -1006,6 +1469,8 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
       ret = mxt_read_diagnostic_data_ast(&ctx);
     } else if (ctx.t15_keyarray) {
       ret = mxt_read_diagnostic_data_t15key(&ctx);
+    } else if (ctx.t33_diagnostics) {
+      ret = mxt_read_enhanced_diag(&ctx);
     } else {
       ret = mxt_read_diagnostic_data_frame(mxt, &ctx);
     }
@@ -1025,8 +1490,14 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
 close:
   fclose(ctx.hawkeye);
 free:
-  free(ctx.data_buf);
-  ctx.data_buf = NULL;
+  if (ctx.t33_diagnostics) {
+    free(ctx.diag_buf);
+    ctx.diag_buf = NULL;
+  } else {
+    free(ctx.data_buf);
+    ctx.data_buf = NULL;
+  }
+
   free(ctx.t37_buf);
   ctx.t37_buf = NULL;
 

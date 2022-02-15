@@ -63,6 +63,11 @@
 #define SELF_CAP_REFS     0xF8
 #define AST_DELTAS        0xFB
 #define AST_REFS          0xFC
+#define DIAG_DBG_MODE     0x44
+
+/* T37 Enhanced Diagnostics Offsets */
+#define POWER_STATUS_OFFSET 	0x00
+#define FPC_GPIO_PIN_OFFSET 	0x01
 
 /* T25 Self Test Commands */
 #define SELF_TEST_ANALOG       0x01
@@ -122,6 +127,7 @@ typedef enum mxt_app_cmd_t {
   CMD_INFO,
   CMD_TEST,
   CMD_OD_TEST,
+  CMD_LD_PARSE,
   CMD_WRITE,
   CMD_READ,
   CMD_GOLDEN_REFERENCES,
@@ -135,6 +141,7 @@ typedef enum mxt_app_cmd_t {
   CMD_BACKUP,
   CMD_CALIBRATE,
   CMD_DEBUG_DUMP,
+  CMD_ENH_DEBUG_DUMP,
   CMD_LOAD_CFG,
   CMD_SAVE_CFG,
   CMD_MESSAGES,
@@ -153,6 +160,13 @@ extern volatile sig_atomic_t mxt_sigint_rx;
 struct t37_diagnostic_data;
 struct mxt_conn_info;
 
+enum mxt_diag_status {
+  BULK_ERROR 	= 	1,
+  LINE_ERROR 	= 	2,
+  FPC_ERROR 	= 	4,
+  POWER_ERROR 	=	8,
+};
+
 //******************************************************************************
 /// \brief T37 Diagnostic Data context object
 struct t37_ctx {
@@ -162,6 +176,7 @@ struct t37_ctx {
   bool self_cap;
   bool active_stylus;
   bool t15_keyarray;
+  bool t33_diagnostics;
   bool fformat;
 
   int x_size;
@@ -186,6 +201,11 @@ struct t37_ctx {
   uint8_t t9_instances;
   uint8_t instance;
 
+  /* Live diagnostics variables */
+  uint8_t power_status;
+  uint8_t fpc_pin_status;
+  uint8_t ds0_status;
+
   uint16_t frame;
   int pass;
   int page;
@@ -200,8 +220,12 @@ struct t37_ctx {
   uint16_t *data_buf;
   uint16_t *temp_buf;
   uint8_t *key_buf;
+  uint8_t *diag_buf;
+  unsigned int crcTable[256];
 
   FILE *hawkeye;
+  FILE *diag_file;
+  FILE *diag_output;
 };
 
 //******************************************************************************
@@ -225,12 +249,11 @@ struct mxt_t15_info {
   uint8_t t15_enable;
 };
 
-
-
 int mxt_flash_firmware(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, const char *filename, const char *new_version, struct mxt_conn_info *conn);
 int mxt_socket_server(struct mxt_device *mxt, uint16_t port);
 int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port);
 int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file, uint16_t frames, uint16_t obj_inst, uint16_t format);
+int parse_diag_messages(struct mxt_device *mxt, const char *filename);
 void mxt_dd_menu(struct mxt_device *mxt);
 void mxt_dd_menu2(struct mxt_device *mxt, char selection);
 void mxt_mutual_menu(struct mxt_device *mxt, char selection);
@@ -246,8 +269,11 @@ int mxt_serial_data_upload(struct mxt_device *mxt, const char *filename, uint16_
 int print_raw_messages(struct mxt_device *mxt, int timeout, uint16_t object_type);
 int print_raw_messages_t44(struct mxt_device *mxt);
 void print_t6_status(uint8_t status);
+void mxt_calc_crc8_init(struct t37_ctx *ctx);
+uint8_t mxt_calc_crc8_ld(struct t37_ctx *ctx, uint8_t *crc, unsigned int len);
 int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd);
 int mxt_read_diagnostic_data_frame(struct mxt_device *mxt, struct t37_ctx *ctx);
+int mxt_read_enhanced_diag(struct t37_ctx *ctx);
 int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx);
 sig_atomic_t mxt_get_sigint_flag(void);
 int mxt_read_messages_sigint(struct mxt_device *mxt, int timeout_seconds, void *context, int (*msg_func)(struct mxt_device *mxt, uint8_t *msg, void *context, uint8_t size));
