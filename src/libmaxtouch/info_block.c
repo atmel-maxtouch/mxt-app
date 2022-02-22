@@ -104,10 +104,11 @@ int mxt_read_info_block(struct mxt_device *mxt)
 {
   uint32_t calc_crc;
   bool crc_flag = false;
-  int ret;
+  int ret = 0;
 
   /* Read the ID Information from the chip */
   uint8_t *info_blk = (uint8_t *)calloc(1, sizeof(struct mxt_id_info));
+
   if (info_blk == NULL) {
     mxt_err(mxt->ctx, "Memory allocation failure");
     return MXT_ERROR_NO_MEM;
@@ -118,20 +119,19 @@ int mxt_read_info_block(struct mxt_device *mxt)
     ret = debugfs_scan(mxt);
 
     if (ret == MXT_SUCCESS) {
-      ret = debugfs_open(mxt);
 
+      ret = debugfs_open(mxt);
       if (ret)
         mxt_err(mxt->ctx, "Could not register debugfs interface");
+      else
+        mxt->debug_fs.enabled = true;
 
-        ret = debugfs_get_crc_enabled(mxt, &crc_flag);
-      
+      ret = debugfs_get_crc_enabled(mxt, &crc_flag);
       if (ret)
-        mxt_err(mxt->ctx, "Coud not get crc_enabled flag");
+        mxt_err(mxt->ctx, "Could not get crc_enabled flag");
 
       if (crc_flag)
         mxt->mxt_crc.crc_enabled = true;
-
-      mxt->debug_fs.enabled = true;
 
     } else {
       mxt_dbg(mxt->ctx, "Debugfs attributes not found");
@@ -272,8 +272,6 @@ void mxt_display_chip_info(struct mxt_device *mxt)
   struct mxt_id_info *id = mxt->info.id;
   uint16_t t144_addr = 0x0000;
   int i;
-
-  mxt->mxt_crc.crc_enabled = false;
 
   mxt_get_firmware_version(mxt, (char *)&firmware_version);
 

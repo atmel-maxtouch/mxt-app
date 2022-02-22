@@ -69,7 +69,7 @@ struct sysfs_device {
   unsigned long mtimestamp;
 };
 
-int sysfs_reset_chip(struct mxt_device *mxt, bool reset_chip);
+int sysfs_reset_chip(struct mxt_device *mxt);
 int sysfs_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn);
 int sysfs_spi_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn);
 int sysfs_open_i2c(struct mxt_device *mxt);
