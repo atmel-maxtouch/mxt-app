@@ -511,13 +511,22 @@ static int bridge_set_fs_mode(struct mxt_device *mxt)
 static int bridge_configure(struct mxt_device *mxt)
 {
   unsigned char pkt[mxt->usb.ep1_in_max_packet_size];
+  int buf = 0;
+
+  if (mxt->usb.address == 0x4a && mxt->usb.sent_btlr_cmd == true) {
+    buf = (CMD_CONFIG_I2C_RETRY_ON_NAK | 0x26);
+  } else if (mxt->usb.address == 0x4b && mxt->usb.sent_btlr_cmd == true) {
+    buf = (CMD_CONFIG_I2C_RETRY_ON_NAK | 0x27);
+  } else {
+    buf = CMD_CONFIG_I2C_RETRY_ON_NAK;
+  }
 
   /* Command packet */
   memset(&pkt, 0, sizeof(pkt));
   pkt[0] = CMD_CONFIG;
   /* 200kHz */
   pkt[1] = 0x20;
-  pkt[2] = CMD_CONFIG_I2C_RETRY_ON_NAK;
+  pkt[2] = buf;
   /* I2C retry delay */
   pkt[5] = 25 * 8;
 
@@ -555,6 +564,7 @@ static int bridge_find_i2c_address(struct mxt_device *mxt)
       mxt->usb.bootloader = true;
       mxt_info(mxt->ctx, "Bridge found bootloader at 0x%02X", response);
     } else {
+      mxt->usb.address = response;
       mxt_info(mxt->ctx, "Bridge found control interface at 0x%02X", response);
     }
 
@@ -589,7 +599,7 @@ static int usb_find_device(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt)
     usb_bus = libusb_get_bus_number(devs[i]);
     usb_device = libusb_get_device_address(devs[i]);
 
-    if (mxt->conn->usb.bus == usb_bus && mxt->conn->usb.device == usb_device) {
+     if (mxt->conn->usb.bus == usb_bus) {
       if (desc.idProduct == 0x6123) {
         mxt->usb.bridge_chip = true;
         mxt_dbg(mxt->ctx, "Found usb:%03d-%03d 5030 bridge chip",
@@ -741,15 +751,17 @@ retry:
     if (ret)
       return ret;
 
-    ret = bridge_find_i2c_address(mxt);
-    if (ret)
-      return ret;
+    if (!((mxt->usb.bootloader == true) || (mxt->usb.sent_btlr_cmd == true))) {
+      ret = bridge_find_i2c_address(mxt);
+      if (ret)
+        return ret;
+    }
   } else {
     mxt->usb.report_id = 1;
   }
 
   mxt->usb.device_connected = true;
-  mxt_info(mxt->ctx, "\nDevice registered on usb:%03d-%03d VID=0x%04X PID=0x%04X Interface=%d",
+  mxt_info(mxt->ctx, "Device registered on usb:%03d-%03d VID=0x%04X PID=0x%04X Interface=%d",
            mxt->conn->usb.bus, mxt->conn->usb.device,
            mxt->usb.desc.idVendor, mxt->usb.desc.idProduct, mxt->usb.interface);
 
@@ -986,8 +998,10 @@ int usb_reset_chip(struct mxt_device *mxt, bool bootloader_mode, uint16_t reset_
     return MXT_ERROR_OBJECT_NOT_FOUND;
 
   /* The value written determines which mode the chip will boot into */
-  if (bootloader_mode)
+  if (bootloader_mode) {
     write_value = BOOTLOADER_COMMAND;
+    mxt->usb.sent_btlr_cmd = true;
+  }
 
   /* Store bus device list */
   ret = usb_find_bus_devices(mxt, bus_devices);
