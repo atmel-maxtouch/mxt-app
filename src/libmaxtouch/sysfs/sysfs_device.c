@@ -730,11 +730,11 @@ static int read_sysfs_byte(struct mxt_device *mxt, char *filename,
 }
 
 //******************************************************************************
-/// \brief  Set debug irq state
+/// \brief  Reset chip using mxt_reset sysfs file
 /// \param  mxt Device context
-/// \param  debug_state true = irq enabled, false = irq disabled
+/// \param  none
 /// \return #mxt_rc
-int sysfs_reset_chip(struct mxt_device *mxt, bool reset_chip)
+int sysfs_reset_chip(struct mxt_device *mxt)
 {
   int ret;
 
@@ -744,7 +744,7 @@ int sysfs_reset_chip(struct mxt_device *mxt, bool reset_chip)
     return MXT_ERROR_NO_DEVICE;
   }
 
-    ret = write_boolean_file(mxt, make_path(mxt, "mxt_reset"), reset_chip);
+    ret = write_boolean_file(mxt, make_path(mxt, "mxt_reset"), true);
 
   return ret;
 }

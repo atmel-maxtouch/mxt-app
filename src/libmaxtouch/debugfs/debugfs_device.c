@@ -53,9 +53,7 @@ static char *debugfs_path(struct mxt_device *mxt, const char *filename)
   snprintf(mxt->debug_fs.tmp_path, mxt->debug_fs.dir_max,
            "%s%s", mxt->debug_fs.file_path, filename);
 
-  mxt_dbg(mxt->ctx, "Path: What is tmp_path %s", mxt->debug_fs.tmp_path);
-  mxt_dbg(mxt->ctx, "Path: What is file_path %s", mxt->debug_fs.file_path);
-  mxt_dbg(mxt->ctx, "Path: What is dir_max path %zu", mxt->debug_fs.dir_max);
+  mxt_dbg(mxt->ctx, "Path: tmp_path %s", mxt->debug_fs.tmp_path);
 
   return mxt->debug_fs.tmp_path;
 }
@@ -104,13 +102,13 @@ static int debugfs_rd_file(struct mxt_device *mxt, char *filename,
     return MXT_ERROR_IO;
   }
 
-  if (val == 89) { // ASCII 'Y'
+  if (val == 89 || val == 121 ) { // ASCII 'Y', 'y'
     *value = true;
-  } else if (val == 78) { //ASCII 'N'
+  } else if (val == 78 || val == 110) { //ASCII 'N', 'n'
     *value = false;
   } else {
     mxt_err(mxt->ctx, "Error reading value");
-    *value = true;
+    *value = false;
   }
 
   fclose(file);
@@ -370,8 +368,8 @@ int debugfs_scan(struct mxt_device *mxt)
   DIR *pDirectory;
   bool debug_irq_found = false;
   bool tx_seq_num_found = false;
+  bool crc_enabled_found = false;
   int ret;
-
 
   // Look in debugfs for files
   pDirectory = opendir(DEBUGFS_I2C_ROOT);
@@ -382,27 +380,28 @@ int debugfs_scan(struct mxt_device *mxt)
     if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
       continue; 
 
+    if (!strcmp(pEntry->d_name, "crc_enabled")){
+      mxt_dbg(mxt->ctx, "Found crc_enabled at %scrc_enabled", DEBUGFS_I2C_ROOT);
+      crc_enabled_found = true;
+    }
+
     if (!strcmp(pEntry->d_name, "debug_irq")) {
       mxt_dbg(mxt->ctx, "Found debug_irq at %sdebug_irq", DEBUGFS_I2C_ROOT);
       debug_irq_found = true;
-
     } 
 
     if (!strcmp(pEntry->d_name, "tx_seq_num")){
       mxt_dbg(mxt->ctx, "Found tx_seq_number at %stx_seq_num", DEBUGFS_I2C_ROOT);
       tx_seq_num_found = true;
     }
-
-     if (!strcmp(pEntry->d_name, "crc_enabled")){
-      mxt_dbg(mxt->ctx, "Found crc_enabled at %scrc_enabled", DEBUGFS_I2C_ROOT);
-    }
   }
 
-  if (debug_irq_found == true && tx_seq_num_found == true){
-    mxt->debug_fs.file_path = DEBUGFS_I2C_ROOT;
+  if (crc_enabled_found && debug_irq_found && tx_seq_num_found) {
 
+    mxt->debug_fs.file_path = DEBUGFS_I2C_ROOT;
     ret = MXT_SUCCESS;
-  } else{
+
+  } else {
     ret = MXT_ERROR_NO_DEVICE;
   }
 
