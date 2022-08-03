@@ -663,11 +663,11 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
         err = debugfs_set_tx_seq_num(mxt, 0x00);
         if (err)
           mxt_dbg(mxt->ctx, "Failed to set tx seq numer\n");
+      }
 
-        err = debugfs_set_irq(mxt, true);
+      err = debugfs_set_irq(mxt, true);
         if (err)
           mxt_dbg(mxt->ctx, "Could not enable IRQ");
-      }
     }
 
     mxt->mxt_crc.reset_triggered = false;
