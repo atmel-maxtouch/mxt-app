@@ -160,7 +160,7 @@ int debugfs_set_irq(struct mxt_device *mxt, bool enable)
     return MXT_ERROR_NO_DEVICE;
   }
 
-  ret = debugfs_set_debug_irq(mxt, enable);
+  ret = debugfs_set_debug_irq(mxt, enable); 
 
   if (ret){
     mxt_err(mxt->ctx, "Could not write to debug_irq file");
@@ -174,8 +174,14 @@ int debugfs_set_irq(struct mxt_device *mxt, bool enable)
     return MXT_ERROR_OBJECT_NOT_FOUND;
   }
 
-  if (value == enable)
+  if (value == enable) {
     return MXT_SUCCESS;
+  } else {
+    mxt_err(mxt->ctx, "Read value (%d) does not match expected (%d)", value, enable);
+    ret = MXT_INTERNAL_ERROR;
+  }
+
+  return ret;
 }
 
 //******************************************************************************
