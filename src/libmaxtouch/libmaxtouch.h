@@ -131,7 +131,7 @@ enum mxt_rc {
 enum mxt_device_type {
   E_SYSFS_I2C,
   E_SYSFS_SPI,
-  #ifdef HAVE_LIBUSB
+#ifdef HAVE_LIBUSB
   E_USB,
 #endif
   E_I2C_DEV,

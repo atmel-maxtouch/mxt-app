@@ -567,8 +567,6 @@ static int mxt_enter_bootloader_mode(struct flash_context *fw)
       ret = sysfs_set_bootloader(fw->mxt, true);
   }
 
-  mxt_free_device(fw->mxt);
-
   return MXT_SUCCESS;
 }
 
@@ -628,10 +626,12 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
     }
   }
 
-  ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
-  if (ret) {
-    mxt_info(fw.ctx, "Could not initialise chip");
-    return ret;
+  if (fw.mxt->conn->type == E_SYSFS_SPI) {
+    ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
+   if (ret) {
+      mxt_info(fw.ctx, "Could not initialise chip");
+      return ret;
+    }
   }
 
   ret = send_frames(&fw);

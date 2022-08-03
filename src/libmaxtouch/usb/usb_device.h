@@ -61,6 +61,8 @@ struct usb_device {
   int interface;
   bool bootloader;
   int report_id;
+  int address;
+  bool sent_btlr_cmd;
 };
 
 int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn);
