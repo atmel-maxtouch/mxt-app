@@ -702,7 +702,7 @@ static int read_sysfs_byte(struct mxt_device *mxt, char *filename,
                              uint16_t *value)
 {
   FILE *file;
-  char val[3];   //Minimum 3 to hold NULL/EOF value
+  char val[3];   //Minimum size of 3, holds two ASCII chars and one NULL/EOF char
   uint16_t dec_val;
   int ret;
   int i;
@@ -713,7 +713,7 @@ static int read_sysfs_byte(struct mxt_device *mxt, char *filename,
     return mxt_errno_to_rc(errno);
   }
 
-  ret = fread(val, sizeof(char), 6, file); 
+  ret = fread(val, sizeof(val[0]), (sizeof(val) / sizeof(val[0])), file); 
 
   if (ret < 0) {
    mxt_err(mxt->ctx, "Error reading files");
