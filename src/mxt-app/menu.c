@@ -333,7 +333,7 @@ int mxt_menu(struct mxt_device *mxt)
   bool exit_loop = false;
   int ret;
 
-  printf("Command line tool for Atmel maXTouch chips version: %s\n\n",
+  printf("\nCommand line tool for Atmel maXTouch chips version: %s\n\n",
          MXT_VERSION);
 
   while(!exit_loop) {

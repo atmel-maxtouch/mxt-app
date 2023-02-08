@@ -242,7 +242,6 @@ int mxt_menu(struct mxt_device *mxt);
 uint8_t self_test_main_menu(struct mxt_device *mxt);
 int run_self_tests(struct mxt_device *mxt, uint8_t cmd, bool type);
 uint8_t self_test_t10_menu(struct mxt_device *mxt);
-int mxt_serial_data_upload(struct mxt_device *mxt, const char *filename, uint16_t datatype);
 int print_raw_messages(struct mxt_device *mxt, int timeout, uint16_t object_type);
 int print_raw_messages_t44(struct mxt_device *mxt);
 void print_t6_status(uint8_t status);

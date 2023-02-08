@@ -1,3 +1,3 @@
 [submodule "lib/libusbdroid/code"]
 	path = lib/libusbdroid/code
-	url = https://github.com/ndyer/libusbdroid.git
+	url = https://github.com/atmel-maxtouch/libusbdroid.git

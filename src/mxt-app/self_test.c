@@ -160,7 +160,7 @@ static int self_test_handle_messages(struct mxt_device *mxt, uint8_t *msg,
   	  	  ret = MXT_CTE_TEST_FAILURE;
   	  	  break;
   	    case SIGNAL_LIMIT_FAILURE:
-  	  	  mxt_err(mxt->ctx, "Signal Limit relatd failure occurred");
+  	  	  mxt_err(mxt->ctx, "Signal Limit related failure occurred");
   	  	  mxt_err(mxt->ctx, "T%d instance[%d] failed signal limit test", msg[2], msg[3]);
   	  	  ret = MXT_ERROR_SELF_TEST_SIGNAL_LIMIT;
   	  	  break;

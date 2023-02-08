@@ -148,8 +148,11 @@ int mxt_store_golden_refs(struct mxt_device *mxt)
     return ret;
 
   addr = mxt_get_object_address(mxt, SPT_GOLDENREFERENCES_T66, 0);
-  if (addr == OBJECT_NOT_FOUND)
+
+  if (addr == OBJECT_NOT_FOUND) {
+    mxt_err(mxt->ctx, "T66 GOLDEN REFERENCES OBJECT NOT FOUND\n");
     return MXT_ERROR_OBJECT_NOT_FOUND;
+  }
 
   mxt_info(mxt->ctx, "Priming");
   ret = mxt_gr_run_command(mxt, addr, GR_FCALCMD_PRIME,

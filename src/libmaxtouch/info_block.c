@@ -96,6 +96,56 @@ int mxt_calculate_crc(struct libmaxtouch_ctx *ctx, uint32_t *crc_result,
   return MXT_SUCCESS;
 }
 
+static bool mxt_lookup_chips(struct mxt_device *mxt)
+{
+  struct mxt_id_info *id = mxt->info.id;
+  uint8_t family_id;
+  uint8_t variant_id;
+  bool is_chip_found = false;
+  
+  family_id = id->family;
+  variant_id = id->variant;
+  
+  switch (family_id) {
+    case 0xA6:
+      if (variant_id & 0x80) {
+        SET_BIT(mxt->mxt_enc.encryption_state, DEV_ENCRYPTED);
+        mxt_info(mxt->ctx, "Device is encrypted\n");
+        mxt->mxt_enc.enc_blocksize = 0x30;
+      } else {
+        CLEAR_BIT(mxt->mxt_enc.encryption_state, DEV_ENCRYPTED);
+        mxt_dbg(mxt->ctx, "Device is unencrypted\n");
+      }
+
+      is_chip_found = true;
+
+      switch (variant_id & 0x80) {
+        case 0x14: //"336UD-HA"
+          mxt_info(mxt->ctx, "Found mXT366UD-HA\n");
+          break;
+        case 0x15: //"640UD-HA"
+          mxt_info(mxt->ctx, "Found mXT640UD-HA\n");
+          break;
+        case 0x16: //"448UD-HA"
+          mxt_info(mxt->ctx, "Found mXT448UD-HA\n");
+          break;
+        case 0x1C: //"336UD-002"
+          mxt_info(mxt->ctx, "Found mXT336UD-002\n");
+          break;
+        case 0x1D: //"228UD-002"
+          mxt_info(mxt->ctx, "Found mXT288UD-002\n");
+          break;
+      }
+
+      break;
+
+    default:
+      break;
+  }
+
+  return is_chip_found;
+}
+
 /*!
  * @brief  Reads the information block from the chip.
  * @return #mxt_rc
@@ -128,7 +178,7 @@ int mxt_read_info_block(struct mxt_device *mxt)
 
       ret = debugfs_get_crc_enabled(mxt, &crc_flag);
       if (ret)
-        mxt_err(mxt->ctx, "Could not get crc_enabled flag");
+        mxt_err(mxt->ctx, "Could not get crc_enable flag");
 
       if (crc_flag)
         mxt->mxt_crc.crc_enabled = true;
@@ -302,6 +352,30 @@ void mxt_display_chip_info(struct mxt_device *mxt)
       mxt_dbg(mxt->ctx, "T144 Object not Found\n");
     } else{
       mxt->mxt_crc.crc_enabled = true;
+    }
+
+    mxt->mxt_dev.t38_addr = mxt_get_object_address(mxt, SPT_USERDATA_T38, 0);
+
+    if (mxt->mxt_dev.t38_addr == OBJECT_NOT_FOUND) {
+      mxt_info(mxt->ctx, "T38 Object not Found\n");
+    } else {
+      mxt->mxt_dev.t38_size = mxt_get_object_size(mxt, SPT_USERDATA_T38);
+    }
+
+    switch (id->family) {
+      case 0xA6:
+      if (id->variant & 0x80) {
+        SET_BIT(mxt->mxt_enc.encryption_state, DEV_ENCRYPTED);
+        mxt_info(mxt->ctx, "Msbit is set: Device is encrypted\n");
+        mxt->mxt_enc.enc_blocksize = 0x30;
+      } else {
+        CLEAR_BIT(mxt->mxt_enc.encryption_state, DEV_ENCRYPTED);
+      }
+
+      break;
+
+    default:
+      break;
     }
 }
 

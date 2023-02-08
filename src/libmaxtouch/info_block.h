@@ -27,8 +27,15 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
-
+#include <stdio.h>
 #include <stdint.h>
+#include <string.h>
+#include <stdint.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <limits.h>
 
 struct mxt_device;
 struct libmaxtouch_ctx;
@@ -36,6 +43,25 @@ struct libmaxtouch_ctx;
 #define MXT_INSTANCES(o) ((uint16_t)((o).instances_minus_one) + 1)
 #define MXT_SIZE(o) ((uint16_t)((o).size_minus_one) + 1)
 #define MXT_OBJECT_SIZE_MAX 256
+
+/* Define macros */
+#define CHECK_BIT(var, pos) (((unsigned int)(var) >> (pos)) & 1)
+#define SET_BIT(var, pos) (var |= (1U << pos))
+#define CLEAR_BIT(var, pos) (var &= (~(1U<< pos)))
+
+/* T2 object offsets */
+#define T2_PAYLOADCRC_OFFSET  0x02
+#define T2_ENCKEYCRC_OFFSET   0x05
+
+/* T2 status bits */
+#define CONFIGENCEN     0x02
+#define MSGENCEN        0x04
+
+/* Bit position, use with check, set and clear bit macros */
+#define CFG_ENCRYPTED   0x00
+#define DEV_ENCRYPTED   0x01
+#define MSG_ENCRYPTED   0x02
+
 
 /*! \brief Checksum element struct */
 struct mxt_raw_crc {
@@ -103,7 +129,6 @@ struct mxt_info {
   uint8_t max_report_id;
 };
 
-
 struct mxt_crc_device {
   bool crc_enabled;
   bool processing_msg;
@@ -123,6 +148,19 @@ struct mxt_report_id_map {
   uint8_t instance;      /*!< Instance number */
 };
 
+//******************************************************************************
+/// \brief T2 Encryption Context object
+struct mxt_enc_device {
+  uint16_t addr;
+  uint8_t enc_blocksize;
+  uint32_t enc_payloadcrc;
+  uint32_t enc_custkeycrc;
+  uint8_t encryption_state;
+  uint8_t enc_datasize;
+  uint8_t error_status;
+  bool enc_cfg_write;
+};
+
 /*! Object types */
 #define F_ENUM(x, y) x = y,
 #define F_SWITCH(x, y) case x: return ( #x );
@@ -130,7 +168,7 @@ struct mxt_report_id_map {
 #define OBJECT_LIST(f) \
   f(RESERVED_T0, 0) \
   f(RESERVED_T1, 1) \
-  f(DEBUG_DELTAS_T2, 2) \
+  f(GEN_ENCRYPTIONSTATUS_T2, 2) \
   f(DEBUG_REFERENCES_T3, 3) \
   f(DEBUG_SIGNALS_T4, 4) \
   f(GEN_MESSAGEPROCESSOR_T5, 5) \

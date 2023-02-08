@@ -182,6 +182,8 @@ struct mxt_device {
   struct mxt_report_id_map *report_id_map;
   char msg_string[255];
   struct mxt_crc_device mxt_crc;
+  struct mxt_enc_device mxt_enc;
+  struct i2c_dev_device mxt_dev;
 
   union {
     struct sysfs_device sysfs;
@@ -232,7 +234,8 @@ int mxt_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int c
 int mxt_msg_wait(struct mxt_device *mxt, int timeout_ms);
 int mxt_errno_to_rc(int errno_in);
 int mxt_report_all(struct mxt_device *mxt);
-int mxt_checkcrc(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, char *filename);
+int mxt_checkcrc(struct mxt_device *mxt, char *filename);
+int mxt_check_encryption(struct mxt_device *mxt);
 
 #ifdef __cplusplus
 }

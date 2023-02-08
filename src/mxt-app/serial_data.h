@@ -1,10 +1,10 @@
 #pragma once
 //------------------------------------------------------------------------------
-/// \file   i2c_dev_device.h
-/// \brief  headers for MXT device low level access via i2c-dev interface
-/// \author Nick Dyer
+/// \file   serial_data.h
+/// \brief  T68 Serial Data Header
+/// \author Michael Gong
 //------------------------------------------------------------------------------
-// Copyright 2011 Atmel Corporation. All rights reserved.
+// Copyright 2016 Atmel Corporation. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -27,29 +27,58 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
+
+
+#include <stdio.h>
+#include <string.h>
 #include <stdint.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <limits.h>
 
+#include "libmaxtouch/libmaxtouch.h"
+#include "libmaxtouch/info_block.h"
+#include "libmaxtouch/utilfuncs.h"
+#include "libmaxtouch/log.h"
 
-#define I2C_DEV_MAX_BLOCK 255
+#include "mxt_app.h"
+#include "buffer.h"
+
+#define T68_CTRL                   0
+#define T68_CTRL_ENABLE            (1 << 0)
+#define T68_CTRL_RPTEN             (1 << 1)
+#define T68_DATATYPE               3
+
+#define T68_CMD_NONE               0
+#define T68_CMD_START              1
+#define T68_CMD_CONTINUE           2
+#define T68_CMD_END                3
+
+#define T68_LENGTH                 5
+#define T68_DATA                   6
+
+#define T68_TIMEOUT                30
 
 //******************************************************************************
-/// \brief Device information for i2c-dev backend
-struct i2c_dev_conn_info {
-  int adapter;
-  int address;
+/// \brief T68 Serial Data Command Context object
+struct t68_ctx {
+  struct mxt_device *mxt;
+  struct libmaxtouch_ctx *lc;
+  const char *filename;
+  struct mxt_buffer buf;
+  uint32_t t68_object_id;
+  uint16_t t68_instance;
+  uint16_t t68_addr;
+  uint8_t t68_size;
+  uint16_t t68_cmd_addr;
+  uint16_t t68_data_size;
+  uint16_t t68_datatype;
+  uint16_t t68_length;
+  bool t68_last_frame;
+  uint32_t t68_checksum;
 };
 
-//******************************************************************************
-/// \brief Device parameters for i2c-dev usage
-struct i2c_dev_device {
-  uint16_t t38_addr;
-  uint16_t t38_size;
-};
-
-int i2c_dev_open(struct mxt_device *mxt);
-void i2c_dev_release(struct mxt_device *mxt);
-int i2c_dev_read_register(struct mxt_device *mxt, unsigned char *buf, int start_register, int count, size_t *bytes_transferred);
-int i2c_dev_write_register(struct mxt_device *mxt, unsigned char const *buf, int start_register, size_t count);
-int i2c_dev_write_crc(struct mxt_device *mxt, unsigned char const *buf, int start_register, size_t count);
-int i2c_dev_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count);
-int i2c_dev_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int count, size_t *bytes_transferred);
+int mxt_load_t68_payload(struct mxt_device *mxt, struct t68_ctx *ctx);
+int mxt_serial_data_upload(struct mxt_device *mxt, const char *filename, uint16_t datatype);

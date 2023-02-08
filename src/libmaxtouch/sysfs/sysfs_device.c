@@ -485,7 +485,7 @@ int sysfs_bootloader_write(struct mxt_device *mxt, unsigned const char *buf,
   int ret;
   size_t *bytes;
 
-  ret =  sysfs_write_register(mxt, buf, 0x0000, count);
+  ret =  sysfs_write_register(mxt, buf, 0x0000, count, 0);
 
   return ret;
 
@@ -546,10 +546,11 @@ close:
 /// \brief  Write register to MXT chip
 /// \return #mxt_rc
 int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf,
-                         int start_register, size_t count)
+                         int start_register, size_t count, size_t padding)
 {
   int fd = -ENODEV;
   int ret;
+  unsigned char *tbuf;
   size_t bytes_written;
 
   ret = open_device_file(mxt, &fd);
@@ -561,10 +562,30 @@ int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf,
     ret = mxt_errno_to_rc(errno);
     goto close;
   }
+  
+  tbuf = calloc((count + 2), sizeof(unsigned char));
+
+  /* Increase count by datasize if device is encrypted */
+  if (CHECK_BIT(mxt->mxt_enc.encryption_state, DEV_ENCRYPTED)) {
+    
+    /* Write config, encrypted obj; copy embedded datasize from buf to tbuf */
+    /* Write config, non-encrypted obj; zero tbuf, copy buf to */
+    /* TBD - Requires sync up with driver, verify */
+    if (mxt->mxt_enc.enc_cfg_write == false) {
+      tbuf[0] = 0x00;	/* TBD - don't need to do, zero already*/
+      tbuf[1] = 0x00;	/* TBD - don't need to do */
+      memcpy(&tbuf[2], buf, count);
+      count += 2;
+    } else {
+      memcpy(&tbuf[0], buf, count);
+    }
+  } else {
+    memcpy(&tbuf[0], buf, count);
+  }
 
   bytes_written = 0;
   while (bytes_written < count) {
-    ret = write(fd, buf+bytes_written, count - bytes_written);
+    ret = write(fd, tbuf+bytes_written, count - bytes_written);
     if (ret == 0) {
       ret = MXT_ERROR_IO;
       goto close;
@@ -580,6 +601,7 @@ int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf,
   ret = MXT_SUCCESS;
 
 close:
+  free(tbuf);
   close(fd);
 
   return ret;
@@ -1019,7 +1041,7 @@ int sysfs_get_bootloader(struct mxt_device *mxt, bool *value)
 /// \param  mxt Device context
 /// \param  value true (debug HA found) or false (HA not found)
 /// \return #mxt_rc
-int sysfs_get_crc_enabled(struct mxt_device *mxt, bool *value)
+int sysfs_get_crc_enable(struct mxt_device *mxt, bool *crc_state)
 {
   // Check device is initialised
   if (!mxt) {
@@ -1027,7 +1049,28 @@ int sysfs_get_crc_enabled(struct mxt_device *mxt, bool *value)
     return false;
   }
 
-  return read_boolean_file(mxt, make_path(mxt, "crc_enabled"), value);
+  return read_boolean_file(mxt, make_path(mxt, "crc_enable"), crc_state);
+}
+
+//******************************************************************************
+/// \brief  Set crc_enable flag
+/// \param  mxt Device context
+/// \param  crc_state; 
+/// true = HA protocol enabled, false = HA protocol disabled
+/// \return #mxt_rc
+int sysfs_set_crc_enable(struct mxt_device *mxt, bool crc_state)
+{
+  int ret;
+
+  // Check device is initialised
+  if (!mxt) {
+    mxt_err(mxt->ctx, "Device uninitialised");
+    return MXT_ERROR_NO_DEVICE;
+  }
+
+    ret = write_boolean_file(mxt, make_path(mxt, "crc_enable"), crc_state);
+
+  return ret;
 }
 
 //******************************************************************************

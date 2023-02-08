@@ -2,12 +2,12 @@
 
 TOPDIR=$(dirname "$0")/..
 
-if [ -z "$VERSION" ]
-then
-  VERSION=$(tr -d '\n' < "$TOPDIR/VERSION")
-elif [ -d "$TOPDIR/.git" ]
+if [ -d "$TOPDIR/.git" ]
 then
   VERSION=$(cd "$TOPDIR" && git describe --tags --dirty=-mod --always | sed s/^v//)
+elif [ -z "$VERSION" ]
+then
+  VERSION=$(tr -d '\n' < "$TOPDIR/VERSION")
 fi
 
 echo "$VERSION"

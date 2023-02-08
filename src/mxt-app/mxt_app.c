@@ -41,6 +41,7 @@
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/utilfuncs.h"
 #include "libmaxtouch/info_block.h"
+#include "serial_data.h"
 
 #include "broken_line.h"
 #include "sensor_variant.h"
@@ -116,8 +117,8 @@ static void print_usage(char *prog_name)
           "  -n [--count] COUNT         : read/write COUNT registers\n"
           "  -f [--format]              : format register output\n"
           "  -I [--instance] INSTANCE   : select object INSTANCE\n"
-          "  -r [--register] REGISTER   : start at REGISTER (offset when used with TYPE)\n"
           "  -T [--type] TYPE           : select object TYPE\n"
+          "  -r [--register] REGISTER   : start at REGISTER (offset when used with TYPE)\n"
           "  --zero                     : zero all configuration settings\n"
           "\n"
           "TCP socket commands:\n"
@@ -140,7 +141,7 @@ static void print_usage(char *prog_name)
           "  -t [--test]                : run all self tests\n"
           "  -tXX [--test=XX]           : run individual test, write XX to CMD register\n"
           "\n"
-          "T10 On-Deman Test command:\n"
+          "T10 On-Demand Test command:\n"
           "  --odtest                   : run all on-demand self tests\n"
           "\n"
           "T37 Diagnostic Data commands:\n"
@@ -293,7 +294,7 @@ int main (int argc, char *argv[])
       {"active-stylus-refs",    no_argument,       0, 0},
       {"bridge-server",    no_argument,       0, 'S'},
       {"test",             optional_argument, 0, 't'},
-      {"odtest",           no_argument,       0, 0},
+      {"odtest",           optional_argument, 0, 0},
       {"type",             required_argument, 0, 'T'},
       {"verbose",          required_argument, 0, 'v'},
       {"version",          no_argument,       0, 0},
@@ -468,6 +469,22 @@ int main (int argc, char *argv[])
               } 
           }
             cmd = CMD_OD_TEST;
+          } else {
+              print_usage(argv[0]);
+              return MXT_ERROR_BAD_INPUT;
+          }
+      } else if (!strcmp(long_options[option_index].name, "test")) { 
+        if (cmd == CMD_NONE) {
+          if (optarg) {
+            ret = mxt_convert_hex(optarg, &databuf, &count, sizeof(databuf));
+              if (ret) {
+                fprintf(stderr, "Hex convert error\n");
+                ret = MXT_ERROR_BAD_INPUT;
+              } else {
+                self_test_cmd = databuf;
+              } 
+          }
+            cmd = CMD_TEST;
           } else {
               print_usage(argv[0]);
               return MXT_ERROR_BAD_INPUT;
@@ -895,7 +912,7 @@ int main (int argc, char *argv[])
     break;
 
   case CMD_OD_TEST:
-    mxt_verb(ctx, "CMD_TEST");
+    mxt_verb(ctx, "CMD_OD_TEST");
     ret = run_self_tests(mxt, ondemand_test_cmd, 1);
     break;
 
@@ -987,7 +1004,7 @@ int main (int argc, char *argv[])
   case CMD_CRC_CHECK:
     mxt_verb(ctx, "CMD_CRC_CHECK");
     mxt_verb(ctx, "filename:%s", strbuf);
-    ret = mxt_checkcrc(ctx, mxt, strbuf);
+    ret = mxt_checkcrc(mxt, strbuf);
     break;
 
   case CMD_NONE:
@@ -1005,9 +1022,12 @@ int main (int argc, char *argv[])
   if (cmd == CMD_MESSAGES || (msgs_enabled && ret == MXT_SUCCESS)) {
     mxt_verb(ctx, "CMD_MESSAGES");
     mxt_verb(ctx, "msgs_timeout:%d", msgs_timeout);
+    
     // Support message filtering with -T
     if (cmd == CMD_MESSAGES && !msg_filter_type)
       msg_filter_type = object_type;
+
+    mxt_verb(ctx, "msg_filter_type:%d", msg_filter_type);
 
     ret = print_raw_messages(mxt, msgs_timeout, msg_filter_type);
   }

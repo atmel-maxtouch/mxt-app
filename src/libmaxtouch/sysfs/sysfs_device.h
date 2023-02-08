@@ -79,11 +79,12 @@ int sysfs_new_device(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn, c
 int sysfs_read_register(struct mxt_device *mxt, unsigned char *buf, int start_register, size_t count, size_t *bytes_transferred);
 int sysfs_bootloader_read(struct mxt_device *mxt, unsigned char *buf, int count);
 int sysfs_bootloader_write(struct mxt_device *mxt, unsigned const char *buf, int count);
-int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf, int start_register, size_t count);
+int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf, int start_register, size_t count, size_t padding);
 int sysfs_set_debug(struct mxt_device *mxt, bool debug_state);
 int sysfs_get_debug(struct mxt_device *mxt, bool *value);
 int sysfs_set_debug_irq(struct mxt_device *mxt, bool debug_state);
-int sysfs_get_crc_enabled(struct mxt_device *mxt, bool *value);
+int sysfs_get_crc_enable(struct mxt_device *mxt, bool *crc_state);
+int sysfs_set_crc_enable(struct mxt_device *mxt, bool crc_state);
 char *sysfs_get_directory(struct mxt_device *mxt);
 bool sysfs_has_debug_v2(struct mxt_device *mxt);
 char *sysfs_get_msg_string_v2(struct mxt_device *mxt);

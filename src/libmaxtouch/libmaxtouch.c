@@ -29,8 +29,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <poll.h>
 #include <errno.h>
 #include <unistd.h>
@@ -278,6 +276,11 @@ int mxt_get_info(struct mxt_device *mxt)
 
   mxt_display_chip_info(mxt);
 
+  ret = mxt_check_encryption(mxt);
+  if (ret) {
+    mxt_warn(mxt->ctx, "Failed to get encryption status");
+  }
+
   return MXT_SUCCESS;
 }
 
@@ -351,13 +354,14 @@ static int mxt_read_register_block(struct mxt_device *mxt, uint8_t *buf,
   case E_SYSFS_SPI:  
   case E_SYSFS_I2C:
 
-//Stop the handling of interrupts in driver
-  if (mxt->mxt_crc.crc_enabled == true) {
-    err = sysfs_set_debug_irq(mxt, false);
+  //Stop the handling of interrupts in driver
+    if (mxt->mxt_crc.crc_enabled == true) {
+      err = sysfs_set_debug_irq(mxt, false);
     
-    if (err)
-      mxt_dbg(mxt->ctx, "Failed to disable debug_irq");
-  }
+      if (err) {
+        mxt_dbg(mxt->ctx, "Failed to disable debug_irq");
+      }
+    }
 
     ret = sysfs_read_register(mxt, buf, start_register, count, bytes);
 
@@ -456,7 +460,7 @@ int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf,
         mxt_dbg(mxt->ctx, "Failed to disable debug_irq");
     }
 
-    ret = sysfs_write_register(mxt, buf, start_register, count);
+    ret = sysfs_write_register(mxt, buf, start_register, count, 0);
 
     if (mxt->mxt_crc.crc_enabled == true) {
       if (mxt->mxt_crc.reset_triggered == false) {
@@ -511,7 +515,7 @@ int mxt_write_bytes(struct mxt_device *mxt, uint8_t const *buf,
   switch (mxt->conn->type) {
   case E_SYSFS_SPI:
   case E_SYSFS_I2C:
-    ret = sysfs_write_register(mxt, buf, start_register, count);
+    ret = sysfs_write_register(mxt, buf, start_register, count, 0);
     break;
 
   case E_I2C_DEV:
@@ -727,6 +731,7 @@ static int mxt_send_flash_command(struct mxt_device *mxt, bool bootloader_mode, 
 
 //******************************************************************************
 /// \brief  Restart the maxtouch chip, in normal or bootloader mode
+/// \ para reset_time_ms - Enter time in ms, if 0 
 /// \return 0 = success, negative = fail
 int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode, uint16_t reset_time_ms)
 {
@@ -856,10 +861,8 @@ int mxt_backup_config(struct mxt_device *mxt, uint8_t backup_command)
     return MXT_ERROR_OBJECT_NOT_FOUND;
 
   /* Write to command processor register to perform command */
-  ret = mxt_write_register
-        (
-          mxt, &backup_command, t6_addr + MXT_T6_BACKUPNV_OFFSET, 1
-        );
+  ret = mxt_write_register(mxt, &backup_command, 
+    t6_addr + MXT_T6_BACKUPNV_OFFSET, 1);
 
   if (ret == MXT_SUCCESS)
     mxt_info(mxt->ctx, "Backed up settings to the non-volatile memory");
