@@ -278,7 +278,7 @@ int mxt_get_info(struct mxt_device *mxt)
 
   ret = mxt_check_encryption(mxt);
   if (ret) {
-    mxt_warn(mxt->ctx, "Failed to get encryption status");
+    mxt_dbg(mxt->ctx, "Failed to get encryption status");
   }
 
   return MXT_SUCCESS;

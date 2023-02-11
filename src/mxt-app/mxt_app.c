@@ -212,6 +212,7 @@ int main (int argc, char *argv[])
   uint8_t instance = 0;
   uint8_t verbose = 2;
   uint16_t t37_frames = 1;
+  uint8_t t37_file_attr = 0;   /* 0 - write, 1 - append */
   uint8_t t37_mode = DELTAS_MODE;
   bool format = false;
   uint16_t port = 4000;
@@ -258,6 +259,7 @@ int main (int argc, char *argv[])
       {"help",             no_argument,       0, 'h'},
       {"info",             no_argument,       0, 'i'},
       {"instance",         required_argument, 0, 'I'},
+      {"file-attr",        required_argument, 0, 0},
       {"load",             required_argument, 0, 0},
       {"save",             required_argument, 0, 0},
       {"messages",         optional_argument, 0, 'M'},
@@ -555,6 +557,8 @@ int main (int argc, char *argv[])
         strncpy(strbuf2, optarg, sizeof(strbuf2));
       } else if (!strcmp(long_options[option_index].name, "frames")) {
         t37_frames = strtol(optarg, NULL, 0);
+      } else if (!strcmp(long_options[option_index].name, "file-attr")) {
+        t37_file_attr = strtol(optarg, NULL, 0);
       } else if (!strcmp(long_options[option_index].name, "references")) {
         t37_mode = REFS_MODE;
       } else if (!strcmp(long_options[option_index].name, "self-cap-signals")) {
@@ -569,6 +573,8 @@ int main (int argc, char *argv[])
         t37_mode = KEY_REFS_MODE;		  
       } else if (!strcmp(long_options[option_index].name, "key-array-signals")) {
         t37_mode = KEY_SIGS_MODE;		   
+      } else if (!strcmp(long_options[option_index].name, "key-array-raw_sigs")) {
+        t37_mode = KEY_RAW_SIGS_MODE;      
       } else if (!strcmp(long_options[option_index].name, "active-stylus-deltas")) {
         t37_mode = AST_DELTAS;
       } else if (!strcmp(long_options[option_index].name, "active-stylus-refs")) {
@@ -579,7 +585,7 @@ int main (int argc, char *argv[])
         printf("mxt-app %s%s\n", MXT_VERSION, ENABLE_DEBUG ? " DEBUG":"");
         return MXT_SUCCESS;
       } else {
-        fprintf(stderr, "Unknown option %s\n",
+        fprintf(stderr, "Unkn-aown option %s\n",
                 long_options[option_index].name);
       }
       break;
@@ -968,7 +974,8 @@ int main (int argc, char *argv[])
     mxt_verb(ctx, "CMD_DEBUG_DUMP");
     mxt_verb(ctx, "mode:%u", t37_mode);
     mxt_verb(ctx, "frames:%u", t37_frames);
-    ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames, instance, format);
+    mxt_verb(ctx, "file_attr:%u", t37_file_attr);
+    ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames, instance, format, t37_file_attr);
     break;
 
   case CMD_ZERO_CFG:
