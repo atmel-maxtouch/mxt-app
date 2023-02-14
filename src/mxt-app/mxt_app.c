@@ -579,13 +579,15 @@ int main (int argc, char *argv[])
         t37_mode = AST_DELTAS;
       } else if (!strcmp(long_options[option_index].name, "active-stylus-refs")) {
         t37_mode = AST_REFS;
+      } else if (!strcmp(long_options[option_index].name, "all-deltas")) {
+        t37_mode = ALL_DELTAS;
       } else if (!strcmp(long_options[option_index].name, "block-size")) {
         i2c_block_size = atoi(optarg);
       } else if (!strcmp(long_options[option_index].name, "version")) {
         printf("mxt-app %s%s\n", MXT_VERSION, ENABLE_DEBUG ? " DEBUG":"");
         return MXT_SUCCESS;
       } else {
-        fprintf(stderr, "Unkn-aown option %s\n",
+        fprintf(stderr, "Unknown option %s\n",
                 long_options[option_index].name);
       }
       break;
@@ -975,7 +977,12 @@ int main (int argc, char *argv[])
     mxt_verb(ctx, "mode:%u", t37_mode);
     mxt_verb(ctx, "frames:%u", t37_frames);
     mxt_verb(ctx, "file_attr:%u", t37_file_attr);
-    ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames, instance, format, t37_file_attr);
+    if (t37_mode == ALL_DELTAS) {
+      //ret = mxt_debug_deltas(mxt, t37_mode, strbuf, t37_frames, instance, format, t37_file_attr);
+    } else {
+      ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames, instance, format, t37_file_attr);
+    }
+
     break;
 
   case CMD_ZERO_CFG:

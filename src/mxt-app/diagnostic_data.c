@@ -49,6 +49,7 @@
 #include "mxt_app.h"
 
 #define MAX_FILENAME_LENGTH     255
+#define file_template "data_%s.csv"
 
 //******************************************************************************
 /// \brief T37 Diagnostic Data object
@@ -171,14 +172,32 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
   int i, pass, num_keys;
   int num_frames;
 
-  if (ctx->fformat == false) {
-    ret = fprintf(ctx->hawkeye, "time,TIN,");
-    if (ret < 0)
-    return MXT_ERROR_IO;
-  }
+  switch(ctx->mode) {
+
+    case KEY_DELTAS_MODE:
+    case KEY_REFS_MODE:
+    case KEY_SIGS_MODE:
+    case KEY_RAW_SIGS_MODE:
+      if (ctx->fformat == false) {
+        ret = fprintf(ctx->hawkeye, "TIME(0-0),");
+        if (ret < 0)
+        return MXT_ERROR_IO;
+      }
+
+      break;
+
+    default:
+
+      if (ctx->fformat == false) {
+        ret = fprintf(ctx->hawkeye, "time,TIN,");
+        if (ret < 0)
+        return MXT_ERROR_IO;
+      }
+
+      break;
+    }
 
   if (ctx->self_cap) {
-
     /* TBD - make global if possible */
     ret = mxt_read_touchscreen_info (ctx->mxt, &ts_info);
     if (ret != MXT_SUCCESS) {
@@ -332,22 +351,29 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
       switch (ctx->mode) {
       default:
       case KEY_DELTAS_MODE:
-        mode = "_deltas";
+        mode = "_Delta";
         break;
       case KEY_REFS_MODE:
-        mode = "_refs";
+        mode = "_Ref";
         break;
       case KEY_SIGS_MODE:
-        mode = "_sigs";
+        mode = "_Sig";
         break;
       case KEY_RAW_SIGS_MODE:
-        mode = "_raw_s";
+        mode = "_Sig_raw";
       }
       
       num_keys = ctx->key_buf[pass];
       
-      for (i = 0; i < num_keys; i++) {      
-        ret = fprintf(ctx->hawkeye, "Key_%d%s_%d,", i, mode, pass);
+      for (i = 0; i < num_keys; i++) {    
+        mxt_info(ctx->lc, "i= %d", i);
+
+        if (i == num_keys-1)
+          ret = fprintf(ctx->hawkeye, "Key%d%s[%d](%d-%d)", i, mode, pass, (pass+1), i);
+        else {
+          ret = fprintf(ctx->hawkeye, "Key%d%s[%d](%d-%d),", i, mode, pass, (pass+1), i);
+        }
+
         
         if (ret < 0)
           return MXT_ERROR_IO;
@@ -555,7 +581,17 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
   struct mxt_t15_info *mxt_key = NULL;
   struct mxt_touchscreen_info *ts_info = NULL;
   
-  if (ctx->fformat == false) {
+
+  switch(ctx->mode) {
+
+    case KEY_DELTAS_MODE:
+    case KEY_REFS_MODE:
+    case KEY_SIGS_MODE:
+    case KEY_RAW_SIGS_MODE:
+      break;
+
+    default:
+
      ret = mxt_print_timestamp(ctx->hawkeye, false);
      if (ret)
         return ret;
@@ -564,6 +600,8 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
      ret = fprintf(ctx->hawkeye, ",%u,", ctx->frame);
      if (ret < 0)
        return MXT_ERROR_IO;
+
+      break;
   }
 
   if ((ctx->self_cap)||(ctx->active_stylus)) {
@@ -608,7 +646,7 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
    //   int pass_ofs = (ctx->y_size + ctx->x_size) * pass;
 
    //   for (y = 0; y < ctx->y_size; y++) {
-    //    value = (int16_t)ctx->data_buf[pass_ofs + y];
+    //    value = (int16_t)ictx->data_buf[pass_ofs + y];
     //    ret = fprintf(ctx->hawkeye, "%d,",
      //                 (ctx->mode == SELF_CAP_DELTAS) ? (int16_t)value : value);
      //   if (ret < 0)
@@ -629,11 +667,19 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
       }
 
       for (i = 0; i < totalkeys; i++) {
-        value = (int16_t)ctx->data_buf[i];
-        ret = fprintf(ctx->hawkeye, "%d,",
+        if (i == totalkeys - 1) {
+          value = (int16_t)ctx->data_buf[i];
+          ret = fprintf(ctx->hawkeye, "%d",
+                        (ctx->mode == KEY_DELTAS_MODE) ? (int16_t)value : value);
+          if (ret < 0)
+            return MXT_ERROR_IO;
+        } else {
+            value = (int16_t)ctx->data_buf[i];
+            ret = fprintf(ctx->hawkeye, "%d,",
                       (ctx->mode == KEY_DELTAS_MODE) ? (int16_t)value : value);
-        if (ret < 0)
-          return MXT_ERROR_IO;
+            if (ret < 0)
+            return MXT_ERROR_IO;
+        }
       }
 
       ret = fprintf(ctx->hawkeye, "\n");
