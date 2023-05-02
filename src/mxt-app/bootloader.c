@@ -626,13 +626,11 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
     }
   }
 
-  if (fw.mxt->conn->type == E_SYSFS_SPI) {
-    ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
-   if (ret) {
+  ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
+    if (ret) {
       mxt_info(fw.ctx, "Could not initialise chip");
       return ret;
     }
-  }
 
   ret = send_frames(&fw);
   if (ret)
