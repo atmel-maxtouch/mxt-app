@@ -45,11 +45,11 @@ do
   do
     case "$PIE" in
       0)
-        APP_PLATFORM="android-15"
+        APP_PLATFORM="android-19"
         PIE_SUFFIX=""
         ;;
       1)
-        APP_PLATFORM="android-16"
+        APP_PLATFORM="android-19"
         PIE_SUFFIX="-PIE"
         ;;
     esac
@@ -66,7 +66,7 @@ do
     done
   done
 
-  for ARCH in x86 32bit arm armhf
+  for ARCH in x86 32bit arm armhf aarch64
   do
     case "$ARCH" in
       32bit)
@@ -81,6 +81,11 @@ do
         ;;
       armhf)
         AUTOGEN_OPTIONS+=" --host=arm-linux-gnueabihf"
+        EXTRA_CFLAGS=""
+        LDFLAGS=""
+        ;;
+      aarch64)
+        AUTOGEN_OPTIONS+=" --host=aarch64-linux-gnu"
         EXTRA_CFLAGS=""
         LDFLAGS=""
         ;;
