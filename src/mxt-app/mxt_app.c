@@ -212,6 +212,7 @@ int main (int argc, char *argv[])
   uint8_t instance = 0;
   uint8_t verbose = 2;
   uint16_t t37_frames = 1;
+  uint8_t t37_file_attr = 0;   /* 0 - write, 1 - append */
   uint8_t t37_mode = DELTAS_MODE;
   bool format = false;
   uint16_t port = 4000;
@@ -251,13 +252,14 @@ int main (int argc, char *argv[])
       {"t68-file",         required_argument, 0, 0},
       {"t68-datatype",     required_argument, 0, 0},
       {"msg-filter",       required_argument, 0, 'F'},
-      {"format",           no_argument,       0, 'f'},
+      {"format",           required_argument, 0, 'f'},
       {"flash",            required_argument, 0, 0},
       {"firmware-version", required_argument, 0, 0},
       {"frames",           required_argument, 0, 0},
       {"help",             no_argument,       0, 'h'},
       {"info",             no_argument,       0, 'i'},
       {"instance",         required_argument, 0, 'I'},
+      {"file-attr",        required_argument, 0, 0},
       {"load",             required_argument, 0, 0},
       {"save",             required_argument, 0, 0},
       {"messages",         optional_argument, 0, 'M'},
@@ -304,7 +306,7 @@ int main (int argc, char *argv[])
     };
 
     c = getopt_long(argc, argv,
-                    "C:d:D:fF:ghiI:M::m:n:p:qRr:St::T:v:W",
+                    "C:d:D:f:F:ghiI:M::m:n:p:qRr:St::T:v:W",
                     long_options, &option_index);
 
     if (c == -1)
@@ -555,6 +557,8 @@ int main (int argc, char *argv[])
         strncpy(strbuf2, optarg, sizeof(strbuf2));
       } else if (!strcmp(long_options[option_index].name, "frames")) {
         t37_frames = strtol(optarg, NULL, 0);
+      } else if (!strcmp(long_options[option_index].name, "file-attr")) {
+        t37_file_attr = strtol(optarg, NULL, 0);
       } else if (!strcmp(long_options[option_index].name, "references")) {
         t37_mode = REFS_MODE;
       } else if (!strcmp(long_options[option_index].name, "self-cap-signals")) {
@@ -697,7 +701,9 @@ int main (int argc, char *argv[])
       return MXT_SUCCESS;
 
     case 'f':
-      format = true;
+      if (optarg) {
+        format = strtol(optarg, NULL, 0);
+      }
       break;
 
     case 'I':
@@ -968,7 +974,7 @@ int main (int argc, char *argv[])
     mxt_verb(ctx, "CMD_DEBUG_DUMP");
     mxt_verb(ctx, "mode:%u", t37_mode);
     mxt_verb(ctx, "frames:%u", t37_frames);
-    ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames, instance, format);
+    ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames, instance, format, t37_file_attr);
     break;
 
   case CMD_ZERO_CFG:
