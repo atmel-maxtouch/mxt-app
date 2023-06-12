@@ -659,6 +659,21 @@ static int get_num_frames(uint16_t *frames)
 }
 
 //******************************************************************************
+/// \brief Get file attr, 0 - write, 1 - append
+/// \return #mxt_rc
+static int get_file_attr(uint16_t *file_attr)
+{
+  printf("Enter file attribute 0 - Write to file, 1 - Append to file: ");
+
+  if (scanf("%hu", file_attr) == EOF) {
+    fprintf(stderr, "Could not handle the input, exiting");
+    return MXT_ERROR_BAD_INPUT;
+  }
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
 /// \brief Initialise parameters and allocate buffers
 /// \return #mxt_rc
 int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
@@ -947,7 +962,7 @@ static int mxt_read_diagnostic_data_t15key (struct t37_ctx* ctx)
 /// \brief Retrieve data from the T37 Diagnostic Data object
 /// \return #mxt_rc
 int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
-                   uint16_t frames, uint16_t instance, uint16_t format)
+                   uint16_t frames, uint16_t instance, uint16_t format, uint16_t file_attr)
 {
   struct t37_ctx ctx;
   time_t t1;
@@ -958,6 +973,7 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   ctx.mxt = mxt;
   ctx.mode = mode;
   ctx.fformat = format;
+  ctx.file_attr = file_attr;
 
   if (frames == 0) {
     mxt_warn(ctx.lc, "Warning: Defaulting to 1 frame");
@@ -983,8 +999,14 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   
   ctx.instance = instance;
 
+  /* Append or overwrite check */
   /* Open Hawkeye output file */
-  ctx.hawkeye = fopen(csv_file,"w");
+  if (ctx.file_attr == 1) {
+    ctx.hawkeye = fopen(csv_file, "a");
+  } else {
+    ctx.hawkeye = fopen(csv_file, "w");
+  }
+
   if (!ctx.hawkeye) {
     mxt_err(ctx.lc, "Failed to open file!");
     ret = MXT_ERROR_IO;
@@ -1006,7 +1028,7 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
       ret = mxt_read_diagnostic_data_ast(&ctx);
     } else if (ctx.t15_keyarray) {
       ret = mxt_read_diagnostic_data_t15key(&ctx);
-    } else {
+    } else { /* Mutual */
       ret = mxt_read_diagnostic_data_frame(mxt, &ctx);
     }
     if (ret)
@@ -1041,23 +1063,26 @@ static void mxt_dd_cmd(struct mxt_device *mxt, char menu_1, char menu_2, const c
   int ret;
   uint16_t instance = 0;
   uint16_t format = 0;
+  uint16_t file_attr = 0;
   
   ret = get_instance_num(&instance);
   
   ret = get_num_frames(&frames);
   
   ret = get_file_format(&format);
+
+  ret = get_file_attr(&file_attr);
  
   switch (menu_1) {
   case 'm':
     switch (menu_2) {
     case 'd':
       if (ret == MXT_SUCCESS)
-        mxt_debug_dump(mxt, DELTAS_MODE, csv_file, frames, instance, format);
+        mxt_debug_dump(mxt, DELTAS_MODE, csv_file, frames, instance, format, file_attr);
       break;
     case 'r':
       if (ret == MXT_SUCCESS)
-        mxt_debug_dump(mxt, REFS_MODE, csv_file, frames, instance, format);
+        mxt_debug_dump(mxt, REFS_MODE, csv_file, frames, instance, format, file_attr);
       break;
         
     default:
@@ -1069,11 +1094,11 @@ static void mxt_dd_cmd(struct mxt_device *mxt, char menu_1, char menu_2, const c
     switch (menu_2) {
     case 'd':
       if (ret == MXT_SUCCESS)
-        mxt_debug_dump(mxt, SELF_CAP_DELTAS, csv_file, frames, instance, format);
+        mxt_debug_dump(mxt, SELF_CAP_DELTAS, csv_file, frames, instance, format, file_attr);
       break;
     case 'r':
       if (ret == MXT_SUCCESS) 
-        mxt_debug_dump(mxt, SELF_CAP_REFS, csv_file, frames, instance, format);
+        mxt_debug_dump(mxt, SELF_CAP_REFS, csv_file, frames, instance, format, file_attr);
       break;
         
       default:
@@ -1085,15 +1110,15 @@ static void mxt_dd_cmd(struct mxt_device *mxt, char menu_1, char menu_2, const c
     switch (menu_2) {
     case 'd':
       if (ret == MXT_SUCCESS)
-        mxt_debug_dump(mxt, KEY_DELTAS_MODE, csv_file, frames, instance, format);
+        mxt_debug_dump(mxt, KEY_DELTAS_MODE, csv_file, frames, instance, format, file_attr);
       break;
     case 'r':
       if (ret == MXT_SUCCESS) 
-        mxt_debug_dump(mxt, KEY_REFS_MODE, csv_file, frames, instance, format);
+        mxt_debug_dump(mxt, KEY_REFS_MODE, csv_file, frames, instance, format, file_attr);
       break;
     case 's':
       if (ret == MXT_SUCCESS)
-        mxt_debug_dump(mxt, KEY_SIGS_MODE, csv_file, frames, instance, format); 
+        mxt_debug_dump(mxt, KEY_SIGS_MODE, csv_file, frames, instance, format, file_attr); 
       break;
         
       default:
@@ -1105,11 +1130,11 @@ static void mxt_dd_cmd(struct mxt_device *mxt, char menu_1, char menu_2, const c
     switch (menu_2) {
     case 'd':
       if (ret == MXT_SUCCESS)
-        mxt_debug_dump(mxt, AST_DELTAS, csv_file, frames, instance, format);
+        mxt_debug_dump(mxt, AST_DELTAS, csv_file, frames, instance, format, file_attr);
       break;
     case 'r':
       if (ret == MXT_SUCCESS) 
-        mxt_debug_dump(mxt, AST_REFS, csv_file, frames, instance, format);
+        mxt_debug_dump(mxt, AST_REFS, csv_file, frames, instance, format, file_attr);
       break;
         
       default:
