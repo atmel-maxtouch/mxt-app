@@ -172,31 +172,20 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
   int i, pass, num_keys;
   int num_frames;
 
-  switch(ctx->mode) {
+  /* Time header adjustment for MTS - Graphical viewer */
 
-    case KEY_DELTAS_MODE:
-    case KEY_REFS_MODE:
-    case KEY_SIGS_MODE:
-    case KEY_RAW_SIGS_MODE:
-      if (ctx->fformat == false) {
+  if (ctx->fformat == false) {
+    if (ctx->t15_keyarray) {
         ret = fprintf(ctx->hawkeye, "TIME(0-0),");
-        if (ret < 0)
-        return MXT_ERROR_IO;
-      }
-
-      break;
-
-    default:
-
-      if (ctx->fformat == false) {
+    } else {
         ret = fprintf(ctx->hawkeye, "time,TIN,");
-        if (ret < 0)
-        return MXT_ERROR_IO;
-      }
-
-      break;
     }
 
+    if (ret < 0)
+      return MXT_ERROR_IO;
+  }
+
+  /* Generate header based on mode */
   if (ctx->self_cap) {
     /* TBD - make global if possible */
     ret = mxt_read_touchscreen_info (ctx->mxt, &ts_info);
@@ -344,8 +333,7 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
       }
     }
 
-  } 
-  else if (ctx->t15_keyarray) {
+  } else if (ctx->t15_keyarray) {
     for (pass = 0; pass < ctx->passes; pass++) {
       const char *mode;
       switch (ctx->mode) {
@@ -868,10 +856,21 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
 {
   int ret, pass;
   struct mxt_id_info *id = ctx->mxt->info.id;
+  struct mxt_touchscreen_info *ts_info = NULL;
+
   struct mxt_t15_info *mxt_key_info;
   uint8_t instance = 0;
   uint8_t data;
   uint8_t buf_ofs;
+
+  /* TBD make global if possible */
+  /* Need info for 0xA7 chips that are configurable */
+  ret = mxt_read_touchscreen_info (ctx->mxt, &ts_info);
+  if (ret != MXT_SUCCESS) {
+    mxt_err(ctx->lc, "Read touchscreen info failed\n");
+    free(ts_info);
+    return MXT_INTERNAL_ERROR;
+  } 
 
   ctx->active_stylus = false;
   ctx->self_cap = false;
@@ -900,6 +899,13 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
       ctx->data_values = 27 * ctx->y_size;
       ctx->passes = 3;
       ctx->pages_per_pass = 8;
+    } else if (id->family == 0xA7 && id->variant == 0x00) {
+      ctx->x_size = ts_info[0].xsize;
+      ctx->y_size = ts_info[0].ysize;
+      ctx->data_values = ctx->x_size * ctx->y_size;
+      ctx->passes = 1;
+      ctx->pages_per_pass = (ctx->data_values * 2 + (ctx->page_size - 1)) /
+                            ctx->page_size;
     } else {
       ctx->x_size = id->matrix_x_size;
       ctx->y_size = id->matrix_y_size;
