@@ -59,6 +59,11 @@ struct mxt_conn_info;
 #define MXT_T6_RESERVED_OFFSET   0x04
 #define MXT_T6_DIAGNOSTIC_OFFSET 0x05
 
+/* T100 MULTITOUCHSCREEN Register offsets from T100 base address */
+
+#define MXT_T100_CALCFG     0x42
+
+
 /* Values to write to the command processor fields */
 #define RESET_COMMAND       0x01
 #define BOOTLOADER_COMMAND  0xA5

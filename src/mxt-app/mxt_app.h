@@ -165,6 +165,7 @@ struct t37_ctx {
   bool active_stylus;
   bool t15_keyarray;
   bool fformat;
+  bool p2p_enabled;
 
   int x_size;
   int y_size;

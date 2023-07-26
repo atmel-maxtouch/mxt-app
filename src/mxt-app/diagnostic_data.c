@@ -65,10 +65,20 @@ struct t37_diagnostic_data {
 static int get_objects_addr(struct t37_ctx *ctx)
 {
   int t6_addr;
+  int t100_addr;
 
   /* Obtain command processor's address */
   t6_addr = mxt_get_object_address(ctx->mxt, GEN_COMMANDPROCESSOR_T6, 0);
   if (t6_addr == OBJECT_NOT_FOUND) return MXT_ERROR_OBJECT_NOT_FOUND;
+
+  t100_addr = mxt_get_object_address(ctx->mxt, TOUCH_MULTITOUCHSCREEN_T100, 0);
+  
+  /* Check if P2P is enabled */
+  if (t100_addr == OBJECT_NOT_FOUND) {
+    return MXT_ERROR_OBJECT_NOT_FOUND;
+  } else {
+    ctx->p2p_enabled = (t100_addr + MXT_T100_CALCFG) & 0x01;
+  }
 
   /* T37 command address */
   ctx->diag_cmd_addr = t6_addr + MXT_T6_DIAGNOSTIC_OFFSET;
@@ -569,7 +579,6 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
   struct mxt_t15_info *mxt_key = NULL;
   struct mxt_touchscreen_info *ts_info = NULL;
   
-
   switch(ctx->mode) {
 
     case KEY_DELTAS_MODE:
@@ -697,8 +706,15 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
         for (y = 0; y < ts_info[pass].ysize; y++) {
           ofs = y + x * ts_info[pass].ysize;
           value = ctx->data_buf[ofs];
-          ret = fprintf(ctx->hawkeye, "%d,", 
-                          (ctx->mode == DELTAS_MODE) ? (int16_t)value : (int16_t)value);
+
+          if (!ctx->p2p_enabled) {
+            ret = fprintf(ctx->hawkeye, "%d,", 
+                          (ctx->mode == DELTAS_MODE) ? (int16_t)value : value);
+          } else {
+             ret = fprintf(ctx->hawkeye, "%d,", 
+                          (ctx->mode == DELTAS_MODE) ? (int16_t)value : (int16_t) value);
+          }
+          
           if (ret < 0)
             return MXT_ERROR_IO;
         }
@@ -769,9 +785,15 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
         
           for (x = 0; x < ts_info[pass].xsize; x++) {
             value = (int16_t)ctx->data_buf[y + data_ofs];
-   
-            ret = fprintf(ctx->hawkeye, "%d",
-                       (ctx->mode == DELTAS_MODE) ? (int16_t) value: (int16_t) value);
+              
+            if (!ctx->p2p_enabled) {
+              ret = fprintf(ctx->hawkeye, "%d",
+                        (ctx->mode == DELTAS_MODE) ? (int16_t) value: value);
+            } else {
+              ret = fprintf(ctx->hawkeye, "%d",
+                        (ctx->mode == DELTAS_MODE) ? (int16_t) value: (int16_t) value);
+            }
+
             if (ret < 0)
               return MXT_ERROR_IO;
             
