@@ -472,7 +472,7 @@ static int mxt_debug_insert_data_self_cap(struct t37_ctx *ctx)
   int i;
   int ofs;
   int pass_ofs = (ctx->y_size + ctx->x_size) * ctx->pass;
-  uint16_t val;
+  int val;
 
   for (i = 0; i < ctx->page_size; i += 2) {
     int data_pos = ctx->page * ctx->page_size/2 + i/2;
@@ -527,7 +527,7 @@ static int mxt_debug_insert_data_key_array(struct t37_ctx *ctx)
 static int mxt_debug_insert_data(struct t37_ctx *ctx)
 {
   int i;
-  uint16_t value;
+  int value;
   int ofs;
 
   for (i = 0; i < ctx->page_size; i += 2) {
@@ -698,7 +698,7 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
           ofs = y + x * ts_info[pass].ysize;
           value = ctx->data_buf[ofs];
           ret = fprintf(ctx->hawkeye, "%d,", 
-                          (ctx->mode == DELTAS_MODE) ? (int16_t)value : value);
+                          (ctx->mode == DELTAS_MODE) ? (int16_t)value : (int16_t)value);
           if (ret < 0)
             return MXT_ERROR_IO;
         }
@@ -771,7 +771,7 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
             value = (int16_t)ctx->data_buf[y + data_ofs];
    
             ret = fprintf(ctx->hawkeye, "%d",
-                       (ctx->mode == DELTAS_MODE) ? (int16_t) value: value);
+                       (ctx->mode == DELTAS_MODE) ? (int16_t) value: (int16_t) value);
             if (ret < 0)
               return MXT_ERROR_IO;
             
