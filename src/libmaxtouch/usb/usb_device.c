@@ -816,8 +816,10 @@ int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
       usb_bus = libusb_get_bus_number(devs[i]);
       usb_device = libusb_get_device_address(devs[i]);
 
-      if (!((curr_conn->usb.bus == usb_bus) && (curr_conn->usb.device == usb_device))) {
-        continue;
+      if (curr_conn->usb.bus != 0x00) {
+        if (!((curr_conn->usb.bus == usb_bus) && (curr_conn->usb.device == usb_device))) {
+          continue;
+        }
       }
 
       ctx->scan_count++;
