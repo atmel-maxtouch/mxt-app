@@ -599,7 +599,7 @@ static int usb_find_device(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt)
     usb_bus = libusb_get_bus_number(devs[i]);
     usb_device = libusb_get_device_address(devs[i]);
 
-     if (mxt->conn->usb.bus == usb_bus) {
+     if (mxt->conn->usb.bus == usb_bus && mxt->conn->usb.device == usb_device) {
       if (desc.idProduct == 0x6123) {
         mxt->usb.bridge_chip = true;
         mxt_dbg(mxt->ctx, "Found usb:%03d-%03d 5030 bridge chip",
@@ -773,7 +773,7 @@ retry:
 static bool usb_supported_pid_vid(struct libusb_device_descriptor desc)
 {
   return ((desc.idVendor == VENDOR_ID) &&
-          ((desc.idProduct == 0x211D) ||
+          ((desc.idProduct == 0x211D) || (desc.idProduct == 0x2119) ||
            (desc.idProduct >= 0x2126 && desc.idProduct <= 0x212D) ||
            (desc.idProduct >= 0x2135 && desc.idProduct <= 0x2139) ||
            (desc.idProduct >= 0x213A && desc.idProduct <= 0x21FC) ||
@@ -789,6 +789,9 @@ int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
   int ret, count, i;
   struct libusb_device **devs;
   int usb_bus, usb_device;
+  struct mxt_conn_info *curr_conn;
+
+  curr_conn  = *conn;
 
   ret = usb_initialise_libusb(ctx);
   if (ret)
@@ -812,6 +815,10 @@ int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
     if (usb_supported_pid_vid(desc)) {
       usb_bus = libusb_get_bus_number(devs[i]);
       usb_device = libusb_get_device_address(devs[i]);
+
+      if (!((curr_conn->usb.bus == usb_bus) && (curr_conn->usb.device == usb_device))) {
+        continue;
+      }
 
       ctx->scan_count++;
 
