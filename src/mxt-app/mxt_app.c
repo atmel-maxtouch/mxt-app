@@ -302,7 +302,7 @@ int main (int argc, char *argv[])
       {"zero",             no_argument,       0, 0},
       {"switch-parallel",  optional_argument, 0, 0},
       {"switch-fast",      optional_argument, 0, 0},
-      {"bridge-i2c-addr",  required_argument, 0, 0},
+      {"bridge-config",  required_argument, 0, 0},
       {0,                  0,                 0, 0}
     };
 
@@ -536,8 +536,19 @@ int main (int argc, char *argv[])
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
         }
-      } else if (!strcmp(long_options[option_index].name, "bridge-i2c-addr")) {
-        bi2c_addr = strtol(optarg, NULL, 0);
+      } else if (!strcmp(long_options[option_index].name, "bridge-config")) {
+        if (cmd == CMD_NONE) {        
+          cmd = CMD_BRIDGE_CONFIG;
+          if (sscanf(optarg, "%x", &conn->usb.b_i2c_addr) != 1) {
+            fprintf(stderr, "Invalid device string %s\n", optarg);
+            conn = mxt_unref_conn(conn);
+            print_usage(argv[0]);
+            return MXT_ERROR_BAD_INPUT;
+          }
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
       } else if (!strcmp(long_options[option_index].name, "checksum")) {
         if (cmd == CMD_NONE) {
           cmd = CMD_CRC_CHECK;
@@ -964,6 +975,11 @@ int main (int argc, char *argv[])
   case CMD_SWITCH_FAST:
     mxt_verb(ctx, "CMD_SWITCH_FAST");
     ret = usb_switch_fast_mode(mxt, conn);
+    break;
+
+  case CMD_BRIDGE_CONFIG:
+    mxt_verb(ctx, "CMD_BRIDGE_CONFIG");
+    ret = bridge_configure(mxt);
     break;
 
   case CMD_MESSAGES:

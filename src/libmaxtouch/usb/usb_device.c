@@ -513,7 +513,7 @@ static int bridge_set_fs_mode(struct mxt_device *mxt)
 //******************************************************************************
 /// \brief  Set the parameters for the comms mode on USB5030
 /// \return #mxt_rc
-static int bridge_configure(struct mxt_device *mxt)
+int bridge_configure(struct mxt_device *mxt)
 {
   unsigned char pkt[mxt->usb.ep1_in_max_packet_size];
   int buf = 0;
