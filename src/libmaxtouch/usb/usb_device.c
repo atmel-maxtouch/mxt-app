@@ -52,6 +52,9 @@
 #define CMD_CONFIG           0x80
 #define CMD_CONFIG_I2C_RETRY_ON_NAK (1 << 7)
 #define CMD_FIND_IIC_ADDRESS 0xE0
+#define CMD_FAST_MODE        0xFA
+#define CMD_PARALLEL_MODE    0xFE
+#define SAVE_CONFIGS_EEPROM   0xEA
 
 /* mXT command status codes */
 #define COMMS_STATUS_OK          0x00
@@ -374,7 +377,7 @@ static int usb_scan_for_qrg_if(struct mxt_device *mxt)
     return usberror_to_rc(ret);
 
   if (!strncmp(buf, qrg_if, sizeof(qrg_if))) {
-    mxt_dbg(mxt->ctx, "Found %s", qrg_if);
+    mxt_verb(mxt->ctx, "Found %s", qrg_if);
     mxt->usb.interface = 0;
     return MXT_SUCCESS;
   } else {
@@ -406,14 +409,14 @@ static int usb_scan_for_control_if(struct mxt_device *mxt,
 
         if (ret > 0) {
           if (!strncmp(buf, control_if, sizeof(control_if))) {
-            mxt_dbg(mxt->ctx, "Found %s at interface %d altsetting %d",
+            mxt_verb(mxt->ctx, "Found %s at interface %d altsetting %d",
                 buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
 
             mxt->usb.bootloader = false;
             mxt->usb.interface = altsetting->bInterfaceNumber;
             return MXT_SUCCESS;
           } else if (!strncmp(buf, bootloader_if, sizeof(bootloader_if))) {
-            mxt_dbg(mxt->ctx, "Found %s at interface %d altsetting %d",
+            mxt_verb(mxt->ctx, "Found %s at interface %d altsetting %d",
                     buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
       
             mxt->usb.bootloader = true;
@@ -426,7 +429,7 @@ static int usb_scan_for_control_if(struct mxt_device *mxt,
 
             if (ret > 0) {
                 if (!strncmp(buf, bootloader_if_b, sizeof(bootloader_if_b))) {
-                  mxt_dbg(mxt->ctx, "Found %s at interface %d altsetting %d",
+                  mxt_verb(mxt->ctx, "Found %s at interface %d altsetting %d",
                       buf, altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
 
                   mxt->usb.bootloader = true;
@@ -461,8 +464,10 @@ static int usb_scan_device_configs(struct mxt_device *mxt)
 {
   int i, ret;
 
-  if (mxt->usb.bridge_chip && mxt->usb.desc.bNumConfigurations == 1) {
-    return usb_scan_for_qrg_if(mxt);
+  if (mxt->usb.desc.idProduct != 0x2119) {
+    if (mxt->usb.bridge_chip && mxt->usb.desc.bNumConfigurations == 1) {
+      return usb_scan_for_qrg_if(mxt);
+    }
   }
 
   /* Scan through interfaces */
@@ -521,6 +526,9 @@ static int bridge_configure(struct mxt_device *mxt)
     buf = CMD_CONFIG_I2C_RETRY_ON_NAK;
   }
 
+  if (mxt->conn->usb.b_i2c_addr != 0x00)
+    buf = mxt->conn->usb.b_i2c_addr;
+
   /* Command packet */
   memset(&pkt, 0, sizeof(pkt));
   pkt[0] = CMD_CONFIG;
@@ -531,6 +539,22 @@ static int bridge_configure(struct mxt_device *mxt)
   pkt[5] = 25 * 8;
 
   mxt_verb(mxt->ctx, "Sending CMD_CONFIG");
+
+  return usb_transfer(mxt, &pkt, sizeof(pkt), &pkt, sizeof(pkt), false);
+}
+
+//******************************************************************************
+/// \brief  Save config parameters
+/// \return #mxt_rc
+static int bridge_save_config(struct mxt_device *mxt)
+{
+  unsigned char pkt[mxt->usb.ep1_in_max_packet_size];
+
+  /* Command packet */
+  memset(&pkt, 0, sizeof(pkt));
+  pkt[0] = SAVE_CONFIGS_EEPROM;
+
+  mxt_verb(mxt->ctx, "Saving config parameters");
 
   return usb_transfer(mxt, &pkt, sizeof(pkt), &pkt, sizeof(pkt), false);
 }
@@ -600,9 +624,10 @@ static int usb_find_device(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt)
     usb_device = libusb_get_device_address(devs[i]);
 
      if (mxt->conn->usb.bus == usb_bus && mxt->conn->usb.device == usb_device) {
-      if (desc.idProduct == 0x6123) {
+      if (desc.idProduct == 0x6123 || desc.idProduct == 0x2119) {
+
         mxt->usb.bridge_chip = true;
-        mxt_dbg(mxt->ctx, "Found usb:%03d-%03d 5030 bridge chip",
+        mxt_verb(mxt->ctx, "Found usb:%03d-%03d 5030 bridge chip",
                 usb_bus, usb_device);
       } else {
         mxt->usb.bridge_chip = false;
@@ -751,10 +776,16 @@ retry:
     if (ret)
       return ret;
 
-    if (!((mxt->usb.bootloader == true) || (mxt->usb.sent_btlr_cmd == true))) {
-      ret = bridge_find_i2c_address(mxt);
-      if (ret)
-        return ret;
+    ret = bridge_save_config(mxt);
+    if (ret)
+      return ret;
+
+    if (mxt->conn->b_i2c_addr == 0x00) {
+      if (!((mxt->usb.bootloader == true) || (mxt->usb.sent_btlr_cmd == true))) {
+        ret = bridge_find_i2c_address(mxt);
+        if (ret)
+          return ret;
+      }
     }
   } else {
     mxt->usb.report_id = 1;
@@ -833,7 +864,8 @@ int usb_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
         ret = mxt_new_conn(&new_conn, E_USB);
         if (ret)
           return ret;
-
+        
+        new_conn->usb.b_i2c_addr = curr_conn->usb.b_i2c_addr;
         new_conn->usb.bus = usb_bus;
         new_conn->usb.device = usb_device;
 
@@ -1181,3 +1213,66 @@ int usb_read_chg(struct mxt_device *mxt, bool *value)
   *value = chg;
   return MXT_SUCCESS;
 }
+
+//******************************************************************************
+/// \brief  Switch to parallel digitizer mode
+/// \return #mxt_rc
+int usb_switch_parallel_mode(struct mxt_device *mxt, struct mxt_conn_info *conn)
+{
+  unsigned char pkt[mxt->usb.ep1_in_max_packet_size];
+  int ret;
+
+  if (conn->type != E_USB) {
+    return MXT_ERROR_NO_DEVICE;
+  }
+
+  /* Command packet */
+  memset(&pkt, 0, sizeof(pkt));
+  pkt[0] = CMD_PARALLEL_MODE;
+  /* Make default power-on/reset */
+  pkt[1] = 0xE7;
+
+  mxt_verb(mxt->ctx, "Sending CMD_PARALLEL_MODE");
+
+  ret = usb_transfer(mxt, &pkt, sizeof(pkt), &pkt, sizeof(pkt), true);
+  if (ret)
+    return ret;
+
+  libusb_reset_device(mxt->usb.handle);
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief  Switch 5030 bridge to Fast Mode mode
+/// \return #mxt_rc
+int usb_switch_fast_mode(struct mxt_device *mxt, struct mxt_conn_info *conn)
+{
+  unsigned char pkt[mxt->usb.ep1_in_max_packet_size];
+  int ret;
+  
+  if (conn->type != E_USB) {
+    return MXT_ERROR_NO_DEVICE;
+  }
+
+  printf("bridge_parallel: Set to fast mode\n");
+
+  /* Command packet */
+  memset(&pkt, 0, sizeof(pkt));
+  pkt[0] = CMD_FAST_MODE;
+  /* Make default power-on/reset */
+  pkt[1] = 0xE7;
+
+  ret = usb_transfer(mxt, &pkt, sizeof(pkt), &pkt, sizeof(pkt), true);
+  if(ret)
+    return ret;
+
+  libusb_reset_device(mxt->usb.handle);
+
+  mxt_verb(mxt->ctx, "Sending CMD_FAST_MODE");
+
+  return MXT_SUCCESS;
+}
+
+
+

@@ -47,6 +47,8 @@ struct usb_context {
 struct usb_conn_info {
   int bus;
   int device;
+  /* Bridge i2c address */
+  int b_i2c_addr;
 };
 
 //******************************************************************************
@@ -62,6 +64,7 @@ struct usb_device {
   bool bootloader;
   int report_id;
   int address;
+  int b_i2c_addr;
   bool sent_btlr_cmd;
 };
 

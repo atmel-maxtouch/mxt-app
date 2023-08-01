@@ -212,6 +212,7 @@ int main (int argc, char *argv[])
   uint8_t verbose = 2;
   uint16_t t37_frames = 1;
   uint8_t t37_mode = DELTAS_MODE;
+  uint8_t bi2c_addr = 0x4a;
   bool format = false;
   uint16_t port = 4000;
   int i2c_block_size = I2C_DEV_MAX_BLOCK;
@@ -299,7 +300,10 @@ int main (int argc, char *argv[])
       {"version",          no_argument,       0, 0},
       {"write",            no_argument,       0, 'W'},
       {"zero",             no_argument,       0, 0},
-      {0,                  0,                 0,  0 }
+      {"switch-parallel",  optional_argument, 0, 0},
+      {"switch-fast",      optional_argument, 0, 0},
+      {"bridge-i2c-addr",  required_argument, 0, 0},
+      {0,                  0,                 0, 0}
     };
 
     c = getopt_long(argc, argv,
@@ -518,6 +522,22 @@ int main (int argc, char *argv[])
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
         }
+      } else if (!strcmp(long_options[option_index].name, "switch-parallel")) {
+        if (cmd == CMD_NONE) {
+          cmd = CMD_SWITCH_PARALLEL;
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "switch-fast")) {
+        if (cmd == CMD_NONE) {
+          cmd = CMD_SWITCH_FAST;
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "bridge-i2c-addr")) {
+        bi2c_addr = strtol(optarg, NULL, 0);
       } else if (!strcmp(long_options[option_index].name, "checksum")) {
         if (cmd == CMD_NONE) {
           cmd = CMD_CRC_CHECK;
@@ -628,10 +648,13 @@ int main (int argc, char *argv[])
           if (ret)
             return ret;
 
-          if (sscanf(optarg, "usb:%d-%d", &conn->usb.bus, &conn->usb.device) != 2) {
-            fprintf(stderr, "Invalid device string %s\n", optarg);
-            conn = mxt_unref_conn(conn);
-            return MXT_ERROR_NO_MEM;
+          if (sscanf(optarg, "usb:%d-%d-%x", &conn->usb.bus, &conn->usb.device, 
+                &conn->usb.b_i2c_addr) != 3) {
+            if (sscanf(optarg, "usb:%d-%d", &conn->usb.bus, &conn->usb.device) != 2) {
+                fprintf(stderr, "Invalid device string %s\n", optarg);
+                conn = mxt_unref_conn(conn);
+                return MXT_ERROR_NO_MEM;
+            }
           }
         }
 #endif
@@ -931,6 +954,16 @@ int main (int argc, char *argv[])
   case CMD_BOOTLOADER_VERSION:
     mxt_verb(ctx, "CMD_RESET_BOOTLOADER");
     ret = mxt_bootloader_version(ctx, mxt, conn);
+    break;
+
+  case CMD_SWITCH_PARALLEL:
+    mxt_verb(ctx, "CMD_SWITCH_PARALLEL");
+    ret = usb_switch_parallel_mode(mxt, conn);
+    break;
+
+  case CMD_SWITCH_FAST:
+    mxt_verb(ctx, "CMD_SWITCH_FAST");
+    ret = usb_switch_fast_mode(mxt, conn);
     break;
 
   case CMD_MESSAGES:

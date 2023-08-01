@@ -131,6 +131,8 @@ typedef enum mxt_app_cmd_t {
   CMD_FLASH,
   CMD_RESET,
   CMD_RESET_BOOTLOADER,
+  CMD_SWITCH_PARALLEL,
+  CMD_SWITCH_FAST,
   CMD_BOOTLOADER_VERSION,
   CMD_BACKUP,
   CMD_CALIBRATE,
@@ -262,3 +264,5 @@ float reference_no_offset(float val);
 int mxt_free_run_mode(struct mxt_device *mxt);
 int mxt_disable_touch(struct mxt_device *mxt);
 int debug_frame(struct t37_ctx *ctx);
+int usb_switch_fast_mode(struct mxt_device *mxt, struct mxt_conn_info *conn);
+int usb_switch_parallel_mode(struct mxt_device *mxt, struct mxt_conn_info *conn);
