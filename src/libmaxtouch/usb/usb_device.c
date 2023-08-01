@@ -533,10 +533,16 @@ static int bridge_configure(struct mxt_device *mxt)
   memset(&pkt, 0, sizeof(pkt));
   pkt[0] = CMD_CONFIG;
   /* 200kHz */
-  pkt[1] = 0x20;
+  pkt[1] = 0x30;
   pkt[2] = buf;
+  pkt[3] = 0x00;
+  pkt[4] = 0x80;
+  pkt[5] = 0x00;
+  pkt[6] = 0x00;
+  pkt[7] = 0xC8;
+  pkt[8] = 0x11;
   /* I2C retry delay */
-  pkt[5] = 25 * 8;
+ // pkt[5] = 25 * 8;
 
   mxt_verb(mxt->ctx, "Sending CMD_CONFIG");
 
