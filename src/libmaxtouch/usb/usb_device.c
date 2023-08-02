@@ -786,7 +786,7 @@ retry:
     if (ret)
       return ret;
 
-    if (mxt->conn->b_i2c_addr == 0x00) {
+    if (mxt->conn->usb.b_i2c_addr == 0x00) {
       if (!((mxt->usb.bootloader == true) || (mxt->usb.sent_btlr_cmd == true))) {
         ret = bridge_find_i2c_address(mxt);
         if (ret)
