@@ -96,7 +96,8 @@ static int get_objects_addr(struct t37_ctx *ctx)
 }
 
 //******************************************************************************
-/// \brief Retrieve a single page of diagnostic data
+/// \brief Read a single page of diagnostic data from T37
+/// \stored in byte size buffer, 2 bytes per node, little-endian
 /// \return #mxt_rc
 static int mxt_get_t37_page(struct t37_ctx *ctx)
 {
@@ -169,28 +170,54 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
   int y;
   int i, pass, num_keys;
   int num_frames;
+  int data_values = 0;
 
   if (ctx->fformat == false) {
-    ret = fprintf(ctx->hawkeye, "time,TIN,");
-    if (ret < 0)
-    return MXT_ERROR_IO;
+    if (ctx->t15_keyarray || ctx->self_cap) {
+      ret = fprintf(ctx->hawkeye, "TIME(0-0),");  /* MTS modifed labels */
+    } else {
+      ret = fprintf(ctx->hawkeye, "time,TIN,");
+    }
   }
 
-  if (ctx->self_cap) {
-    for (pass = 0; pass < ctx->passes; pass++) {
-      const char *set;
-      switch (pass) {
-      default:
-      case 0:
-        set = "touch";
-        break;
-      case 1:
-        set = (ctx->passes == 3) ? "hover" : "prox";
-        break;
-      case 2:
-        set = "prox";
-        break;
-      }
+  if (ret < 0)
+    return MXT_ERROR_IO;
+
+  //if (ctx->fformat == false) {
+   // ret = fprintf(ctx->hawkeye, "time,TIN,");
+    //if (ret < 0)
+    //return MXT_ERROR_IO;
+  //}
+
+ // if (ctx->self_cap) {
+  //  for (pass = 0; pass < ctx->passes; pass++) {
+  //    const char *set;
+  //    switch (pass) {
+  //    default:
+  ////    case 0:
+  //      set = "SCT";
+  //      break;
+ //     case 1:
+ //       set = (ctx->passes == 3) ? "hover" : "prox";
+ //       break;
+  //    case 2: /* when does this happen ? */
+   //     set = "SCP";
+   //     break;
+   //   }
+      
+      /* Legacy version outdated MTS changed labels */
+      //switch (pass) {
+      //default:
+      //case 0:
+        //set = "touch";
+        //break;
+      //case 1:
+       // set = (ctx->passes == 3) ? "hover" : "prox";
+       // break;
+      //case 2:
+      //  set = "prox";
+      //  break;
+      //}
 
       const char * mode;
       switch (ctx->mode) {
@@ -206,28 +233,94 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
         break;
       }
 
-      for (y = 0; y < ctx->y_size; y++) {
-        ret = fprintf(ctx->hawkeye, "Y%d_SC_%s_%s,", y, set, mode);
-        if (ret < 0)
-          return MXT_ERROR_IO;
-      }
-
-      for (x = 0; x < ctx->x_size; x++) {
-        int x_real;
-
-        if (id->matrix_x_size > ctx->y_size) {
-          x_real = x;
-        } else {
-          x_real = x * 2;
-          if (x_real >= ctx->x_size)
-            x_real -= ctx->x_size - 1;
+      if (ctx->self_cap) {
+         /* Global labels for all self cap SCT, SCH and SCP */
+        /* Label for self cap SCT, SCH, SCP */
+        for (y = 0; y < ctx->y_size; y++) {
+          ret = fprintf(ctx->hawkeye, "Y%d_SCT_%s(%d-%d),", y, mode, 1, data_values);
+          if (ret < 0)
+            return MXT_ERROR_IO;
+          
+          data_values++;
         }
 
-        ret = fprintf(ctx->hawkeye, "X%d_SC_%s_%s,", x_real, set, mode);
-        if (ret < 0)
-          return MXT_ERROR_IO;
-      }
-    }
+
+        for (x = 0; x < ctx->x_size; x++) {
+
+
+          ret = fprintf(ctx->hawkeye, "X%d_SCT_%s(%d-%d),", x, mode, 1, data_values);
+          if (ret < 0)
+            return MXT_ERROR_IO;
+          
+          data_values++;
+        }
+
+        data_values = 0;
+
+        for (y = 0; y < ctx->y_size; y++) {
+          ret = fprintf(ctx->hawkeye, "Y%d_SCH_%s(%d-%d),", y, mode, 2 ,data_values);
+          if (ret < 0)
+            return MXT_ERROR_IO;
+          
+          data_values++;
+        }
+
+        for (x = 0; x < ctx->x_size; x++) {
+
+          ret = fprintf(ctx->hawkeye, "X%d_SCH_%s(%d-%d),", x, mode, 2, data_values);
+          if (ret < 0)
+            return MXT_ERROR_IO;
+          
+          data_values++;
+        }
+
+        data_values = 0;
+
+        for (y = 0; y < ctx->y_size; y++) {
+          ret = fprintf(ctx->hawkeye, "Y%d_SCP_%s(%d-%d),", y, mode, 3 ,data_values);
+          if (ret < 0)
+            return MXT_ERROR_IO;
+          
+          data_values++;
+        }
+
+        for (x = 0; x < ctx->x_size; x++) {
+          ret = fprintf(ctx->hawkeye, "X%d_SCP_%s(%d-%d)", x, mode, 3, data_values);
+
+          if (x != ctx->x_size - 1) {
+            ret = fprintf(ctx->hawkeye, ",");
+          }
+
+          if (ret < 0)
+            return MXT_ERROR_IO;
+          
+          data_values++;
+        }
+
+      ret = fprintf(ctx->hawkeye, "\n");
+      /* Legacy MTS changed labels reserved spot for SCH */
+      //for (y = 0; y < ctx->y_size; y++) {
+       // ret = fprintf(ctx->hawkeye, "Y%d_SC_%s_%s,", y, set, mode);
+        //if (ret < 0)
+         // return MXT_ERROR_IO;
+     // }
+
+      //for (x = 0; x < ctx->x_size; x++) {
+       // int x_real;
+
+       // if (id->matrix_x_size > ctx->y_size) {
+        //  x_real = x;
+       // } else {
+        //  x_real = x * 2;
+         // if (x_real >= ctx->x_size)
+          //  x_real -= ctx->x_size - 1;
+       // }
+
+    //    ret = fprintf(ctx->hawkeye, "X%d_SC_%s_%s,", x_real, set, mode);
+    //    if (ret < 0)
+    //      return MXT_ERROR_IO;
+    //  }
+  //  }
   } else if (ctx->active_stylus) {
     for (pass = 0; pass < ctx->passes; pass++) {
       const char *mode;
@@ -275,8 +368,7 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
       }
     }
 
-  } 
-  else if (ctx->t15_keyarray) {
+  } else if (ctx->t15_keyarray) {
     for (pass = 0; pass < ctx->passes; pass++) {
       const char *mode;
       switch (ctx->mode) {
@@ -369,7 +461,7 @@ static int sort_debug_data(struct mxt_device *mxt, struct t37_ctx *ctx)
 }
 
 //******************************************************************************
-/// \brief Insert page of data into buffer at appropriate co-ordinates
+/// \brief Convert T37 byte buffer to 16bit node buffer, stored big-endian
 /// \return #mxt_rc
 static int mxt_debug_insert_data_self_cap(struct t37_ctx *ctx)
 {
@@ -381,17 +473,23 @@ static int mxt_debug_insert_data_self_cap(struct t37_ctx *ctx)
   for (i = 0; i < ctx->page_size; i += 2) {
     int data_pos = ctx->page * ctx->page_size/2 + i/2;
 
-    if (data_pos > (ctx->data_values/ctx->passes))
+    //if (data_pos > (ctx->data_values/ctx->passes))
+    if (data_pos > ctx->data_values) {
+
       return MXT_SUCCESS;
+    }
 
-    ofs = pass_ofs + data_pos;
+   // ofs = pass_ofs + data_pos;
 
-    if (ofs > ctx->data_values)
+    //if (ofs > ctx->data_values)
+    if (data_pos > ctx->data_values)
       return MXT_INTERNAL_ERROR;
 
     val = (ctx->t37_buf->data[i+1] << 8) | ctx->t37_buf->data[i];
 
-	ctx->data_buf[ofs] = val;
+	//ctx->data_buf[ofs] = val;
+    ctx->data_buf[data_pos] = val;
+
   }
 
   return MXT_SUCCESS;
@@ -460,6 +558,8 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
 {
   int x, y, i;
   int pass;
+  int data_count = 0;
+  int page_ofs;
   int ret;
   int num_frames;
   int ofs = 0;
@@ -478,32 +578,72 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
      if (ret)
         return ret;
   
-     /* print frame number */
-     ret = fprintf(ctx->hawkeye, ",%u,", ctx->frame);
-     if (ret < 0)
-       return MXT_ERROR_IO;
+    if (!(ctx->self_cap)) {
+      /* print frame number */
+      ret = fprintf(ctx->hawkeye, ",%u,", ctx->frame);
+      if (ret < 0)
+        return MXT_ERROR_IO;
+    }
   }
 
-  if ((ctx->self_cap)||(ctx->active_stylus)) {
+
+  if ((ctx->self_cap)) {
+    for (pass = 0; pass < ctx->passes; pass++) {
+      for (page_ofs = 0; page_ofs < ctx->pages_per_pass; page_ofs++) {
+        int data_ofs = (ctx->y_size + ctx->x_size) * page_ofs;
+     
+        for (y = 0; y < ctx->y_size; y++) {
+          value = (int16_t)ctx->data_buf[data_ofs + y];
+          ret = fprintf(ctx->hawkeye, "%d,", (int16_t) value);
+
+          if (ret < 0)
+            return MXT_ERROR_IO;
+
+          data_count++;
+        }
+
+        for (x = 0; x < ctx->x_size; x++) {
+          value = (int16_t)ctx->data_buf[data_ofs + ctx->y_size + x];
+
+          if ((page_ofs == ctx->pages_per_pass-1) && (x == ctx->x_size-1)) {
+            ret = fprintf(ctx->hawkeye, "%d", (int16_t) value);
+          } else {
+            ret = fprintf(ctx->hawkeye, "%d,", (int16_t) value);
+          }
+        
+          data_count++;
+      
+          if (ret < 0)
+            return MXT_ERROR_IO;
+        }
+      }
+    }
+
+    ret = fprintf(ctx->hawkeye, "\n");
+
+  } else if (ctx->active_stylus) {
     for (pass = 0; pass < ctx->passes; pass++) {
       int pass_ofs = (ctx->y_size + ctx->x_size) * pass;
 
       for (y = 0; y < ctx->y_size; y++) {
         value = (int16_t)ctx->data_buf[pass_ofs + y];
-        ret = fprintf(ctx->hawkeye, "%d,",
-                      (ctx->mode == SELF_CAP_DELTAS) ? (int16_t)value : value);
+        ret = fprintf(ctx->hawkeye, "%d,", (int16_t) value);
+          //            (ctx->mode == SELF_CAP_DELTAS) ? (int16_t)value : value);
         if (ret < 0)
           return MXT_ERROR_IO;
       }
 
       for (x = 0; x < ctx->x_size; x++) {
         value = (int16_t)ctx->data_buf[pass_ofs + ctx->y_size + x];
-        ret = fprintf(ctx->hawkeye, "%d,",
-                      (ctx->mode == SELF_CAP_DELTAS) ? (int16_t)value : value);
+        ret = fprintf(ctx->hawkeye, "%d,", (int16_t) value);
+                    //  (ctx->mode == SELF_CAP_DELTAS) ? (int16_t)value : value);
         if (ret < 0)
           return MXT_ERROR_IO;
       }
     }
+
+    ret = fprintf(ctx->hawkeye, "\n");
+
   } else if (ctx->t15_keyarray) {
       for (i = 0; i < ctx->passes; i++) {
         totalkeys = totalkeys + ctx->key_buf[i];
@@ -717,7 +857,7 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
       
     ctx->self_cap = true;
 
-    if (id->family != 164) {
+    if ((id->family != 164) && (id->family != 166)) {
       mxt_err(ctx->lc, "Self cap data not available");
       return MXT_ERROR_NOT_SUPPORTED;
     }
@@ -728,12 +868,17 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
     }
 
     // Read Ymax Y values, plus Ymax or 2Ymax X values
-    ctx->passes = ctx->t111_instances;
+    //ctx->passes = ctx->t111_instances;
+    ctx->passes = 1;  /* 640U, UD, SCT, SCH, SCP reserved spots */
     ctx->y_size = id->matrix_y_size;
-    ctx->x_size = ctx->y_size * ((id->matrix_x_size > ctx->y_size) ? 2 : 1);
-    ctx->data_values = (ctx->y_size + ctx->x_size) * ctx->passes;
-    ctx->pages_per_pass = ((ctx->y_size + ctx->x_size)*sizeof(uint16_t) +(ctx->page_size - 1)) /
-                          ctx->page_size;
+    ctx->x_size = id->matrix_x_size;  /* Most legacy parts are based on matrix size */
+    //ctx->x_size = ctx->y_size * ((id->matrix_x_size > ctx->y_size) ? 2 : 1);
+   // ctx->data_values = (ctx->y_size + ctx->x_size) * ctx->passes;
+
+    ctx->pages_per_pass = 3;
+    ctx->data_values = (ctx->y_size + ctx->x_size) * ctx->pages_per_pass;
+    //((ctx->y_size + ctx->x_size)*sizeof(uint16_t) +(ctx->page_size - 1)) /
+      //                    ctx->page_size;
     break;
       
   case KEY_DELTAS_MODE:
