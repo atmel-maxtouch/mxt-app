@@ -162,6 +162,7 @@ struct libmaxtouch_ctx {
 struct mxt_conn_info {
   enum mxt_device_type type;
   int refcount;
+  int b_i2c_addr;
 
   union {
     struct i2c_dev_conn_info i2c_dev;
