@@ -180,13 +180,20 @@ static void print_usage(char *prog_name)
           "  -q [--query]               : scan for devices\n"
           "  -d [--device] DEVICESTRING : DEVICESTRING as output by --query\n\n"
           "  Examples:\n"
-          "    -d i2c-dev:ADAPTER:ADDRESS : raw i2c device, eg \"i2c-dev:2-004a\"\n"
+          "  -d i2c-dev:ADAPTER:ADDRESS : raw i2c device, eg \"i2c-dev:2-004a\"\n"
 #ifdef HAVE_LIBUSB
-          "    -d usb:BUS-DEVICE          : USB device, eg \"usb:001-003\"\n"
+          "  -d usb:BUS-DEVICE          : USB device, eg \"usb:001-003\"\n"
+          "  -d usb:BUS-DEVICE-ADDRESS  : USB device, eg \"usb:001-003-4a\"\n"
 #endif
-          "    -d sysfs:PATH              : sysfs interface\n"
-          "    -d hidraw:PATH             : HIDRAW device, eg \"hidraw:/dev/hidraw0\"\n"
+          "  -d sysfs:PATH              : sysfs interface\n"
+          "  -d hidraw:PATH             : HIDRAW device, eg \"hidraw:/dev/hidraw0\"\n"
           "\n"
+#ifdef HAVE_LIBUSB
+          "5030 Bridge Board commands:\n"
+          "  --bridge-config 0xnn       : 0xnn, slave address of maXTouch chip, save address to EEPROM\n"
+          "  --switch-fast              : Switches to QRG I/F mode, no USBHID reports\n"
+          "  --switch-parallel          : Switches to HID Parallel Digitizer mode\n"
+#endif
           "Debug options:\n"
           "  -v [--verbose] LEVEL       : set debug level\n",
           MXT_VERSION, prog_name, I2C_DEV_MAX_BLOCK);
@@ -538,7 +545,9 @@ int main (int argc, char *argv[])
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
         }
-      } else if (!strcmp(long_options[option_index].name, "bridge-config")) {
+      } 
+#ifdef HAVE_LIBUSB
+        else if (!strcmp(long_options[option_index].name, "bridge-config")) {
         if (cmd == CMD_NONE) {        
           cmd = CMD_BRIDGE_CONFIG;
           if (sscanf(optarg, "%x", &conn->usb.b_i2c_addr) != 1) {
@@ -551,7 +560,9 @@ int main (int argc, char *argv[])
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
         }
-      } else if (!strcmp(long_options[option_index].name, "checksum")) {
+      } 
+#endif
+      else if (!strcmp(long_options[option_index].name, "checksum")) {
         if (cmd == CMD_NONE) {
           cmd = CMD_CRC_CHECK;
           strncpy(strbuf, optarg, sizeof(strbuf));
@@ -972,7 +983,7 @@ int main (int argc, char *argv[])
     mxt_verb(ctx, "CMD_RESET_BOOTLOADER");
     ret = mxt_bootloader_version(ctx, mxt, conn);
     break;
-
+#ifdef HAVE_LIBUSB
   case CMD_SWITCH_PARALLEL:
     mxt_verb(ctx, "CMD_SWITCH_PARALLEL");
     ret = usb_switch_parallel_mode(mxt, conn);
@@ -987,6 +998,7 @@ int main (int argc, char *argv[])
     mxt_verb(ctx, "CMD_BRIDGE_CONFIG");
     ret = bridge_configure(mxt);
     break;
+#endif
 
   case CMD_MESSAGES:
     // Messages handled after switch
