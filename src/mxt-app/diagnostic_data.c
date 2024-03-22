@@ -539,6 +539,7 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
           return MXT_ERROR_IO;
       } else {  //Start of format 1
 
+        /* Pass used for slider or 2nd touchscreen */
         pass = ctx->instance;
         
         ret = mxt_read_touchscreen_info (ctx->mxt, &ts_info);
@@ -569,13 +570,9 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
                          (ctx->mode == DELTAS_MODE) ? "Deltas" : "Refs"); 
            
           ret = fprintf(ctx->hawkeye, ",");
-        
-          if (pass == 0) {
-            data_ofs = 0;
-          } else {
-            data_ofs = ((ts_info[pass].xorigin * ctx->y_size) + (ts_info[pass].yorigin));
-          }
-        
+
+          data_ofs = ((ts_info[pass].xorigin * ctx->y_size) + (ts_info[pass].yorigin));
+
           for (x = 0; x < ts_info[pass].xsize; x++) {
             value = (int16_t)ctx->data_buf[y + data_ofs];
    
