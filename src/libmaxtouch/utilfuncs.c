@@ -328,10 +328,10 @@ int mxt_print_timestamp(FILE *stream, bool date)
 
   if (date) {
     strftime(tmbuf, sizeof(tmbuf), "%c", nowtm);
-    ret = fprintf(stream, "%s", tmbuf);
+    ret = fprintf(stream, "%s,", tmbuf);
   } else {
     strftime(tmbuf, sizeof(tmbuf), "%H:%M:%S", nowtm);
-    ret = fprintf(stream, "%s.%06ld", tmbuf, tv.tv_usec);
+    ret = fprintf(stream, "%s.%06ld,", tmbuf, tv.tv_usec);
   }
 
   return (ret < 0) ? MXT_ERROR_IO : MXT_SUCCESS;

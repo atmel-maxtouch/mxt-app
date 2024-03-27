@@ -598,6 +598,8 @@ int main (int argc, char *argv[])
         t37_mode = KEY_REFS_MODE;		  
       } else if (!strcmp(long_options[option_index].name, "key-array-signals")) {
         t37_mode = KEY_SIGS_MODE;		   
+      } else if (!strcmp(long_options[option_index].name, "key-array-raw_sigs")) {
+        t37_mode = KEY_RAW_SIGS_MODE;      
       } else if (!strcmp(long_options[option_index].name, "active-stylus-deltas")) {
         t37_mode = AST_DELTAS;
       } else if (!strcmp(long_options[option_index].name, "active-stylus-refs")) {
@@ -1018,6 +1020,7 @@ int main (int argc, char *argv[])
     mxt_verb(ctx, "CMD_DEBUG_DUMP");
     mxt_verb(ctx, "mode:%u", t37_mode);
     mxt_verb(ctx, "frames:%u", t37_frames);
+    mxt_verb(ctx, "file_attr:%u", t37_file_attr);
     ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames, instance, format, t37_file_attr);
     break;
 
