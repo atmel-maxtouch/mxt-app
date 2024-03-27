@@ -58,6 +58,7 @@
 #define KEY_DELTAS_MODE	  0x17
 #define KEY_REFS_MODE     0x18
 #define KEY_SIGS_MODE	  0x19
+#define KEY_RAW_SIGS_MODE 0x20
 #define SELF_CAP_SIGNALS  0xF5
 #define SELF_CAP_DELTAS   0xF7
 #define SELF_CAP_REFS     0xF8
@@ -114,6 +115,12 @@
 #define MSG_NO_WAIT            0
 #define MSG_CONTINUOUS         -1
 
+/* SCT, SCP, SCH masks */
+
+#define SCH_BIT_MASK           0x04
+#define SCP_BIT_MASK           0x08
+#define SCT_BIT_MASK           0x02
+
 //******************************************************************************
 /// \brief Commands for mxt-app
 typedef enum mxt_app_cmd_t {
@@ -169,6 +176,7 @@ struct t37_ctx {
 
   int x_size;
   int y_size;
+  int start_offsetx;
 
   int data_values;
   int passes;
@@ -188,7 +196,12 @@ struct t37_ctx {
   uint8_t t100_instances;
   uint8_t t9_instances;
   uint8_t instance;
+  uint8_t t8_scan_allow;
+  uint8_t t8_scan_idle;
+  uint8_t t8_scan_actv;
+  uint16_t t8_addr;
   uint8_t file_attr;
+  bool scp_enabled;
 
   uint16_t frame;
   int pass;
@@ -234,7 +247,7 @@ struct mxt_t15_info {
 int mxt_flash_firmware(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, const char *filename, const char *new_version, struct mxt_conn_info *conn);
 int mxt_socket_server(struct mxt_device *mxt, uint16_t port);
 int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port);
-int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file, uint16_t frames, uint16_t obj_inst, uint16_t format, uint16_t file_attr);
+int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file, uint16_t frames, uint16_t obj_inst, uint16_t format, uint8_t attr);
 void mxt_dd_menu(struct mxt_device *mxt);
 void mxt_dd_menu2(struct mxt_device *mxt, char selection);
 void mxt_mutual_menu(struct mxt_device *mxt, char selection);

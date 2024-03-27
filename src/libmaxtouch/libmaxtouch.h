@@ -59,6 +59,12 @@ struct mxt_conn_info;
 #define MXT_T6_RESERVED_OFFSET   0x04
 #define MXT_T6_DIAGNOSTIC_OFFSET 0x05
 
+/* T8 Offset */
+
+#define MXT_T8_MEASALLOW_OFFSET  0x0a
+#define MXT_T8_MEASIDLEDEF_OFFSET 0x0b
+#define MXT_T8_MEASACTVDEF_OFFSET 0x0c
+
 /* Values to write to the command processor fields */
 #define RESET_COMMAND       0x01
 #define BOOTLOADER_COMMAND  0xA5
