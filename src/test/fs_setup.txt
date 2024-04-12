@@ -1,0 +1,26 @@
+[COMMENTS]
+
+Fill in tests parameters for frequency testing
+Non-selected options should be filled in with a zero value
+
+Ex1: Duration vs # of frames (leave frames=0 if not used)
+Ex2: Constant ADC Per X vs Variable value
+Ex3: Single vs Dual X GAIN
+
+Select noise suppression object to be scanned
+	-- Mutual_T(72)
+	-- Self_Cap_T(108)
+
+Note: No spaces between each parameter entry allowed
+
+[Frequency_Sweep_Parameters]
+Frequency_Start=5
+Frequency_End=8
+Frequency_Step_Size=1
+Frequency_Duration=5s
+Frames=0
+Constant_ADC_Per_X_Value=16
+Variable_Value={15,30}
+Single_X_NLGAIN=11
+Dual_X_NLGAIN=5
+Noise_Suppression_Object=Mutual_T(72)
