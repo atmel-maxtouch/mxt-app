@@ -55,7 +55,7 @@
 /// \brief Check status of previously sent command
 /// \return #mxt_rc
 static int mxt_self_cap_command(struct mxt_device *mxt, uint8_t *msg,
-                                void *context, uint8_t size)
+                                void *context, uint8_t size, uint8_t msg_count)
 {
   unsigned int object_type = mxt_report_id_to_type(mxt, msg[0]);
   uint8_t *cmd = context;

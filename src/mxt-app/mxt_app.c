@@ -45,6 +45,7 @@
 #include "broken_line.h"
 #include "sensor_variant.h"
 #include "mxt_app.h"
+#include "freq_sweep.h"
 
 #define BUF_SIZE 1024
 
@@ -158,6 +159,10 @@ static void print_usage(char *prog_name)
           "  --active-stylus-deltas     : capture active stylus deltas\n"
           "  --active-stylus-refs       : capture active stylus references\n"
           "\n"
+          "T72/T108 Frequency Sweep Tool:\n"
+          "  --freq-sweep FILE          : input test parameter file\n"
+          "  -o [--output] FILE         : output file for sweep results\n"
+          "\n"
           "Broken line detection commands:\n"
           "  --broken-line              : run broken line detection\n"
           "  --dualx                    : X lines are double connected\n"
@@ -236,6 +241,9 @@ int main (int argc, char *argv[])
   bl_opts.y_center_threshold = BROKEN_LINE_DEFAULT_THRESHOLD;
   bl_opts.y_border_threshold = BROKEN_LINE_DEFAULT_THRESHOLD;
   struct sensor_variant_options sv_opts = {0};
+  struct freq_sweep_options fs_opts = {0};
+  fs_opts.freq_start = 1;
+  fs_opts.freq_end = 255;
   sv_opts.max_defects = 0;
   sv_opts.upper_limit = 15;
   sv_opts.lower_limit = 15;
@@ -256,6 +264,7 @@ int main (int argc, char *argv[])
       {"checksum",         required_argument, 0, 0},
       {"debug-dump",       required_argument, 0, 0},
       {"device",           required_argument, 0, 'd'},
+      {"freq-sweep",       required_argument, 0, 0},
       {"t68-file",         required_argument, 0, 0},
       {"t68-datatype",     required_argument, 0, 0},
       {"msg-filter",       required_argument, 0, 'F'},
@@ -284,6 +293,7 @@ int main (int argc, char *argv[])
       {"lower-limit",      required_argument, 0,  0},
       {"pattern",          required_argument, 0,  0},
       {"count",            required_argument, 0, 'n'},
+      {"output",           required_argument, 0, 'o'},
       {"port",             required_argument, 0, 'p'},
       {"query",            no_argument,       0, 'q'},
       {"read",             no_argument,       0, 'R'},
@@ -316,7 +326,7 @@ int main (int argc, char *argv[])
     };
 
     c = getopt_long(argc, argv,
-                    "C:d:D:f:F:ghiI:M::m:n:p:qRr:St::T:v:W",
+                    "C:d:D:f:F:ghiI:M::m:n:o:p:qRr:St::T:v:W",
                     long_options, &option_index);
 
     if (c == -1)
@@ -369,6 +379,15 @@ int main (int argc, char *argv[])
       } else if (!strcmp(long_options[option_index].name, "debug-dump")) {
         if (cmd == CMD_NONE) {
           cmd = CMD_DEBUG_DUMP;
+          strncpy(strbuf, optarg, sizeof(strbuf));
+          strbuf[sizeof(strbuf) - 1] = '\0';
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "freq-sweep")) {
+        if (cmd == CMD_NONE) {
+          cmd = CMD_FREQ_SWEEP;
           strncpy(strbuf, optarg, sizeof(strbuf));
           strbuf[sizeof(strbuf) - 1] = '\0';
         } else {
@@ -757,6 +776,15 @@ int main (int argc, char *argv[])
       }
       break;
 
+    case 'o':
+      if (optarg) {
+        strncpy(strbuf2, optarg, sizeof(strbuf2));
+      } else {
+        print_usage(argv[0]);
+        return MXT_ERROR_BAD_INPUT;
+      }
+      break;
+
     case 'n':
       if (optarg) {
         count = strtol(optarg, NULL, 0);
@@ -1022,6 +1050,12 @@ int main (int argc, char *argv[])
     mxt_verb(ctx, "frames:%u", t37_frames);
     mxt_verb(ctx, "file_attr:%u", t37_file_attr);
     ret = mxt_debug_dump(mxt, t37_mode, strbuf, t37_frames, instance, format, t37_file_attr);
+    break;
+
+  case CMD_FREQ_SWEEP:
+    mxt_verb(ctx, "CMD_FREQ_SWEEP");
+    mxt_verb(ctx, "filename: %s", strbuf);
+    ret = mxt_freq_sweep(mxt, strbuf, strbuf2, &fs_opts);
     break;
 
   case CMD_ZERO_CFG:

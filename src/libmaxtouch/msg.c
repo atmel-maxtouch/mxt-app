@@ -178,7 +178,7 @@ int mxt_dump_messages(struct mxt_device *mxt)
 /// \return #mxt_rc
 int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context,
                       int (*msg_func)(struct mxt_device *mxt, uint8_t *msg,
-                                      void *context, uint8_t size), int *flag)
+                                      void *context, uint8_t size, uint8_t msg_count), int *flag)
 {
   int count, len;
   time_t now;
@@ -208,7 +208,7 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
         return ret;
 
       if (len > 0) {
-        ret = ((*msg_func)(mxt, buf, context, len));
+        ret = ((*msg_func)(mxt, buf, context, len, count));
         if (ret != MXT_MSG_CONTINUE)
           return ret;
       }
@@ -244,7 +244,7 @@ int mxt_flush_msgs(struct mxt_device *mxt)
 /// \brief Gets checksum from T6 message
 /// \return #mxt_rc
 static int get_checksum_message(struct mxt_device *mxt, uint8_t *msg,
-                                void *context, uint8_t size)
+                                void *context, uint8_t size, uint8_t msg_count)
 {
   if (mxt_report_id_to_type(mxt, msg[0]) == GEN_COMMANDPROCESSOR_T6) {
     uint32_t *checksum = context;

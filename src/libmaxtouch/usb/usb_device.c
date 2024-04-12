@@ -592,10 +592,10 @@ static int bridge_find_i2c_address(struct mxt_device *mxt)
   } else {
     if (response < 0x4a) {
       mxt->usb.bootloader = true;
-      mxt_info(mxt->ctx, "Bridge found bootloader at 0x%02X", response);
+      mxt_info(mxt->ctx, "\nBridge found bootloader at 0x%02X", response);
     } else {
       mxt->usb.address = response;
-      mxt_info(mxt->ctx, "Bridge found control interface at 0x%02X", response);
+      mxt_info(mxt->ctx, "\nBridge found control interface at 0x%02X", response);
     }
 
     return MXT_SUCCESS;

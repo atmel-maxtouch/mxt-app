@@ -48,7 +48,9 @@ run_unit_tests_SOURCES =\
 	src/mxt-app/buffer.c \
 	src/mxt-app/buffer.h \
 	src/mxt-app/self_cap.c \
-	src/mxt-app/signal.c
+	src/mxt-app/signal.c \
+	src/mxt-app/freq_sweep.c \
+	src/mxt-app/freq_sweep.h
 
 run_unit_tests_CFLAGS =\
 	-I$(top_srcdir)/src \
@@ -116,7 +118,9 @@ mxt_app_SOURCES =\
 	src/mxt-app/buffer.c \
 	src/mxt-app/buffer.h \
 	src/mxt-app/self_cap.c \
-	src/mxt-app/signal.c
+	src/mxt-app/signal.c \
+	src/mxt-app/freq_sweep.c \
+	src/mxt-app/freq_sweep.h
 
 .PHONY: doc
 doc: doc/doxygen.cfg
