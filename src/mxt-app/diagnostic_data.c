@@ -473,14 +473,22 @@ static int sort_debug_selfcap_data(struct mxt_device *mxt, struct t37_ctx *ctx)
 
     count = (ctx->page * ctx->page_size/2);
 
-    for (i = 0; i < ctx->y_size/2; i++) {
-      /* 0, 2, 4, 6 */
-      ctx->temp_buf[count] = ctx->data_buf[i + (ctx->page_size/2 * ctx->page)];
+    if (id->variant == 0x06 || id->variant == 0x07) {
+      for (i = 0; i < ctx->y_size/2; i++) {
+        /* 0, 2, 4, 6 */
+        ctx->temp_buf[count] = ctx->data_buf[i + (ctx->page_size/2 * ctx->page)];
 
-      /* 1, 3, 5, 7 */
-      ctx->temp_buf[count + 1] = ctx->data_buf[i + (ctx->y_size/2) + (ctx->page_size/2 * ctx->page)];
+        /* 1, 3, 5, 7 */
+        ctx->temp_buf[count + 1] = ctx->data_buf[i + (ctx->y_size/2) + (ctx->page_size/2 * ctx->page)];
 
-      count+=2;
+        count+=2;
+      }
+    } else {
+      for (i = 0; i < ctx->y_size; i++) {
+        /* Sequential for some U series */
+        ctx->temp_buf[count] = ctx->data_buf[i + (ctx->page_size/2 * ctx->page)];
+        count++;
+      }
     }
     
     for (i = 0; i < ctx->x_size/2; i++) {
@@ -1044,19 +1052,36 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
     if (id->family == 0xa6)
     {
 
-      ctx->passes = 1;  /* 640U, UD, SCT, SCH, SCP all read in one pass */
+      ctx->passes = 1;  /* U series SCT, SCH, SCP all read in one pass */
       ctx->y_size = id->matrix_y_size;  /* Most legacy parts are based on matrix size */
       ctx->x_size = id->matrix_x_size; 
       ctx->pages_per_pass = 3;          /* Fixed output format, SCT, SCH and SCP */
       /* Increase data_values to full page captures */
       ctx->data_values = (ctx->page_size/2 * ctx->pages_per_pass);
       /* Offset from */ 
-      if (id->variant == 0x06) {
-        ctx->start_offsetx = 0x0C; /* 336U offset for X, check for other devices */
-      } else {
-        ctx->start_offsetx = 0x00; /* Pending Check against other parts */
-      }
 
+      switch (id->variant) {
+
+      case 0x01: /* 640U offset for odd X */
+        ctx->start_offsetx = 0x14 ;
+        break;
+
+      case 0x06: /* 336U offset for odd X */
+        ctx->start_offsetx = 0x0C;
+        break;
+
+      case 0x08: /* 144U offset for odd X */
+        ctx->start_offsetx = 0x18;
+        break;
+
+      case 0x07: /* 308 offset pending more updates */
+        ctx->start_offsetx = 0x30;
+        break; 
+
+      default:
+        break;
+
+      }
     } else { /* TBD - Check compatibility with legacy devices */
 
     // Read Ymax Y values, plus Ymax or 2Ymax X values
@@ -1249,9 +1274,10 @@ static int mxt_read_diagnostic_data_self_cap(struct mxt_device *mxt, struct t37_
   if (id->family == 0xA6 && ctx->mode == SELF_CAP_REFS) {
 
     switch (id->variant) {
+      case 0x01 ... 0x02:
       case 0x06 ... 0x08:
-      case 0x0A:
-      case 0x0C ... 0x14:
+      /* TBD */
+      // case 0x0A ... 0x0F:
 
         sort_debug_selfcap_data(mxt, ctx);
 
