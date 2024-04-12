@@ -63,11 +63,17 @@ struct t37_diagnostic_data {
 /// \return #mxt_rc
 static int get_objects_addr(struct t37_ctx *ctx)
 {
+  uint8_t scan_modes;
   int t6_addr;
+  int ret;
 
   /* Obtain command processor's address */
   t6_addr = mxt_get_object_address(ctx->mxt, GEN_COMMANDPROCESSOR_T6, 0);
   if (t6_addr == OBJECT_NOT_FOUND) return MXT_ERROR_OBJECT_NOT_FOUND;
+
+  /* Obtain T8 object address */
+  ctx->t8_addr = mxt_get_object_address(ctx->mxt, GEN_ACQUISITIONCONFIG_T8, 0);
+  if (ctx->t8_addr == OBJECT_NOT_FOUND) return MXT_ERROR_OBJECT_NOT_FOUND;
 
   /* T37 command address */
   ctx->diag_cmd_addr = t6_addr + MXT_T6_DIAGNOSTIC_OFFSET;
@@ -80,6 +86,9 @@ static int get_objects_addr(struct t37_ctx *ctx)
   ctx->t37_size = mxt_get_object_size(ctx->mxt, DEBUG_DIAGNOSTIC_T37);
   if (ctx->t37_size == OBJECT_NOT_FOUND) return MXT_ERROR_OBJECT_NOT_FOUND;
 
+  /* TBD - Pending removal - used to track self cap modes */
+  /* GDV captures all most regardless is present */
+  
   ctx->t111_instances = mxt_get_object_instances(ctx->mxt,
                         SPT_SELFCAPCONFIG_T111);
 
@@ -92,11 +101,32 @@ static int get_objects_addr(struct t37_ctx *ctx)
   ctx->t9_instances = mxt_get_object_instances(ctx->mxt,
                         TOUCH_MULTITOUCHSCREEN_T9);
 
+  ret = mxt_read_register(ctx->mxt, &scan_modes, 
+      ctx->t8_addr + MXT_T8_MEASALLOW_OFFSET, 1);
+  if (ret)
+    mxt_warn(ctx->lc, "Failed to determine scan modes in T8");
+
+  ctx->t8_scan_allow = scan_modes;
+
+  ret = mxt_read_register(ctx->mxt, &scan_modes, 
+      ctx->t8_addr + MXT_T8_MEASIDLEDEF_OFFSET, 1);
+  if (ret)
+    mxt_warn(ctx->lc, "Failed to determine scan modes in T8");
+
+  ctx->t8_scan_idle = scan_modes;
+
+  ret = mxt_read_register(ctx->mxt, &scan_modes, 
+      ctx->t8_addr + MXT_T8_MEASACTVDEF_OFFSET, 1);
+  if (ret)
+    mxt_warn(ctx->lc, "Failed to determine scan modes in T8");
+  ctx->t8_scan_actv = scan_modes;
+
   return MXT_SUCCESS;
 }
 
 //******************************************************************************
-/// \brief Retrieve a single page of diagnostic data
+/// \brief Read a single page of diagnostic data
+/// \stored in byte buffer, 2 bytes per node, little-endian
 /// \return #mxt_rc
 static int mxt_get_t37_page(struct t37_ctx *ctx)
 {
@@ -169,65 +199,106 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
   int y;
   int i, pass, num_keys;
   int num_frames;
+  int data_values = 0;
+
+  /* Time header adjustments for MTS - Graphical Viewer */
 
   if (ctx->fformat == false) {
-    ret = fprintf(ctx->hawkeye, "time,TIN,");
-    if (ret < 0)
-    return MXT_ERROR_IO;
+    if (ctx->t15_keyarray || ctx->self_cap) {
+      ret = fprintf(ctx->hawkeye, "TIME(0-0),");  /* MTS modifed labels */
+    } else {
+      ret = fprintf(ctx->hawkeye, "time,TIN,");
+    }
   }
 
+  if (ret < 0)
+    return MXT_ERROR_IO;
+
+  /* Tested with U series, pending others */
+  /* Expand for other U series, pending testing */
   if (ctx->self_cap) {
-    for (pass = 0; pass < ctx->passes; pass++) {
-      const char *set;
-      switch (pass) {
-      default:
-      case 0:
-        set = "touch";
-        break;
-      case 1:
-        set = (ctx->passes == 3) ? "hover" : "prox";
-        break;
-      case 2:
-        set = "prox";
-        break;
-      }
 
       const char * mode;
       switch (ctx->mode) {
-      default:
-      case SELF_CAP_DELTAS:
-        mode = "delta";
+        default:
         break;
-      case SELF_CAP_REFS:
-        mode = "ref";
-        break;
-      case SELF_CAP_SIGNALS:
-        mode = "sig";
-        break;
+        
+        case SELF_CAP_DELTAS:
+          mode = "delta";
+          break;
+
+        case SELF_CAP_REFS:
+          mode = "ref";
+          break;
+
+        case SELF_CAP_SIGNALS:
+          mode = "sig";
+          break;
       }
 
+      /* Global labels for all self cap SCT, SCH and SCP */
+      /* Label for self cap SCT, SCH, SCP */
       for (y = 0; y < ctx->y_size; y++) {
-        ret = fprintf(ctx->hawkeye, "Y%d_SC_%s_%s,", y, set, mode);
+        ret = fprintf(ctx->hawkeye, "Y%d_SCT_%s(%d-%d),", y, mode, 1, data_values);
         if (ret < 0)
           return MXT_ERROR_IO;
+          
+        data_values++;
       }
 
       for (x = 0; x < ctx->x_size; x++) {
-        int x_real;
-
-        if (id->matrix_x_size > ctx->y_size) {
-          x_real = x;
-        } else {
-          x_real = x * 2;
-          if (x_real >= ctx->x_size)
-            x_real -= ctx->x_size - 1;
-        }
-
-        ret = fprintf(ctx->hawkeye, "X%d_SC_%s_%s,", x_real, set, mode);
+        ret = fprintf(ctx->hawkeye, "X%d_SCT_%s(%d-%d),", x, mode, 1, data_values);
         if (ret < 0)
           return MXT_ERROR_IO;
+          
+        data_values++;
       }
-    }
+
+      data_values = 0;
+
+      for (y = 0; y < ctx->y_size; y++) {
+        ret = fprintf(ctx->hawkeye, "Y%d_SCH_%s(%d-%d),", y, mode, 2 ,data_values);
+        if (ret < 0)
+          return MXT_ERROR_IO;
+          
+        data_values++;
+      }
+
+      data_values = 0;
+
+      for (x = 0; x < ctx->x_size; x++) {
+
+        ret = fprintf(ctx->hawkeye, "X%d_SCH_%s(%d-%d),", x, mode, 2, data_values);
+        if (ret < 0)
+          return MXT_ERROR_IO;
+          
+        data_values++;
+      }
+
+      data_values = 0;
+
+      for (y = 0; y < ctx->y_size; y++) {
+        ret = fprintf(ctx->hawkeye, "Y%d_SCP_%s(%d-%d),", y, mode, 3 ,data_values);
+        if (ret < 0)
+          return MXT_ERROR_IO;
+          
+        data_values++;
+      }
+
+      for (x = 0; x < ctx->x_size; x++) {
+        ret = fprintf(ctx->hawkeye, "X%d_SCP_%s(%d-%d)", x, mode, 3, data_values);
+
+        if (x != ctx->x_size - 1) {
+          ret = fprintf(ctx->hawkeye, ",");
+          if (ret < 0)
+            return MXT_ERROR_IO;
+        }
+          
+        data_values++;
+      }
+      
+      ret = fprintf(ctx->hawkeye, "\n");
+
   } else if (ctx->active_stylus) {
     for (pass = 0; pass < ctx->passes; pass++) {
       const char *mode;
@@ -275,8 +346,7 @@ static int mxt_generate_hawkeye_header(struct t37_ctx *ctx)
       }
     }
 
-  } 
-  else if (ctx->t15_keyarray) {
+  } else if (ctx->t15_keyarray) {
     for (pass = 0; pass < ctx->passes; pass++) {
       const char *mode;
       switch (ctx->mode) {
@@ -369,29 +439,110 @@ static int sort_debug_data(struct mxt_device *mxt, struct t37_ctx *ctx)
 }
 
 //******************************************************************************
-/// \brief Insert page of data into buffer at appropriate co-ordinates
+/// \brief Sort interleaved selfcap debug data
+/// \Sort to final sequential order, no gaps
+/// \Sorted by xsize an ysize
+/// \Future improvement - remove unused x and y lines
 /// \return #mxt_rc
-static int mxt_debug_insert_data_self_cap(struct t37_ctx *ctx)
+static int sort_debug_selfcap_data(struct mxt_device *mxt, struct t37_ctx *ctx)
 {
+  
+  struct mxt_id_info *id = mxt->info.id;
+  struct mxt_touchscreen_info *ts_info = NULL;
+  uint16_t offset1 = 0;
+  uint16_t offset2 = 0;
+  uint16_t count = 0;
+  uint16_t x_offset = 0;
+  int i, j;
+  int ret = 0;
+
+  ret = mxt_read_touchscreen_info (ctx->mxt, &ts_info);
+  if (ret != MXT_SUCCESS) {
+    mxt_err(ctx->lc, "Read touchscreen info failed\n");
+    free(ts_info);
+    return MXT_INTERNAL_ERROR;
+  }
+
+  /* Create buffer by data values */
+  ctx->temp_buf = (uint16_t *)calloc(ctx->data_values, sizeof(uint16_t));
+  if (!ctx->temp_buf)
+    mxt_err(ctx->lc, "Buffer calloc failure");
+
+  /* Sort even and odd references, not for deltas */
+  for (ctx->page = 0; ctx->page < ctx->pages_per_pass; ctx->page++) {
+
+    count = (ctx->page * ctx->page_size/2);
+
+    if (id->variant == 0x06 || id->variant == 0x07) {
+      for (i = 0; i < ctx->y_size/2; i++) {
+        /* 0, 2, 4, 6 */
+        ctx->temp_buf[count] = ctx->data_buf[i + (ctx->page_size/2 * ctx->page)];
+
+        /* 1, 3, 5, 7 */
+        ctx->temp_buf[count + 1] = ctx->data_buf[i + (ctx->y_size/2) + (ctx->page_size/2 * ctx->page)];
+
+        count+=2;
+      }
+    } else {
+      for (i = 0; i < ctx->y_size; i++) {
+        /* Sequential for some U series */
+        ctx->temp_buf[count] = ctx->data_buf[i + (ctx->page_size/2 * ctx->page)];
+        count++;
+      }
+    }
+    
+    for (i = 0; i < ctx->x_size/2; i++) {
+      /* 0, 2, 4, 6 */
+      ctx->temp_buf[count] = ctx->data_buf[i + ctx->y_size + (ctx->page_size/2 * ctx->page)];
+
+      /* 1, 3, 5, 7 */
+      ctx->temp_buf[count + 1] = ctx->data_buf[i + ctx->y_size + ctx->start_offsetx + (ctx->page_size/2 * ctx->page)];
+
+      count+=2;
+    }
+  }
+
+  count = 0;
+
+  while (count < ctx->data_values)
+  {
+    //Reorder data elements into data_buf with no gaps
+    ctx->data_buf[count] = ctx->temp_buf[count];
+    count++;
+  }
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
+/// \brief Convert T37 byte buffer to 16bit node buffer, stored big-endian
+/// \Copy all bytes from T37 to 16 bit value to be sorted later
+/// \return #mxt_rc
+static int mxt_debug_insert_data_self_cap(struct mxt_device *mxt, struct t37_ctx *ctx)
+{
+  struct mxt_id_info *id = ctx->mxt->info.id;
   int i;
-  int ofs;
-  int pass_ofs = (ctx->y_size + ctx->x_size) * ctx->pass;
-  uint16_t val;
+  int ofs = 0;
+  int val;
 
-  for (i = 0; i < ctx->page_size; i += 2) {
-    int data_pos = ctx->page * ctx->page_size/2 + i/2;
+  switch (ctx->mode) {
+    case SELF_CAP_DELTAS:
+    case SELF_CAP_SIGNALS:
+    case SELF_CAP_REFS:
 
-    if (data_pos > (ctx->data_values/ctx->passes))
-      return MXT_SUCCESS;
+      /* For self cap, combine into 16 bit words to be sorted later */
+      for (i = 0; i < ctx->page_size; i += 2) {
+    
+        val = (ctx->t37_buf->data[i+1] << 8) | ctx->t37_buf->data[i];
 
-    ofs = pass_ofs + data_pos;
+        ofs = ctx->y_ptr;
 
-    if (ofs > ctx->data_values)
-      return MXT_INTERNAL_ERROR;
+        ctx->data_buf[ofs] = val;
+        
+        ctx->y_ptr++;
+      }
 
-    val = (ctx->t37_buf->data[i+1] << 8) | ctx->t37_buf->data[i];
-
-	ctx->data_buf[ofs] = val;
+      break;
   }
 
   return MXT_SUCCESS;
@@ -460,6 +611,7 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
 {
   int x, y, i;
   int pass;
+  int page_ofs;
   int ret;
   int num_frames;
   int ofs = 0;
@@ -471,39 +623,159 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
   uint8_t ts_xorigin = 0;
   uint8_t ts_yorigin = 0;  
   struct mxt_t15_info *mxt_key = NULL;
+  struct mxt_id_info *id = ctx->mxt->info.id;
   struct mxt_touchscreen_info *ts_info = NULL;
-  
-  if (ctx->fformat == false) {
+
+  ret = mxt_read_touchscreen_info(ctx->mxt, &ts_info);
+  if (ret != MXT_SUCCESS) {
+    mxt_err(ctx->lc, "Read touchscreen info failed\n");
+    free(ts_info);
+    ts_info = NULL;
+    return MXT_INTERNAL_ERROR;
+  }
+
+  switch(ctx->mode) {
+
+    case KEY_DELTAS_MODE:
+    case KEY_REFS_MODE:
+    case KEY_SIGS_MODE:
+    case KEY_RAW_SIGS_MODE:
+
+      break;
+
+    case SELF_CAP_DELTAS:
+    case SELF_CAP_REFS:
+    case SELF_CAP_SIGNALS:
+
+      ret = mxt_print_timestamp(ctx->hawkeye, false);
+      if (ret)
+        return ret;
+
+      break;
+
+    default:
+
      ret = mxt_print_timestamp(ctx->hawkeye, false);
      if (ret)
         return ret;
   
      /* print frame number */
-     ret = fprintf(ctx->hawkeye, ",%u,", ctx->frame);
+     ret = fprintf(ctx->hawkeye, "%u,", ctx->frame);
      if (ret < 0)
        return MXT_ERROR_IO;
+
+      break;
   }
 
-  if ((ctx->self_cap)||(ctx->active_stylus)) {
+  if ((ctx->self_cap)) {
+
+    switch(ctx->mode) {
+    case SELF_CAP_REFS:
+      /* Ref data is sequential due to possible sorting */
+      for (pass = 0; pass < ctx->passes; pass++) {
+        for (page_ofs = 0; page_ofs < ctx->pages_per_pass; page_ofs++) {
+
+          if (id->family == 0xA6) {
+            int data_ofs = (ctx->y_size + ctx->x_size) * page_ofs;
+          } else {
+            int data_ofs = ctx->page_size/2 * page_ofs;
+          }
+            
+          for (y = 0; y < ctx->y_size; y++) {
+
+            value = (int16_t)ctx->data_buf[data_ofs + y];
+            ret = fprintf(ctx->hawkeye, "%d,", (int16_t) value);
+            if (ret < 0)
+              return MXT_ERROR_IO;
+          }
+
+          for (x = 0; x < ctx->x_size; x++) {
+            value = (int16_t)ctx->data_buf[data_ofs + ctx->y_size + x];
+          
+            if ((page_ofs == ctx->pages_per_pass-1) && (x == ctx->x_size-1)) {
+              ret = fprintf(ctx->hawkeye, "%d", (int16_t) value);
+            } else {
+              ret = fprintf(ctx->hawkeye, "%d,", (int16_t) value);
+            }
+
+            if (ret < 0)
+              return MXT_ERROR_IO;
+          }
+        } 
+      }
+
+      break;
+
+    case SELF_CAP_DELTAS:
+
+      /* One pass to output SCT, SCH, SCP */
+      /* Data is offset by page */
+      for (pass = 0; pass < ctx->passes; pass++) {
+        printf("Pass %d of %d\n", pass, ctx->passes);
+        for (page_ofs = 0; page_ofs < ctx->pages_per_pass; page_ofs++) {
+
+          /* Data is offset per page converted to 16bit values */
+          int data_ofs = ctx->page_size/2 * page_ofs;
+     
+          for (y = 0; y < ctx->y_size; y++) {
+          
+            value = (int16_t)ctx->data_buf[data_ofs + y];
+
+            ret = fprintf(ctx->hawkeye, "%d,", (int16_t) value);
+
+            if (ret < 0)
+              return MXT_ERROR_IO;
+          }
+
+          for (x = 0; x < ctx->x_size; x++) {
+              
+            value = (int16_t)ctx->data_buf[data_ofs + ctx->y_size + x];
+          
+            if ((page_ofs == ctx->pages_per_pass-1) && (x == ctx->x_size-1)) {
+              ret = fprintf(ctx->hawkeye, "%d", (int16_t) value);
+            } else {
+              ret = fprintf(ctx->hawkeye, "%d,", (int16_t) value);
+            }
+
+            if (ret < 0)
+              return MXT_ERROR_IO;
+          }
+        }
+      }
+        
+        break;
+
+    case SELF_CAP_SIGNALS:
+      break;    
+
+    default:
+      break;
+    
+    } /* End of switch ctx->mode */
+
+    ret = fprintf(ctx->hawkeye, "\n");
+
+  } else if (ctx->active_stylus) {
     for (pass = 0; pass < ctx->passes; pass++) {
       int pass_ofs = (ctx->y_size + ctx->x_size) * pass;
 
       for (y = 0; y < ctx->y_size; y++) {
         value = (int16_t)ctx->data_buf[pass_ofs + y];
-        ret = fprintf(ctx->hawkeye, "%d,",
-                      (ctx->mode == SELF_CAP_DELTAS) ? (int16_t)value : value);
+        ret = fprintf(ctx->hawkeye, "%d,", (int16_t) value);
         if (ret < 0)
           return MXT_ERROR_IO;
       }
 
       for (x = 0; x < ctx->x_size; x++) {
         value = (int16_t)ctx->data_buf[pass_ofs + ctx->y_size + x];
-        ret = fprintf(ctx->hawkeye, "%d,",
-                      (ctx->mode == SELF_CAP_DELTAS) ? (int16_t)value : value);
+        ret = fprintf(ctx->hawkeye, "%d,", (int16_t) value);
         if (ret < 0)
           return MXT_ERROR_IO;
       }
     }
+
+    ret = fprintf(ctx->hawkeye, "\n");
+
   } else if (ctx->t15_keyarray) {
       for (i = 0; i < ctx->passes; i++) {
         totalkeys = totalkeys + ctx->key_buf[i];
@@ -516,7 +788,7 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
         if (ret < 0)
           return MXT_ERROR_IO;
     }
-  } else {
+  } else { /* Mutual data */
 
       if (ctx->fformat == false ) {
         /* iterate through columns */
@@ -537,12 +809,12 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
 
         if (ret < 0)
           return MXT_ERROR_IO;
-      } else {  //Start of format 1
+      } else {  /* Start of format 1 */
 
         /* Pass used for slider or 2nd touchscreen */
         pass = ctx->instance;
         
-        ret = mxt_read_touchscreen_info (ctx->mxt, &ts_info);
+        ret = mxt_read_touchscreen_info(ctx->mxt, &ts_info);
           
         if (ret != MXT_SUCCESS) {
           mxt_err(ctx->lc, "Read touchscreen info failed\n");
@@ -677,10 +949,22 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
 {
   int ret, pass;
   struct mxt_id_info *id = ctx->mxt->info.id;
+  struct mxt_touchscreen_info *ts_info = NULL;
+
   struct mxt_t15_info *mxt_key_info;
   uint8_t instance = 0;
   uint8_t data;
   uint8_t buf_ofs;
+
+  /* TBD - Make global */
+  /* Need info for 0xA7 chips that are configurable */
+  ret = mxt_read_touchscreen_info (ctx->mxt, &ts_info);
+  if (ret != MXT_SUCCESS) {
+    mxt_err(ctx->lc, "Read touchscreen info failed\n");
+    free(ts_info);
+    ts_info = NULL;
+    return MXT_INTERNAL_ERROR;
+  } 
 
   ctx->active_stylus = false;
   ctx->self_cap = false;
@@ -696,7 +980,9 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
 
   /* Minus header */
   ctx->page_size = ctx->t37_size - 2;
-  mxt_dbg(ctx->lc, "page_size: %d", ctx->page_size);
+
+  mxt_dbg(ctx->lc, "T37 object size = %d,page_size = %d",
+      ctx->t37_size, ctx->page_size);
 
   switch (ctx->mode) {
   case DELTAS_MODE:
@@ -709,6 +995,13 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
       ctx->data_values = 27 * ctx->y_size;
       ctx->passes = 3;
       ctx->pages_per_pass = 8;
+    } else if (id->family == 0xA7 && id->variant == 0x00) {
+      ctx->x_size = ts_info[0].xsize;
+      ctx->y_size = ts_info[0].ysize;
+      ctx->data_values = ctx->x_size * ctx->y_size;
+      ctx->passes = 1;
+      ctx->pages_per_pass = (ctx->data_values * 2 + (ctx->page_size - 1)) /
+                            ctx->page_size;
     } else {
       ctx->x_size = id->matrix_x_size;
       ctx->y_size = id->matrix_y_size;
@@ -720,7 +1013,13 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
 
     ctx->stripe_width = ctx->y_size;
       
+    mxt_dbg(ctx->lc, "ctx->data_values: %d", ctx->data_values);
+    mxt_dbg(ctx->lc, "ctx->passes: %d", ctx->passes);
+    mxt_dbg(ctx->lc, "ctx->y_size %d", ctx->y_size);
+    mxt_dbg(ctx->lc, "ctx->x_size: %d", ctx->x_size);
     mxt_dbg(ctx->lc, "stripe_width: %d", ctx->stripe_width);
+    mxt_dbg(ctx->lc, "pages_per_pass: %d", ctx->pages_per_pass);
+
     break;
 
   case SELF_CAP_DELTAS:
@@ -729,9 +1028,20 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
       
     ctx->self_cap = true;
 
-    if (id->family != 164) {
+    if (((ctx->t8_scan_allow & 0x0a) == 0x00) &&
+        ((ctx->t8_scan_idle & 0x0a) == 0x00) &&
+        ((ctx->t8_scan_actv & 0x02) == 0x00)) {
       mxt_err(ctx->lc, "Self cap data not available");
       return MXT_ERROR_NOT_SUPPORTED;
+    }
+
+    if ((ctx->t8_scan_allow & SCP_BIT_MASK) ||
+       (ctx->t8_scan_idle & SCP_BIT_MASK) ||
+       (ctx->t8_scan_actv & SCP_BIT_MASK)) {
+      
+        ctx->scp_enabled = true;
+    } else {
+        ctx->scp_enabled = false;
     }
 
     if (ctx->t111_instances == 0) {
@@ -739,36 +1049,73 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
       return MXT_ERROR_OBJECT_NOT_FOUND;
     }
 
+    if (id->family == 0xa6)
+    {
+
+      ctx->passes = 1;  /* U series SCT, SCH, SCP all read in one pass */
+      ctx->y_size = id->matrix_y_size;  /* Most legacy parts are based on matrix size */
+      ctx->x_size = id->matrix_x_size; 
+      ctx->pages_per_pass = 3;          /* Fixed output format, SCT, SCH and SCP */
+      /* Increase data_values to full page captures */
+      ctx->data_values = (ctx->page_size/2 * ctx->pages_per_pass);
+      /* Offset from */ 
+
+      switch (id->variant) {
+
+      case 0x01: /* 640U offset for odd X */
+        ctx->start_offsetx = 0x14 ;
+        break;
+
+      case 0x06: /* 336U offset for odd X */
+        ctx->start_offsetx = 0x0C;
+        break;
+
+      case 0x08: /* 144U offset for odd X */
+        ctx->start_offsetx = 0x18;
+        break;
+
+      case 0x07: /* 308 offset pending more updates */
+        ctx->start_offsetx = 0x30;
+        break; 
+
+      default:
+        break;
+
+      }
+    } else { /* TBD - Check compatibility with legacy devices */
+
     // Read Ymax Y values, plus Ymax or 2Ymax X values
-    ctx->passes = ctx->t111_instances;
-    ctx->y_size = id->matrix_y_size;
-    ctx->x_size = ctx->y_size * ((id->matrix_x_size > ctx->y_size) ? 2 : 1);
-    ctx->data_values = (ctx->y_size + ctx->x_size) * ctx->passes;
-    ctx->pages_per_pass = ((ctx->y_size + ctx->x_size)*sizeof(uint16_t) +(ctx->page_size - 1)) /
+      ctx->passes = ctx->t111_instances;
+      ctx->y_size = id->matrix_y_size;
+      ctx->x_size = ctx->y_size * ((id->matrix_x_size > ctx->y_size) ? 2 : 1);
+      ctx->data_values = (ctx->y_size + ctx->x_size) * ctx->passes;
+      
+      ctx->pages_per_pass = ((ctx->y_size + ctx->x_size)*sizeof(uint16_t) + (ctx->page_size - 1)) /
                           ctx->page_size;
+    }
+
     break;
       
   case KEY_DELTAS_MODE:
   case KEY_REFS_MODE:
-  case KEY_SIGS_MODE:    
+  case KEY_SIGS_MODE:
+  case KEY_RAW_SIGS_MODE:    
       
     ctx->t15_keyarray = true;
     ctx->data_values = 0;
 
     ret = mxt_read_t15_key_info (mxt, &mxt_key_info);
-      if (ret != MXT_SUCCESS) {
+    if (ret != MXT_SUCCESS) {
         mxt_err(ctx->lc, "Read t15 key array failed\n");
         free(mxt_key_info);
         return MXT_INTERNAL_ERROR;
-      }
+    }
       
     /* Get t15 instances */
     ctx->t15_instances = mxt_get_object_instances(mxt, TOUCH_KEYARRAY_T15);
-       
+      
     // Setup of passes and set Y max and X max to 32 total buttons
-    ctx->passes = ctx->t15_instances;   // Passes equals # available instances
-     
-    mxt_dbg(mxt->ctx, "Number of passes: %d", ctx->passes);      
+    ctx->passes = ctx->t15_instances;   // Passes equals # available instances 
       
     /* Allocate storage for t15 x and y size */
     ctx->key_buf = (uint8_t *)calloc((ctx->passes), sizeof(uint8_t));
@@ -821,7 +1168,7 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
   default:
     mxt_err(ctx->lc, "Unsupported mode %02X", ctx->mode);
     return MXT_INTERNAL_ERROR;
-  }
+  } /* End of ctx->mode switch statement */
 
   mxt_dbg(ctx->lc, "passes: %d", ctx->passes);
   mxt_dbg(ctx->lc, "pages_per_pass: %d", ctx->pages_per_pass);
@@ -903,9 +1250,12 @@ int mxt_read_diagnostic_data_frame(struct mxt_device *mxt, struct t37_ctx* ctx)
 //******************************************************************************
 /// \brief Read one frame of diagnostic data
 /// \return #mxt_rc
-static int mxt_read_diagnostic_data_self_cap(struct t37_ctx* ctx)
+static int mxt_read_diagnostic_data_self_cap(struct mxt_device *mxt, struct t37_ctx* ctx)
 {
+  struct mxt_id_info *id = mxt->info.id;
   int ret;
+
+  ctx->y_ptr = 0;
 
   for (ctx->pass = 0; ctx->pass < ctx->passes; ctx->pass++) {
     for (ctx->page = 0; ctx->page < ctx->pages_per_pass; ctx->page++) {
@@ -916,7 +1266,25 @@ static int mxt_read_diagnostic_data_self_cap(struct t37_ctx* ctx)
       if (ret)
         return ret;
 
-      mxt_debug_insert_data_self_cap(ctx);
+
+      mxt_debug_insert_data_self_cap(mxt, ctx);
+    }
+  }
+
+  if (id->family == 0xA6 && ctx->mode == SELF_CAP_REFS) {
+
+    switch (id->variant) {
+      case 0x01 ... 0x02:
+      case 0x06 ... 0x08:
+      /* TBD */
+      // case 0x0A ... 0x0F:
+
+        sort_debug_selfcap_data(mxt, ctx);
+
+        break;
+
+      default:
+        break;
     }
   }
 
@@ -926,15 +1294,15 @@ static int mxt_read_diagnostic_data_self_cap(struct t37_ctx* ctx)
 //******************************************************************************
 /// \brief Read one frame of diagnostic data
 /// \return #mxt_rc
-static int mxt_read_diagnostic_data_ast(struct t37_ctx* ctx)
+static int mxt_read_diagnostic_data_ast(struct mxt_device *mxt, struct t37_ctx* ctx)
 {
-  return mxt_read_diagnostic_data_self_cap(ctx);
+  return mxt_read_diagnostic_data_self_cap(mxt, ctx);
 }
 
 //******************************************************************************
 /// \brief Read one frame of diagnostic data t15 key array
 /// \return #mxt_rc
-static int mxt_read_diagnostic_data_t15key (struct t37_ctx* ctx)
+static int mxt_read_diagnostic_data_t15key(struct mxt_device *mxt, struct t37_ctx* ctx)
 {
   int ret;
   
@@ -959,7 +1327,7 @@ static int mxt_read_diagnostic_data_t15key (struct t37_ctx* ctx)
 /// \brief Retrieve data from the T37 Diagnostic Data object
 /// \return #mxt_rc
 int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
-                   uint16_t frames, uint16_t instance, uint16_t format, uint16_t file_attr)
+                   uint16_t frames, uint16_t instance, uint16_t format, uint8_t attr)
 {
   struct t37_ctx ctx;
   time_t t1;
@@ -970,7 +1338,7 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   ctx.mxt = mxt;
   ctx.mode = mode;
   ctx.fformat = format;
-  ctx.file_attr = file_attr;
+  ctx.file_attr = attr;
 
   if (frames == 0) {
     mxt_warn(ctx.lc, "Warning: Defaulting to 1 frame");
@@ -996,15 +1364,14 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
   
   ctx.instance = instance;
 
-  /* Append or overwrite check */
-  /* Open Hawkeye output file */
+  /* Check, if ASCII append lower case 'a' */
   if (ctx.file_attr == 1) {
     ctx.hawkeye = fopen(csv_file, "a");
   } else {
     ctx.hawkeye = fopen(csv_file, "w");
   }
 
-  if (!ctx.hawkeye) {
+  if (ctx.hawkeye == NULL) {
     mxt_err(ctx.lc, "Failed to open file!");
     ret = MXT_ERROR_IO;
     goto free;
@@ -1020,11 +1387,11 @@ int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file,
 
   for (ctx.frame = 1; ctx.frame <= frames; ctx.frame++) {
     if (ctx.self_cap) {
-      ret = mxt_read_diagnostic_data_self_cap(&ctx);
+      ret = mxt_read_diagnostic_data_self_cap(mxt, &ctx);
     } else if (ctx.active_stylus) {
-      ret = mxt_read_diagnostic_data_ast(&ctx);
+      ret = mxt_read_diagnostic_data_ast(mxt, &ctx);
     } else if (ctx.t15_keyarray) {
-      ret = mxt_read_diagnostic_data_t15key(&ctx);
+      ret = mxt_read_diagnostic_data_t15key(mxt, &ctx);
     } else { /* Mutual */
       ret = mxt_read_diagnostic_data_frame(mxt, &ctx);
     }
@@ -1117,7 +1484,7 @@ static void mxt_dd_cmd(struct mxt_device *mxt, char menu_1, char menu_2, const c
       if (ret == MXT_SUCCESS)
         mxt_debug_dump(mxt, KEY_SIGS_MODE, csv_file, frames, instance, format, file_attr); 
       break;
-        
+
       default:
         printf("Invalid menu option\n");
     }
