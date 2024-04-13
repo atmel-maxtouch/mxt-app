@@ -1082,6 +1082,7 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
         break;
 
       }
+
     } else { /* TBD - Check compatibility with legacy devices */
 
     // Read Ymax Y values, plus Ymax or 2Ymax X values

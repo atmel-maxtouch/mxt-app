@@ -38,10 +38,38 @@
 #define T100_YORIGIN_OFFSET    0x13
 #define T100_YSIZE_OFFSET      0x14
 #define T100_XSIZE_OFFSET      0x09
+#define T100_SX_GAIN_OFFSET    0x28
+#define T100_DX_GAIN_OFFSET    0x29
+#define T100_TCHAUX_OFFSET     0x03
 #define T9_XORIGIN_OFFSET      0x01
 #define T9_YORIGIN_OFFSET      0x02
 #define T9_YSIZE_OFFSET        0x04
 #define T9_XSIZE_OFFSET        0x03
+#define T72_T108_CTRL_OFFSET   0x00
+#define T72_SX_NLGAIN_OFFSET   0x11
+#define T72_DX_NLGAIN_OFFSET   0x09
+#define T72_NOISCTRL_OFFSET    0x28
+#define T72_NOISE_TCH_ADPX     0x2E
+#define T72_NOISE_NOTCH_ADPX   0x33
+#define T72_CALCFG1_OFFSET     0x01
+#define T72_CFG1_OFFSET        0x02
+#define T72_CFG3_OFFSET        0x13
+#define T72_NOISE_THR_OFFSET   0x39
+#define T72_HOPCNT_OFFSET      0x05
+#define T72_NOISFREQ_OFFSET    0x29
+#define T8_CHRGTIME_OFFSET     0x00
+#define T56_INTTIME_OFFSET     0x03
+#define T111_INTTIME_OFFSET    0x02
+#define T111_DELAYTIME_OFFSET  0x03
+#define T108_NOISFREQ_OFFSET   0x22
+
+/* T72 Mask Values */
+
+#define T72_NOIS_HOP_BITS      0x18
+#define T72_NOISY_STATE_BIT    0x01
+
+/* T100 Mask Values */
+#define T100_TCHAUX_PEAK_BIT   0x10
 
 /* T15 Key Object offsets */
 #define T15_CTRL_OFFSET			0x00
@@ -145,6 +173,7 @@ typedef enum mxt_app_cmd_t {
   CMD_BACKUP,
   CMD_CALIBRATE,
   CMD_DEBUG_DUMP,
+  CMD_FREQ_SWEEP,
   CMD_LOAD_CFG,
   CMD_SAVE_CFG,
   CMD_MESSAGES,
