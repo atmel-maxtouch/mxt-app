@@ -48,7 +48,7 @@
 /// \brief Print message as hex
 /// \return #mxt_rc
 static int print_message_hex(struct mxt_device *mxt, uint8_t *msg,
-                             void *context, uint8_t size)
+                             void *context, uint8_t size, uint8_t msg_count)
 {
   const uint16_t object_type = *((uint16_t*)context);
   int j;

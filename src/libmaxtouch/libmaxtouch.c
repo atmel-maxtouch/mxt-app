@@ -763,7 +763,7 @@ int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode, uint16_t reset_
 /// \brief Handle calibration messages
 /// \return #mxt_rc
 static int handle_calibrate_msg(struct mxt_device *mxt, uint8_t *msg,
-                                void *context, uint8_t size)
+                                void *context, uint8_t size, uint8_t msg_count)
 {
   int *last_status = context;
   int status = msg[1];
