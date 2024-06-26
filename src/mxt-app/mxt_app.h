@@ -296,7 +296,7 @@ int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd);
 int mxt_read_diagnostic_data_frame(struct mxt_device *mxt, struct t37_ctx *ctx);
 int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx);
 sig_atomic_t mxt_get_sigint_flag(void);
-int mxt_read_messages_sigint(struct mxt_device *mxt, int timeout_seconds, void *context, int (*msg_func)(struct mxt_device *mxt, uint8_t *msg, void *context, uint8_t size));
+int mxt_read_messages_sigint(struct mxt_device *mxt, int timeout_seconds, void *context, int (*msg_func)(struct mxt_device *mxt, uint8_t *msg, void *context, uint8_t size, uint8_t msg_count));
 int mxt_bootloader_version(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, struct mxt_conn_info *conn);
 int disable_gr(struct mxt_device *mxt);
 int16_t get_value(struct t37_ctx *ctx, int x, int y);

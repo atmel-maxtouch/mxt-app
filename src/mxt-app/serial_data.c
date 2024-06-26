@@ -92,7 +92,7 @@ static void mxt_t68_print_status(struct t68_ctx *ctx, uint8_t status)
 /// \brief  Handle status messages from the T68 Serial Data Command object
 /// \return #mxt_rc
 static int mxt_t68_get_status(struct mxt_device *mxt, uint8_t *msg,
-                              void *context, uint8_t size)
+                              void *context, uint8_t size, uint8_t msg_count)
 {
   struct t68_ctx *ctx = context;
   unsigned int object_type = mxt_report_id_to_type(mxt, msg[0]);

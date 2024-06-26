@@ -18,7 +18,8 @@ LOCAL_SRC_FILES := \
   gr.c \
   serial_data.c \
   self_cap.c \
-  signal.c
+  signal.c \
+  freq_sweep.c
 LOCAL_LDLIBS := -llog
 LOCAL_STATIC_LIBRARIES := maxtouch
 LOCAL_SHARED_LIBRARIES := liblog
