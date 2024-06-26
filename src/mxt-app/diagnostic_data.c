@@ -64,6 +64,7 @@ struct t37_diagnostic_data {
 static int get_objects_addr(struct t37_ctx *ctx)
 {
   uint8_t scan_modes;
+  uint8_t siglimits[2];
   int t6_addr;
   int ret;
 
@@ -74,6 +75,40 @@ static int get_objects_addr(struct t37_ctx *ctx)
   /* Obtain T8 object address */
   ctx->t8_addr = mxt_get_object_address(ctx->mxt, GEN_ACQUISITIONCONFIG_T8, 0);
   if (ctx->t8_addr == OBJECT_NOT_FOUND) return MXT_ERROR_OBJECT_NOT_FOUND;
+
+  /* Obtain T25 or T12 object address */
+  ctx->t25_addr = mxt_get_object_address(ctx->mxt, SPT_SELFTEST_T25, 0);
+  if (ctx->t25_addr == OBJECT_NOT_FOUND) {
+     ctx->t12_addr = mxt_get_object_address(ctx->mxt, SPT_SELFTESTSIGLIMIT_T12, 0);
+     
+     if (ctx->t12_addr == OBJECT_NOT_FOUND) {
+        return MXT_ERROR_OBJECT_NOT_FOUND;
+      } else {
+          ret = mxt_read_register(ctx->mxt, &siglimits[0], 
+              ctx->t12_addr + MXT_T12_SIGLIMLO, 2);
+
+          ctx->siglimlo = siglimits[0] | (siglimits[1] << 8);
+
+          ret = mxt_read_register(ctx->mxt, &siglimits[0], 
+              ctx->t12_addr + MXT_T12_SIGLIMUP, 2);
+          ctx->siglimup = siglimits[0] | (siglimits[1] << 8);
+
+          ret = mxt_read_register(ctx->mxt, &siglimits[0], 
+              ctx->t12_addr + MXT_T12_SIGLIMRANGE, 2);
+
+          ctx->siglimrange = siglimits[0] | (siglimits[1] << 8);
+
+      }
+      
+    if (ret)
+      mxt_warn(ctx->lc, "Failed to read signal limits in T12");
+
+  } else {
+
+     /* Pending for T25 signal limits */
+     /* need to determine offsets based on chip family and variant id */
+
+  }
 
   /* T37 command address */
   ctx->diag_cmd_addr = t6_addr + MXT_T6_DIAGNOSTIC_OFFSET;
@@ -655,14 +690,18 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
 
     default:
 
-     ret = mxt_print_timestamp(ctx->hawkeye, false);
-     if (ret)
-        return ret;
+      if ((ctx->mode == DELTAS_MODE || ctx->mode == REFS_MODE) &&
+          ctx->fformat == false) {
+
+        ret = mxt_print_timestamp(ctx->hawkeye, false);
+        if (ret)
+          return ret;
   
-     /* print frame number */
-     ret = fprintf(ctx->hawkeye, "%u,", ctx->frame);
-     if (ret < 0)
-       return MXT_ERROR_IO;
+        /* print frame number */
+        ret = fprintf(ctx->hawkeye, "%u,", ctx->frame);
+        if (ret < 0)
+        return MXT_ERROR_IO;
+      }
 
       break;
   }
@@ -790,7 +829,7 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
     }
   } else { /* Mutual data */
 
-      if (ctx->fformat == false ) {
+      if (ctx->fformat == 0 ) {
         /* iterate through columns */
         for (x = 0; x < ctx->x_size; x++) {
           for (y = 0; y < ctx->y_size; y++) {
@@ -809,7 +848,7 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
 
         if (ret < 0)
           return MXT_ERROR_IO;
-      } else {  /* Start of format 1 */
+      } else {  /* Start of format 1 or format 2*/
 
         /* Pass used for slider or 2nd touchscreen */
         pass = ctx->instance;
@@ -848,18 +887,32 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
           for (x = 0; x < ts_info[pass].xsize; x++) {
             value = (int16_t)ctx->data_buf[y + data_ofs];
    
-            ret = fprintf(ctx->hawkeye, "%d",
+            if (ctx->fformat == 1) {
+              ret = fprintf(ctx->hawkeye, "%d",
                        (ctx->mode == DELTAS_MODE) ? (int16_t) value: value);
-            if (ret < 0)
-              return MXT_ERROR_IO;
+
+              if (ret < 0)
+                return MXT_ERROR_IO;
+              
+            } else if ((ctx->fformat == 2) && (ctx->mode == REFS_MODE)) {
+
+              if ((value > ctx->siglimlo) && (value < ctx->siglimup)) {
+                ret = fprintf(ctx->hawkeye, "PASS/%d", value);
+              } else {
+                ret = fprintf(ctx->hawkeye, "FAIL/%d", value);
+              }
+
+              if (ret < 0)
+                  return MXT_ERROR_IO;
+            }
             
-            if (x == ((ts_info[pass].xsize) - 1)){
+            if (x == ((ts_info[pass].xsize) - 1)) {
               break;
             } else {
               ret = fprintf(ctx->hawkeye, ",");
               if (ret < 0)
                 return MXT_ERROR_IO;
-              }
+            }
             
             data_ofs = data_ofs + ctx->y_size;
           }
@@ -902,7 +955,7 @@ static int get_instance_num(uint16_t *instance)
 /// \return #mxt_rc
 static int get_file_format(uint16_t *fformat)
 {
-  printf("Enter file format 0/1: ");
+  printf("Enter file format 0/1/2: ");
 
   if (scanf("%hu", fformat) == EOF) {
     fprintf(stderr, "Could not handle the input, exiting");

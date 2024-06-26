@@ -201,7 +201,12 @@ struct t37_ctx {
   bool self_cap;
   bool active_stylus;
   bool t15_keyarray;
-  bool fformat;
+  uint8_t fformat;
+  uint16_t t12_addr;
+  uint16_t t25_addr;
+  int siglimlo;
+  int siglimup;
+  int siglimrange;
 
   int x_size;
   int y_size;

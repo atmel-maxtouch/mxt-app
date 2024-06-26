@@ -226,7 +226,7 @@ int main (int argc, char *argv[])
   uint8_t t37_file_attr = 0;   /* 0 - write, 1 - append */
   uint8_t t37_mode = DELTAS_MODE;
   uint8_t bi2c_addr = 0x4a;
-  bool format = false;
+  uint8_t format = false;
   uint16_t port = 4000;
   int i2c_block_size = I2C_DEV_MAX_BLOCK;
   uint8_t t68_datatype = 1;
