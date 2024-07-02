@@ -52,12 +52,16 @@ struct mxt_conn_info;
 #include "hidraw/hidraw_device.h"
 
 /* GEN_COMMANDPROCESSOR_T6 Register offsets from T6 base address */
-#define MXT_T6_RESET_OFFSET      0x00 
+#define MXT_T6_RESET_OFFSET      0x00
 #define MXT_T6_BACKUPNV_OFFSET   0x01
 #define MXT_T6_CALIBRATE_OFFSET  0x02
 #define MXT_T6_REPORTALL_OFFSET  0x03
 #define MXT_T6_RESERVED_OFFSET   0x04
 #define MXT_T6_DIAGNOSTIC_OFFSET 0x05
+
+/* T100 MULTITOUCHSCREEN Register offsets from T100 base address */
+
+#define MXT_T100_CALCFG       0x2A
 
 /* T12 Offset */
 #define MXT_T12_SIGLIMLO      0x03
@@ -65,9 +69,12 @@ struct mxt_conn_info;
 #define MXT_T12_SIGLIMRANGE   0x07
 
 /* T8 Offset */
-#define MXT_T8_MEASALLOW_OFFSET  0x0a
+#define MXT_T8_MEASALLOW_OFFSET   0x0a
 #define MXT_T8_MEASIDLEDEF_OFFSET 0x0b
 #define MXT_T8_MEASACTVDEF_OFFSET 0x0c
+
+/* T113 Offset */
+#define MXT_T113_CTRL       0x00
 
 /* Values to write to the command processor fields */
 #define RESET_COMMAND       0x01
