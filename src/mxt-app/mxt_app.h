@@ -207,6 +207,7 @@ struct t37_ctx {
   int siglimlo;
   int siglimup;
   int siglimrange;
+  bool p2p_enabled;
 
   int x_size;
   int y_size;
@@ -236,6 +237,14 @@ struct t37_ctx {
   uint16_t t8_addr;
   uint8_t file_attr;
   bool scp_enabled;
+
+  bool scp_axis;
+  uint8_t scp_axis_en;
+  uint16_t t113_addr;
+  /* Experiment on variable usage */
+  uint8_t xscp_page_start;
+  uint8_t yscp_page_start;
+  uint8_t scp_start_page;
 
   uint16_t frame;
   int pass;
