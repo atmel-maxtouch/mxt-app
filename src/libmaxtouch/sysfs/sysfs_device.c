@@ -371,7 +371,7 @@ int sysfs_open_i2c(struct mxt_device *mxt)
     mxt->sysfs.debug_v2 = true;
   }
 
-  mxt_info(mxt->ctx, "\nDevice registered on sysfs path:%s", conn->path);
+  mxt_info(mxt->ctx, "\nDevice registered on sysfs path:%s\n", conn->path);
 
   return MXT_SUCCESS;
 }
@@ -417,7 +417,7 @@ int sysfs_open_spi(struct mxt_device *mxt)
     mxt->sysfs.debug_v2 = true;
   }
 
-  mxt_info(mxt->ctx, "\nDevice registered on sysfs path:%s", conn->path);
+  mxt_info(mxt->ctx, "\nDevice registered on sysfs path:%s\n", conn->path);
 
   return MXT_SUCCESS;
 }
@@ -485,7 +485,7 @@ int sysfs_bootloader_write(struct mxt_device *mxt, unsigned const char *buf,
   int ret;
   size_t *bytes;
 
-  ret =  sysfs_write_register(mxt, buf, 0x0000, count);
+  ret =  sysfs_write_register(mxt, buf, 0x0000, count, 0x00);
 
   return ret;
 
@@ -546,25 +546,166 @@ close:
 /// \brief  Write register to MXT chip
 /// \return #mxt_rc
 int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf,
-                         int start_register, size_t count)
+                         int start_register, size_t count, size_t padding)
 {
+  unsigned char tbuf[1024];
+  unsigned char *ebuf;
+  uint16_t datasize;
+  uint16_t bytesToWrite = 0;
+  size_t bytes_written = 0;
+  uint16_t msg_length = 0;
+  uint16_t msg_count = 0;
+  uint8_t tmp_padding = 0;
+  uint8_t padding_ofs = 0;
+  uint8_t temp = 0;
+  uint8_t data_ofs = 0;
   int fd = -ENODEV;
   int ret;
-  size_t bytes_written;
+  int i;
+
+  /* Make copies original length */
+  bytesToWrite = count;
+  msg_length = count;
 
   ret = open_device_file(mxt, &fd);
   if (ret)
     return ret;
 
+  /* Set write address */
   if (lseek(fd, start_register, 0) < 0) {
     mxt_err(mxt->ctx, "lseek error %s (%d)", strerror(errno), errno);
     ret = mxt_errno_to_rc(errno);
     goto close;
   }
 
+  /* Check if encrypted and if not encrypted cfg write */
+  /* Logic handles encrypted cfg write, differently */
+  if ((CHECK_BIT(mxt->mxt_enc.encryption_state, CFG_ENCRYPTED)) 
+      && (mxt->mxt_enc.enc_cfg_write == false)) {
+    if (start_register >= ((mxt->mxt_dev.t38_addr + mxt->mxt_dev.t38_size))) {
+    /* set datasize to incoming count */
+    datasize = count;
+
+    /* Determine if count is multiple of 16, find bytesTowrite */
+    if (((count % 16) != 0) && (count != 0)) {
+      msg_length = (16 - (count % 16) + count); /* length with padding */
+      bytesToWrite = msg_length;
+      tmp_padding = msg_length - count; /* exact padding needed */
+    }
+
+    ebuf = (unsigned char *)calloc((msg_length + 2), sizeof(unsigned char)) ;
+    if (!ebuf)
+      return MXT_ERROR_NO_MEM;
+
+	/* Pending - cipher code not yet available */
+
+    /* Copy full incoming data to tbuf, padding is zero currently */
+    memcpy(ebuf, buf, count);
+
+    /* Adjust the padding, add to end of count */
+    do {
+
+      /* Determine if last data packet and padding exists */
+      if ((tmp_padding > 0) && (bytesToWrite - data_ofs == 16)) {
+        
+	/* add random byte */
+        ebuf[count] = mxt->mxt_enc.renc_byte;
+        tmp_padding -= 1; /* reduce by 1 for random data byte */
+        padding_ofs = count + 1; /* random data byte */
+        
+	/* add the padding to the last data bytes */
+        while (tmp_padding > 0) {
+          /* Repeat until padding is done*/
+          temp = MIN(tmp_padding, count);
+          
+	/* i.e. ABCDABCDA */
+          memcpy(&ebuf[padding_ofs], &buf[0], temp);
+          tmp_padding -= temp;
+          padding_ofs = padding_ofs + temp;
+        }
+      }
+
+      data_ofs += 16;
+
+    } while (data_ofs < bytesToWrite);
+
+	/* Pending - Cipher code not yet available */
+
+    /* Copy encrypted content shifted by datasize */
+    memcpy(&tbuf[2], &ebuf[0], msg_length);
+
+    free(ebuf);
+    } else {
+      memcpy(&tbuf[2], buf, count);
+    }
+  } else if (CHECK_BIT(mxt->mxt_enc.encryption_state, MSG_ENCRYPTED)) {
+      if (mxt->mxt_enc.enc_cfg_write == true) {
+        /* buf has data size bytes, that will be] zero'ed later */
+        memcpy(&tbuf[0], buf, count);
+      } else {
+        /* Internal write from function, count is less datasize */
+        memcpy(&tbuf[2], buf, count);
+      }
+  } else { /* Normal write, no encryption */
+    memcpy(&tbuf[0], buf, count);
+  }
+
+if ((CHECK_BIT(mxt->mxt_enc.encryption_state, DEV_ENCRYPTED)) && 
+      (mxt->mxt_enc.enc_cfg_write == false)) {
+  /* Write data and adjust the datasize, not for cfg file writes */
+  do {   
+      if ((mxt->mxt_enc.encryption_state & CFG_DEV_MASK) == CFG_DEV_MASK) {
+        if (start_register >= ((mxt->mxt_dev.t38_addr + mxt->mxt_dev.t38_size))) {
+          if (datasize > mxt->mxt_enc.enc_blocksize) {
+            msg_count = 48;
+            tbuf[0] = msg_count & 0xff;
+            tbuf[1] = (msg_count >> 8) & 0xff;
+          } else if (datasize < 16) {
+            msg_count = 16;
+            tbuf[0] = datasize & 0xff;
+            tbuf[1] = (datasize >> 8) & 0xff;
+          } else {
+            msg_count = msg_length;
+            tbuf[0] = datasize & 0xff;
+            tbuf[1] = (datasize >> 8) & 0xff;
+          }
+        } else {
+          tbuf[0] = 0x00;
+          tbuf[1] = 0x00;
+          msg_count = msg_length;
+        }
+      } else { /* MSG */
+        /* Make datasize = 0x0000 for MSG encrypted ?? */
+        tbuf[0] = 0x00;
+        tbuf[1] = 0x00;
+        msg_count = msg_length;
+      }
+
+    /* Workaround for legacy driver, otherwise add 2 to msg_count */
+    ret = write(fd, tbuf + bytes_written, msg_count + 2);
+    printf("ret %d\n", ret);
+    if (ret == 0) {
+      ret = MXT_ERROR_IO;
+      goto close;
+    } else if (ret < 0) {
+      mxt_err(mxt->ctx, "Error %s (%d) writing to register", strerror(errno), errno);
+      ret = mxt_errno_to_rc(errno);
+      goto close;
+    }
+
+    bytesToWrite -= msg_count;
+    datasize =- msg_count;
+    bytes_written += ret;
+
+  } while (bytesToWrite > 0);
+
+} else { /* for config file writes where data size is embedded */
+
   bytes_written = 0;
+  bytesToWrite = count;
+
   while (bytes_written < count) {
-    ret = write(fd, buf+bytes_written, count - bytes_written);
+    ret = write(fd, tbuf + bytes_written, bytesToWrite);
     if (ret == 0) {
       ret = MXT_ERROR_IO;
       goto close;
@@ -575,7 +716,9 @@ int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf,
     }
 
     bytes_written += ret;
+    
   }
+}
 
   ret = MXT_SUCCESS;
 
