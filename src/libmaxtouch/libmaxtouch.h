@@ -45,6 +45,7 @@ struct mxt_conn_info;
 #include "sysfs/sysfs_device.h"
 #include "debugfs/debugfs_device.h"
 #include "i2c_dev/i2c_dev_device.h"
+#include "../mxt-app/mxt_app.h"
 
 #ifdef HAVE_LIBUSB
 #include "usb/usb_device.h"
@@ -80,6 +81,7 @@ struct mxt_conn_info;
 #define RESET_COMMAND       0x01
 #define BOOTLOADER_COMMAND  0xA5
 #define BACKUPNV_COMMAND    0x55
+#define RESTORENV_COMMAND   0x33
 #define CALIBRATE_COMMAND   0x01
 
 /* Prefix for T5 messages */
@@ -200,14 +202,15 @@ struct mxt_device {
   struct mxt_report_id_map *report_id_map;
   char msg_string[255];
   struct mxt_crc_device mxt_crc;
-
+  struct mxt_enc_device mxt_enc;
+  struct i2c_dev_device mxt_dev;
   union {
     struct sysfs_device sysfs;
     struct debugfs_device debug_fs;
 #ifdef HAVE_LIBUSB
     struct usb_device usb;
 #endif
-    struct i2c_dev_device i2c_dev;
+    //struct i2c_dev_device i2c_dev;
   };
 };
 
@@ -237,7 +240,7 @@ int mxt_reset_chip(struct mxt_device *mxt, bool bootloader_mode, uint16_t reset_
 int mxt_calibrate_chip(struct mxt_device *mxt);
 int mxt_backup_config(struct mxt_device *mxt, uint8_t backup_command);
 int mxt_load_config_file(struct mxt_device *mxt, const char *cfg_file);
-int mxt_save_config_file(struct mxt_device *mxt, const char *filename);
+int mxt_save_config_file(struct mxt_device *mxt, const char *filename, uint8_t format);
 int mxt_zero_config(struct mxt_device *mxt);
 int mxt_get_msg_count(struct mxt_device *mxt, int *count);
 char *mxt_get_msg_string(struct mxt_device *mxt);
@@ -250,7 +253,9 @@ int mxt_bootloader_write(struct mxt_device *mxt, unsigned char const *buf, int c
 int mxt_msg_wait(struct mxt_device *mxt, int timeout_ms);
 int mxt_errno_to_rc(int errno_in);
 int mxt_report_all(struct mxt_device *mxt);
-int mxt_checkcrc(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, char *filename);
+int mxt_checkcrc(struct mxt_device *mxt, char *filename);
+int mxt_check_encryption(struct mxt_device *mxt);
+int mxt_set_irq(struct mxt_device *mxt, bool irq_enabled);
 
 #ifdef __cplusplus
 }

@@ -33,6 +33,11 @@
        __typeof__ (b) _b = (b); \
            _a < _b ? _a : _b; })
 
+#define MAX(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+           _a > _b ? _a : _b; })
+
 /* Object offsets */
 #define T100_XORIGIN_OFFSET    0x08
 #define T100_YORIGIN_OFFSET    0x13

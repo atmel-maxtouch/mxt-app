@@ -270,6 +270,8 @@ int mxt_get_info(struct mxt_device *mxt)
   if (ret)
     return ret;
 
+  //mxt_print_info_block(mxt);
+
   ret = mxt_calc_report_ids(mxt);
   if (ret) {
     mxt_err(mxt->ctx, "Failed to generate report ID look-up table");
@@ -277,6 +279,11 @@ int mxt_get_info(struct mxt_device *mxt)
   }
 
   mxt_display_chip_info(mxt);
+
+  ret = mxt_check_encryption(mxt);
+  if (ret) {
+    mxt_dbg(mxt->ctx, "Failed to get encryption status");
+  }
 
   return MXT_SUCCESS;
 }
@@ -456,7 +463,7 @@ int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf,
         mxt_dbg(mxt->ctx, "Failed to disable debug_irq");
     }
 
-    ret = sysfs_write_register(mxt, buf, start_register, count);
+    ret = sysfs_write_register(mxt, buf, start_register, count, 0x00);
 
     if (mxt->mxt_crc.crc_enabled == true) {
       if (mxt->mxt_crc.reset_triggered == false) {
@@ -511,7 +518,7 @@ int mxt_write_bytes(struct mxt_device *mxt, uint8_t const *buf,
   switch (mxt->conn->type) {
   case E_SYSFS_SPI:
   case E_SYSFS_I2C:
-    ret = sysfs_write_register(mxt, buf, start_register, count);
+    ret = sysfs_write_register(mxt, buf, start_register, count, 0x00);
     break;
 
   case E_I2C_DEV:
@@ -856,10 +863,8 @@ int mxt_backup_config(struct mxt_device *mxt, uint8_t backup_command)
     return MXT_ERROR_OBJECT_NOT_FOUND;
 
   /* Write to command processor register to perform command */
-  ret = mxt_write_register
-        (
-          mxt, &backup_command, t6_addr + MXT_T6_BACKUPNV_OFFSET, 1
-        );
+  ret = mxt_write_register(mxt, &backup_command, 
+    t6_addr + MXT_T6_BACKUPNV_OFFSET, 1);
 
   if (ret == MXT_SUCCESS)
     mxt_info(mxt->ctx, "Backed up settings to the non-volatile memory");
@@ -884,10 +889,8 @@ int mxt_report_all(struct mxt_device *mxt)
     return MXT_ERROR_OBJECT_NOT_FOUND;
 
   /* Write to command processor register to perform command */
-  ret = mxt_write_register
-        (
-          mxt, &report_all_cmd, t6_addr + MXT_T6_REPORTALL_OFFSET, 1
-        );
+  ret = mxt_write_register(mxt, &report_all_cmd, 
+    t6_addr + MXT_T6_REPORTALL_OFFSET, 1);
 
   if (ret == MXT_SUCCESS)
     mxt_info(mxt->ctx, "REPORTALL command issued");
@@ -1185,4 +1188,40 @@ int mxt_errno_to_rc(int errno_in)
   default:
     return MXT_ERROR_IO;
   }
+}
+
+//******************************************************************************
+/// \brief Disable driver IRQ based on interface
+/// \return #mxt_rc
+int mxt_set_irq(struct mxt_device *mxt, bool irq_enabled)
+{
+
+  int ret = 0;
+
+  switch (mxt->conn->type) {
+#ifdef HAVE_LIBUSB
+  case E_USB:
+    /* TBD */
+    break;
+#endif /* HAVE_LIBUSB */
+
+  case E_SYSFS_SPI:
+    /* TBD */
+    break;
+
+  case E_I2C_DEV:
+    ret = debugfs_set_irq(mxt, irq_enabled);
+    break;
+
+  case E_SYSFS_I2C:
+    ret = sysfs_set_debug_irq(mxt, irq_enabled);
+    break;
+
+  default:
+    mxt_err(mxt->ctx, "Device type not supported");
+    ret = MXT_ERROR_NOT_SUPPORTED;
+    break;
+  }
+
+  return ret;
 }

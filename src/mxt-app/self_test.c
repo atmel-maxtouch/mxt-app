@@ -378,7 +378,7 @@ int run_self_tests(struct mxt_device *mxt, uint8_t cmd, bool type)
   uint8_t disable_t10 = 0;
   int ret;
 
- if (type == 0){
+ if (type == 0) {
 
     t25_addr = mxt_get_object_address(mxt, SPT_SELFTEST_T25, 0);
     

@@ -41,6 +41,8 @@
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/utilfuncs.h"
 #include "libmaxtouch/info_block.h"
+#include "serial_data.h"
+#include "libmaxtouch/msg.h"
 
 #include "broken_line.h"
 #include "sensor_variant.h"
@@ -108,6 +110,7 @@ static void print_usage(char *prog_name)
           "Configuration file commands:\n"
           "  --load FILE                : upload cfg from FILE in .xcfg or OBP_RAW format\n"
           "  --save FILE                : save cfg to FILE in .xcfg or OBP_RAW format\n"
+          "  --format N                 : save in specific format N - 0 or 3\n"
           "  --backup[=COMMAND]         : backup configuration to NVRAM\n"
           "  --checksum FILE            : verify .xcfg or OBP_RAW file config checksum\n"
           "\n"
@@ -226,7 +229,7 @@ int main (int argc, char *argv[])
   uint8_t t37_file_attr = 0;   /* 0 - write, 1 - append */
   uint8_t t37_mode = DELTAS_MODE;
   uint8_t bi2c_addr = 0x4a;
-  uint8_t format = false;
+  uint8_t format = 0;
   uint16_t port = 4000;
   int i2c_block_size = I2C_DEV_MAX_BLOCK;
   uint8_t t68_datatype = 1;
@@ -945,6 +948,7 @@ int main (int argc, char *argv[])
   case CMD_INFO:
     mxt_verb(ctx, "CMD_INFO");
     mxt_print_info_block(mxt);
+    mxt_print_config_crc(mxt);
     ret = MXT_SUCCESS;
     break;
 
@@ -976,7 +980,7 @@ int main (int argc, char *argv[])
     break;
 
   case CMD_OD_TEST:
-    mxt_verb(ctx, "CMD_TEST");
+    mxt_verb(ctx, "CMD_OD_TEST");
     ret = run_self_tests(mxt, ondemand_test_cmd, 1);
     break;
 
@@ -1079,7 +1083,8 @@ int main (int argc, char *argv[])
   case CMD_SAVE_CFG:
     mxt_verb(ctx, "CMD_SAVE_CFG");
     mxt_verb(ctx, "filename:%s", strbuf);
-    ret = mxt_save_config_file(mxt, strbuf);
+    mxt_verb(ctx, "format %d", format);
+    ret = mxt_save_config_file(mxt, strbuf, format);
     break;
 
   case CMD_SELF_CAP_TUNE_CONFIG:
@@ -1091,7 +1096,7 @@ int main (int argc, char *argv[])
   case CMD_CRC_CHECK:
     mxt_verb(ctx, "CMD_CRC_CHECK");
     mxt_verb(ctx, "filename:%s", strbuf);
-    ret = mxt_checkcrc(ctx, mxt, strbuf);
+    ret = mxt_checkcrc(mxt, strbuf);
     break;
 
   case CMD_NONE:

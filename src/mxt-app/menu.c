@@ -69,18 +69,26 @@ static void load_config(struct mxt_device *mxt)
 
 //******************************************************************************
 /// \brief Save config to file
-static void save_config(struct mxt_device *mxt)
+static int save_config(struct mxt_device *mxt)
 {
   char cfg_file[255];
+  uint16_t format;
 
   /* Save config file */
   printf("Give cfg file name: ");
   if (scanf("%255s", cfg_file) != 1) {
     printf("Input parse error\n");
-    return;
+    return MXT_ERROR_BAD_INPUT;
   }
 
-  if (mxt_save_config_file(mxt, cfg_file) == MXT_SUCCESS) {
+  printf("Enter config version format 0 or 3, other values are invalid: ");
+
+  if (scanf("%hu", &format) == EOF) {
+    fprintf(stderr, "Could not handle the input, exiting");
+    return MXT_ERROR_BAD_INPUT; 
+  }
+
+  if (mxt_save_config_file(mxt, cfg_file, format) == MXT_SUCCESS) {
     printf("Successfully saved configuration to file\n");
   } else {
     printf("Failed to save configuration\n");
