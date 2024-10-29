@@ -714,7 +714,7 @@ static int mxt_debug_insert_data_self_cap(struct mxt_device *mxt, struct t37_ctx
   struct mxt_id_info *id = ctx->mxt->info.id;
   int i;
   int ofs = 0;
-  int val;
+  uint16_t val;
 
   switch (ctx->mode) {
     case SELF_CAP_DELTAS:
@@ -728,7 +728,16 @@ static int mxt_debug_insert_data_self_cap(struct mxt_device *mxt, struct t37_ctx
 
         ofs = ctx->y_ptr;
 
-        ctx->data_buf[ofs] = val;
+        /* Fix only for 640UD for compatibility with GDV */
+        if ((id->family == 0xa6) && (id->variant == 0x17)) {
+          if (val == 32768) {
+            ctx->data_buf[ofs] = 0;
+          } else {
+            ctx->data_buf[ofs] = val;
+          }
+        } else {
+            ctx->data_buf[ofs] = val;
+        }
         
         ctx->y_ptr++;
       }
@@ -772,9 +781,10 @@ static int mxt_debug_insert_data_key_array(struct t37_ctx *ctx)
 /// \return #mxt_rc
 static int mxt_debug_insert_data(struct t37_ctx *ctx)
 {
-  int i;
+  struct mxt_id_info *id = ctx->mxt->info.id;
   uint16_t value;
   int ofs;
+  int i;
 
   for (i = 0; i < ctx->page_size; i += 2) {
     
@@ -786,7 +796,18 @@ static int mxt_debug_insert_data(struct t37_ctx *ctx)
     if (ofs >= ctx->data_values)
       return MXT_SUCCESS;
 
-    ctx->data_buf[ofs] = value;
+    /* Set the saturated values to 0 */
+    /* Fix for 640UD only, may not be applicable to other devices */
+    /* Only for GDV compatibilty */
+    if ((id->family == 0xa6) && (id->variant == 0x17)) {
+      if (value == 32768) {
+        ctx->data_buf[ofs] = 0;
+      } else {
+        ctx->data_buf[ofs] = value;
+      }
+    } else {
+        ctx->data_buf[ofs] = value;
+    }
 
     ctx->y_ptr++;
 
@@ -973,13 +994,16 @@ data_end:
   } else { /* Mutual data */
 
       if (ctx->fformat == 0 ) {
+
+        /* Need fix for mxT640UD full X and Y matrix size  */
+        /* Use for matrix aleady limited in initialize function */
         /* iterate through columns */
-        //for (x = 0; x < ctx->x_size; x++) {
-        //  for (y = 0; y < ctx->y_size; y++) {
-        //    ofs = y + x * ctx->y_size;
-        for (x = 0; x < ts_info[pass].xsize; x++) {
-          for (y = 0; y < ts_info[pass].ysize; y++) {
-            ofs = y + x * ts_info[pass].ysize;
+        for (x = 0; x < ctx->x_size; x++) {
+          for (y = 0; y < ctx->y_size; y++) {
+            ofs = y + x * ctx->y_size;
+        //for (x = 0; x < ts_info[pass].xsize; x++) {
+         // for (y = 0; y < ts_info[pass].ysize; y++) {
+         //   ofs = y + x * ts_info[pass].ysize;
 
               value = ctx->data_buf[ofs];
 
@@ -1198,6 +1222,7 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
       ctx->pages_per_pass = (ctx->data_values * 2 + (ctx->page_size - 1)) /
                             ctx->page_size;
     } else {
+      /* mxt640UD is full matrix */
       ctx->x_size = id->matrix_x_size;
       ctx->y_size = id->matrix_y_size;
       ctx->data_values = ctx->x_size * ctx->y_size;
@@ -1247,17 +1272,19 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
     if (id->family == 0xa6) {
 
       ctx->passes = 1;  /* U series SCT, SCH, SCP all read in one pass */
+      /* 640UD - Y0 to Y19, X0 to X31, full matrix */
       ctx->y_size = id->matrix_y_size;  /* Most legacy parts are based on matrix size */
       ctx->x_size = id->matrix_x_size; 
       ctx->pages_per_pass = 3;          /* Fixed output format, SCT, SCH and SCP */
       /* Increase data_values to full page captures */
       ctx->data_values = (ctx->page_size/2 * ctx->pages_per_pass);
-      /* Offset from */ 
-
+     
+      /* This is the offset value from the beginning end of the even X lines for sc refs */
+      /* Ymax + even Xmax + offset of data to first odd Xmin */
       switch (id->variant) {
 
       case 0x01: /* 640U offset for odd X */
-        ctx->start_offsetx = 0x14 ;
+        ctx->start_offsetx = 0x14;
         break;
 
       case 0x06: /* 336U offset for odd X */
@@ -1274,6 +1301,10 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
 
       case 0x14: /* 336UD offset and scp_start_page */
         ctx->start_offsetx = 0x0C;
+        ctx->scp_start_page = 2;
+
+      case 0x17: /* 640UD offset and scp_start_page */
+        ctx->start_offsetx = 0x14;
         ctx->scp_start_page = 2;
 
       default:
@@ -1311,6 +1342,10 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
       ctx->pages_per_pass = ((ctx->y_size + ctx->x_size)*sizeof(uint16_t) + (ctx->page_size - 1)) /
                           ctx->page_size;
     }
+
+      mxt_dbg(ctx->lc, "ctx->y_size %d", ctx->y_size);
+      mxt_dbg(ctx->lc, "ctx->x_size: %d", ctx->x_size);
+      mxt_dbg(ctx->lc, "ctx->data_values: %d", ctx->data_values);
 
     break;
       
@@ -1495,6 +1530,7 @@ static int mxt_read_diagnostic_data_self_cap(struct mxt_device *mxt, struct t37_
       case 0x01 ... 0x02:
       case 0x06 ... 0x08:
       case 0x14:
+      case 0x17:
       /* TBD */
       // case 0x0A ... 0x0F:
 
