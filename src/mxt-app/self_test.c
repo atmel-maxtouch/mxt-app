@@ -666,6 +666,14 @@ uint8_t self_test_main_menu(struct mxt_device *mxt)
 
     switch(self_test) {
     case 1:
+
+      t25_addr = mxt_get_object_address(mxt, SPT_SELFTEST_T25, 0);
+      
+      if (t25_addr == OBJECT_NOT_FOUND) {
+        mxt_info(mxt->ctx, "\nT25 Self Test Object not Found ... Exiting\n");
+        return MXT_SUCCESS;
+      }
+
       self_test_t25_menu(mxt);
       return MXT_SUCCESS;
       break;

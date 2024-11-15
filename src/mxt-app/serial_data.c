@@ -66,6 +66,7 @@ static int mxt_t68_get_status(struct mxt_device *mxt, uint8_t *msg,
   } else if (object_type == GEN_COMMANDPROCESSOR_T6) {
     print_t6_status(msg[1]);
   }
+
   return MXT_MSG_CONTINUE;
 }
 
@@ -350,11 +351,9 @@ static int mxt_t68_check_power_cfg(struct t68_ctx *ctx)
         "and will not process T68 serial data commands.\n"
             "Please set the T7 power configuration idle acquisition \n"
             "interval to a non-zero value and try again.\n");
-
-    return MXT_ERROR_UNEXPECTED_DEVICE_STATE;
-  } else {
-    return MXT_SUCCESS;
   }
+
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
@@ -463,7 +462,6 @@ int mxt_load_t68_payload(struct mxt_device *mxt, struct t68_ctx *ctx)
   ctx->t68_addr = mxt_get_object_address(ctx->mxt, SERIAL_DATA_COMMAND_T68, 0);
   if (ctx->t68_addr == OBJECT_NOT_FOUND)
     return MXT_ERROR_OBJECT_NOT_FOUND;
-
 
   /* Calculate position of CMD register */
   ctx->t68_size = mxt_get_object_size(ctx->mxt, SERIAL_DATA_COMMAND_T68);

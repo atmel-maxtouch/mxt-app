@@ -579,6 +579,7 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
 {
   struct flash_context fw = { 0 };
   int ret;
+  int mode;
 
   fw.ctx = ctx;
   fw.mxt = maxtouch;
@@ -595,11 +596,11 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
   fw.file_size = ftell(fw.fp);
   rewind(fw.fp);
 
-  ret = mxt_bootloader_init_chip(&fw);
-  if (ret && (ret != MXT_DEVICE_IN_BOOTLOADER))
-    return ret;
+  mode = mxt_bootloader_init_chip(&fw);
+  if (mode && (mode != MXT_DEVICE_IN_BOOTLOADER))
+    return mode;
 
-  if (ret != MXT_DEVICE_IN_BOOTLOADER) {
+  if (mode != MXT_DEVICE_IN_BOOTLOADER) {
     if (strlen(new_version) > 0) {
       fw.check_version = true;
       fw.new_version = new_version;
@@ -627,10 +628,10 @@ int mxt_flash_firmware(struct libmaxtouch_ctx *ctx,
   }
 
   ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
-    if (ret) {
-      mxt_info(fw.ctx, "Could not initialise chip");
-      return ret;
-    }
+  if (ret) {
+    mxt_info(fw.ctx, "Could not initialise chip");
+    return ret;
+  }
 
   ret = send_frames(&fw);
   if (ret)

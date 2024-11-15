@@ -588,6 +588,10 @@ To enable generation of the man page using pandoc:
 
     ./autogen.sh --enable-man
 
+To enable generation of an ODT READ.ME doc using pandoc:
+
+    ./autogen.sh --enable-odt
+
 To build the doxygen documentation (this requires doxygen and graphviz to be
 installed):
 

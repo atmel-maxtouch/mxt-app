@@ -35,7 +35,8 @@ struct libmaxtouch_ctx;
 
 #define MXT_INSTANCES(o) ((uint16_t)((o).instances_minus_one) + 1)
 #define MXT_SIZE(o) ((uint16_t)((o).size_minus_one) + 1)
-#define MXT_OBJECT_SIZE_MAX 256
+//#define MXT_OBJECT_SIZE_MAX 256
+#define MXT_OBJECT_SIZE_MAX 1024
 
 /* Define macros */
 #define CHECK_BIT(var, pos) (((unsigned int)(var) >> (pos)) & 1)
@@ -155,6 +156,7 @@ struct mxt_enc_device {
   bool msg_enc_enabled;
   bool enc_cfg_write;
   uint8_t renc_byte;
+  bool state_triggered;
 };
 
 /*! Object types */
@@ -283,8 +285,10 @@ struct mxt_enc_device {
   f(PROCI_HOVERGESTUREPROCESSOR_T129, 129) \
   f(SPT_MESSAGEFILTER_T132, 132)\
   f(SPT_SELFCAPVOLTAGEMOD_T133, 133) \
+  f(PROCG_IGNORENODES_T141, 141) \
   f(SPT_MESSAGECOUNT_T144, 144) \
   f(SPT_IGNORENODESCONTROL_T145, 145)\
+  f(SPT_EVENTCOUNTER_T170, 170) \
   f(GEN_INFOBLOCK16BIT_T254, 254) \
   f(SPT_PROTOTYPE_T220, 220) \
   f(SPT_PROTOTYPE_T221, 221) \
