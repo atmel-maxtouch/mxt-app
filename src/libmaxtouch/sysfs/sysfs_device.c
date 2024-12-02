@@ -683,7 +683,6 @@ if ((CHECK_BIT(mxt->mxt_enc.encryption_state, DEV_ENCRYPTED)) &&
 
     /* Workaround for legacy driver, otherwise add 2 to msg_count */
     ret = write(fd, tbuf + bytes_written, msg_count + 2);
-    printf("ret %d\n", ret);
     if (ret == 0) {
       ret = MXT_ERROR_IO;
       goto close;
@@ -727,7 +726,6 @@ close:
 
   return ret;
 }
-
 
 //******************************************************************************
 /// \brief  Write boolean to file as ASCII 0/1

@@ -66,14 +66,16 @@ int debugfs_open(struct mxt_device *mxt)
   
   mxt->debug_fs.dir_max = strlen(mxt->debug_fs.file_path) + 20;
 
-   //Allocate temporary path space
-  mxt->debug_fs.tmp_path = calloc(mxt->debug_fs.dir_max + 1, sizeof(char));
-  if (!mxt->debug_fs.tmp_path)
-    return MXT_ERROR_NO_MEM;
+  if (mxt->debug_fs.tmp_path == NULL) {
+   /* Allocate temporary path space */
+    mxt->debug_fs.tmp_path = calloc(mxt->debug_fs.dir_max + 1, sizeof(char));
+    if (!mxt->debug_fs.tmp_path)
+      return MXT_ERROR_NO_MEM;
 
-  mxt_info(mxt->ctx, "\nDevice registered on debug_fs path:%s", mxt->debug_fs.file_path);
+    mxt_info(mxt->ctx, "\nDevice registered on debug_fs path:%s", mxt->debug_fs.file_path);
 
-  return MXT_SUCCESS;
+    return MXT_SUCCESS;
+  }
 
 }
 

@@ -144,7 +144,7 @@ static void print_usage(char *prog_name)
           "  -t [--test]                : run all self tests\n"
           "  -tXX [--test=XX]           : run individual test, write XX to CMD register\n"
           "\n"
-          "T10 On-Deman Test command:\n"
+          "T10 On-Demand Test command:\n"
           "  --odtest                   : run all on-demand self tests\n"
           "\n"
           "T37 Diagnostic Data commands:\n"
@@ -938,11 +938,15 @@ int main (int argc, char *argv[])
                                argc, argv);
     if (ret == MXT_ERROR_BAD_INPUT)
       goto free;
+
+    mxt_info(ctx, "Write completed");
     break;
 
   case CMD_READ:
     mxt_verb(ctx, "Read command");
     ret = mxt_read_object(mxt, object_type, instance, address, count, format);
+       
+    mxt_info(ctx, "Read completed");
     break;
 
   case CMD_INFO:
@@ -1077,7 +1081,7 @@ int main (int argc, char *argv[])
       mxt_err(ctx, "Error loading the configuration");
     } else {
       mxt_info(ctx, "Configuration loaded");
-      }
+    }
     break;
 
   case CMD_SAVE_CFG:

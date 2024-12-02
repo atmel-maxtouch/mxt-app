@@ -138,6 +138,18 @@ man1/mxt-app.1: README.md
 	$(top_srcdir)/README.md -o man1/mxt-app.1
 endif
 
+if ENABLE_ODT
+man1_MANS = odt1/mxt-app.1
+
+odt1/mxt-app.1: README.md
+	@$(MKDIR_P) odt1/
+	-pandoc -s -t odt \
+	-V title="MXT-APP" \
+	-V section="1" \
+	-V description="\"mxt-app $(GIT_VERSION)\"" \
+	$(top_srcdir)/README.md -o odt1/mxt-app.1
+endif
+
 clean-local:
 	-rm git-version
 	-rm man1/mxt-app.1
