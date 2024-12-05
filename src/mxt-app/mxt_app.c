@@ -146,6 +146,7 @@ static void print_usage(char *prog_name)
           "\n"
           "T10 On-Demand Test command:\n"
           "  --odtest                   : run all on-demand self tests\n"
+          "  --odtest=XX                : run specific XX test cmd. Refer to documentation\n"
           "\n"
           "T37 Diagnostic Data commands:\n"
           "  --debug-dump FILE          : capture diagnostic data to FILE\n"
