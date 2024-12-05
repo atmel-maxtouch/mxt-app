@@ -316,7 +316,7 @@ int main (int argc, char *argv[])
       {"active-stylus-refs",    no_argument,       0, 0},
       {"bridge-server",    no_argument,       0, 'S'},
       {"test",             optional_argument, 0, 't'},
-      {"odtest",           no_argument,       0, 0},
+      {"odtest",           optional_argument, 0, 0},
       {"type",             required_argument, 0, 'T'},
       {"verbose",          required_argument, 0, 'v'},
       {"version",          no_argument,       0, 0},
@@ -491,22 +491,21 @@ int main (int argc, char *argv[])
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
         } 
-      } else if (!strcmp(long_options[option_index].name, "odtest")) { 
+      } else if (!strcmp(long_options[option_index].name, "odtest")) {
         if (cmd == CMD_NONE) {
+          cmd = CMD_OD_TEST;
           if (optarg) {
             ret = mxt_convert_hex(optarg, &databuf, &count, sizeof(databuf));
-              if (ret) {
+              if (ret || count == 0) {
                 fprintf(stderr, "Hex convert error\n");
                 ret = MXT_ERROR_BAD_INPUT;
-              } else {
-                ondemand_test_cmd = databuf;
-              } 
-          }
-            cmd = CMD_OD_TEST;
-          } else {
-              print_usage(argv[0]);
-              return MXT_ERROR_BAD_INPUT;
-          }
+              }
+              ondemand_test_cmd = databuf;
+            }
+        } else {
+            print_usage(argv[0]);
+            return MXT_ERROR_BAD_INPUT;
+        }
       } else if (!strcmp(long_options[option_index].name, "self-cap-tune-config")) {
         if (cmd == CMD_NONE) {
           cmd = CMD_SELF_CAP_TUNE_CONFIG;
