@@ -1107,7 +1107,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename,
           mxt_info(mxt->ctx, "Config File Checksum Device_ID_0: 0x%06X", cfg->config_crc_0);
         } else if (!strncmp(tmp, "CHECKSUM", 8)) {
           sscanf(tmp, "%[^'=']=%x", object, &cfg->config_crc);
-          mxt_info(mxt->ctx, "Config File Checksum: %s", cfg->config_crc);
+          mxt_info(mxt->ctx, "Config File Checksum: 0x%06X", cfg->config_crc);
         }
 
         if (!strncmp(tmp, "INFO_BLOCK_CHECKSUM", 19)) {
