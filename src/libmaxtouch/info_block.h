@@ -123,12 +123,30 @@ struct mxt_info {
   uint8_t max_report_id;
 };
 
-
 struct mxt_crc_device {
   bool crc_enabled;
   bool processing_msg;
   bool config_triggered;
   bool reset_triggered;
+};
+
+//******************************************************************************
+/// \brief Host and Client Context
+struct mxt_hc_device {
+  bool hc_capable;
+  bool hc_mode;
+  uint8_t num_client_spt;
+  uint8_t devid_num;
+  uint16_t max_rw_size;
+};
+
+struct mxt_t7_config {
+  uint8_t idle;
+  uint8_t active;
+  bool captured;
+  uint16_t addr;
+  uint8_t size;
+  uint8_t *data;
 };
 
 /*!
@@ -185,7 +203,7 @@ struct mxt_enc_device {
   f(SPT_COMMSCONFIG_T18, 18) \
   f(SPT_GPIOPWM_T19, 19) \
   f(PROCI_GRIPFACESUPPRESSION_T20, 20) \
-  f(RESERVED_T21, 21) \
+  f(SPT_PWM_T21, 21) \
   f(PROCG_NOISESUPPRESSION_T22, 22) \
   f(TOUCH_PROXIMITY_T23, 23) \
   f(PROCI_ONETOUCHGESTUREPROCESSOR_T24, 24) \
@@ -288,6 +306,13 @@ struct mxt_enc_device {
   f(PROCG_IGNORENODES_T141, 141) \
   f(SPT_MESSAGECOUNT_T144, 144) \
   f(SPT_IGNORENODESCONTROL_T145, 145)\
+  f(SPT_NOISEEQUALIZATIONDATA_T148, 148)\
+  f(PROCI_SHAPESEARCH_T150, 150)\
+  f(SPT_SHAPESEARCHDATA_T151, 151)\
+  f(PROCI_SMARTHAPTICTRIGGER_T155, 155)\
+  f(SPT_SMARTMUTUALCONFIG_T156, 156)\
+  f(SPT_MCCOMMSCONFIG_T160, 160)\
+  f(SPT_PEAKRESTORATION_T161, 161)\
   f(SPT_EVENTCOUNTER_T170, 170) \
   f(GEN_INFOBLOCK16BIT_T254, 254) \
   f(SPT_PROTOTYPE_T220, 220) \

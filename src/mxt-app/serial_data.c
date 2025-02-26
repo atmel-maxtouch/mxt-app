@@ -33,7 +33,8 @@
 /// \brief Print T68 status messages
 static void mxt_t68_print_status(struct t68_ctx *ctx, uint8_t status)
 {
-  mxt_info(ctx->lc, "T68 status: %02X %s%s%s%s%s%s%s",
+ 
+  mxt_dbg(ctx->lc, "T68 status: %02X %s%s%s%s%s%s%s",
            status,
            (status == 0x00) ? "Success/No error" : "",
            (status == 0x01) ? "Command supplied in CMD.COMMAND is out of sequence" : "",
@@ -348,7 +349,7 @@ static int mxt_t68_check_power_cfg(struct t68_ctx *ctx)
 
   if ((buf[0] == 0) || (buf[1] == 0)) {
     mxt_err(ctx->lc, "\nWarning: The T7 power object is in deep sleep,\n" 
-        "and will not process T68 serial data commands.\n"
+        "and may not process T68 serial data commands.\n"
             "Please set the T7 power configuration idle acquisition \n"
             "interval to a non-zero value and try again.\n");
   }

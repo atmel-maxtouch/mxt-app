@@ -183,7 +183,7 @@ int mxt_read_messages(struct mxt_device *mxt, int timeout_seconds, void *context
   int count, len;
   time_t now;
   time_t start_time = time(NULL);
-  uint8_t buf[12];    //Fixed size for MSG
+  uint8_t buf[12];    /* Fixed size for MSG buf */
   int ret, err;
   bool irq_val;
 

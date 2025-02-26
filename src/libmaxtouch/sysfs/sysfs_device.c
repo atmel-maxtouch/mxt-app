@@ -698,7 +698,7 @@ if ((CHECK_BIT(mxt->mxt_enc.encryption_state, DEV_ENCRYPTED)) &&
 
   } while (bytesToWrite > 0);
 
-} else { /* for config file writes where data size is embedded */
+} else { /* for config file writes with embedded datasize bytes */
 
   bytes_written = 0;
   bytesToWrite = count;

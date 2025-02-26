@@ -61,7 +61,6 @@ struct mxt_conn_info;
 #define MXT_T6_DIAGNOSTIC_OFFSET 0x05
 
 /* T100 MULTITOUCHSCREEN Register offsets from T100 base address */
-
 #define MXT_T100_CALCFG       0x2A
 
 /* T12 Offset */
@@ -80,9 +79,30 @@ struct mxt_conn_info;
 /* Values to write to the command processor fields */
 #define RESET_COMMAND       0x01
 #define BOOTLOADER_COMMAND  0xA5
-#define BACKUPNV_COMMAND    0x55
+#define UNFREEZE_COMMAND    0x11
+#define FREEZE_COMMAND      0x22
 #define RESTORENV_COMMAND   0x33
+#define BACKUPNV_COMMAND    0x55
+#define NVM_VALID_COMMAND   0x66
 #define CALIBRATE_COMMAND   0x01
+
+/* T160 MULTI-CHIP comms defintions */
+#define HOST_CHIP            0x00
+#define DEV_SELECT_CMD       0x01
+#define GETINFO_CMD          0x02
+#define HC_RSVD              0x00
+
+/* T160 MULTI_CHIP comms register offsets */
+#define DEVID_OFFSET         0x01
+#define READSIZE_OFFSET      0x02
+#define HC_CMD_OFFSET        0x04
+#define DEVID_MASK           0x07
+#define NUM_CLIENT_MASK      0x07
+#define HC_ERROR_MASK        0xF8
+#define HC_ERRDEVID_MASK     0x07
+
+/* T160 Message timeout */
+#define MXT_HC_MSG_TIMEOUT       3
 
 /* Prefix for T5 messages */
 #define MSG_PREFIX "MXT MSG:"
@@ -203,7 +223,9 @@ struct mxt_device {
   char msg_string[255];
   struct mxt_crc_device mxt_crc;
   struct mxt_enc_device mxt_enc;
+  struct mxt_hc_device mxt_hc;
   struct i2c_dev_device mxt_dev;
+  struct mxt_t7_config t7_cfg;
   union {
     struct sysfs_device sysfs;
     struct debugfs_device debug_fs;
@@ -256,6 +278,8 @@ int mxt_report_all(struct mxt_device *mxt);
 int mxt_checkcrc(struct mxt_device *mxt, char *filename);
 int mxt_check_encryption(struct mxt_device *mxt);
 int mxt_set_irq(struct mxt_device *mxt, bool irq_enabled);
+int mxt_handle_t160_cmd(struct mxt_device *mxt, uint8_t devid, uint16_t readsize, uint8_t cmd, int *flag);
+bool mxt_save_t7_parameters(struct mxt_device *mxt, uint8_t *object_data);
 
 #ifdef __cplusplus
 }
