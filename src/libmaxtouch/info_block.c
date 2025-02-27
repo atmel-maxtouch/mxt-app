@@ -106,7 +106,10 @@ static bool mxt_lookup_chips(struct mxt_device *mxt)
   family_id = id->family;
   variant_id = id->variant;
   
+  printf("\n");
+
   switch (family_id) {
+
     case 0xA4:
 
       if (variant_id & 0x80) {
@@ -116,7 +119,7 @@ static bool mxt_lookup_chips(struct mxt_device *mxt)
 
       is_chip_found = true;
 
-      switch (variant_id & 0x80) {
+      switch (variant_id & 0x7F) {
         
         case 0x3D: //"1067TDAT"
           mxt_info(mxt->ctx, "Found mXT1067DAT");
@@ -143,37 +146,66 @@ static bool mxt_lookup_chips(struct mxt_device *mxt)
 
       if (variant_id & 0x80) {
         SET_BIT(mxt->mxt_enc.encryption_state, DEV_ENCRYPTED);
-        mxt_dbg(mxt->ctx, "Device is encrypted\n");
+        mxt_dbg(mxt->ctx, "Device is encrypted");
         mxt->mxt_enc.enc_blocksize = 0x30;
       } else {
         CLEAR_BIT(mxt->mxt_enc.encryption_state, DEV_ENCRYPTED);
-        mxt_dbg(mxt->ctx, "Device is unencrypted\n");
+        mxt_dbg(mxt->ctx, "Device is unencrypted");
       }
 
       is_chip_found = true;
 
-      switch (variant_id & 0x80) {
+      switch (variant_id & 0x7F) {
         case 0x14: //"336UD-HA"
-          mxt_info(mxt->ctx, "Found mXT366UD-HA\n");
+          mxt_info(mxt->ctx, "Found mXT366UD-HA");
           break;
         case 0x15: //"640UD-HA"
-          mxt_info(mxt->ctx, "Found mXT640UD-HA\n");
+          mxt_info(mxt->ctx, "Found mXT640UD-HA");
           break;
         case 0x16: //"448UD-HA"
-          mxt_info(mxt->ctx, "Found mXT448UD-HA\n");
+          mxt_info(mxt->ctx, "Found mXT448UD-HA");
           break;
         case 0x1C: //"336UD-002"
-          mxt_info(mxt->ctx, "Found mXT336UD-002\n");
+          mxt_info(mxt->ctx, "Found mXT336UD-002");
           break;
         case 0x1D: //"228UD-002"
-          mxt_info(mxt->ctx, "Found mXT288UD-002\n");
+          mxt_info(mxt->ctx, "Found mXT288UD-002");
           break;
 
         default:
-          mxt_info(mxt->ctx, "Found maXTouch device\n");
+          mxt_info(mxt->ctx, "Found maXTouch device");
           break;
       }
 
+      break;
+
+    case 0xA7:
+
+      is_chip_found = true;
+
+      switch (variant_id & 0x7F) {
+        case 0x00:  /* mXT1296M1T */
+          mxt_info(mxt->ctx, "Found mXT1296M1T");
+          break;
+
+        case 0x0B:  /* mXT3072M1_HC */
+          mxt_info(mxt->ctx, "Found mXT3072M1_HC");
+          mxt->mxt_hc.hc_capable = true;  
+          break;
+
+        case 0x01:
+          mxt_info(mxt->ctx, "Found mXT3072M1E");
+          break;
+
+        case 0x02:
+          mxt_info(mxt->ctx, "Found mXT2496M1E");
+          break;
+
+        default:
+          mxt_info(mxt->ctx, "Found maXTouch device");
+          break;
+      }
+      
       break;
 
     default:
@@ -281,8 +313,9 @@ int mxt_read_info_block(struct mxt_device *mxt)
     return MXT_ERROR_CHECKSUM_MISMATCH;
   }
 
- if (!(mxt_lookup_chips(mxt)))
+  if (!(mxt_lookup_chips(mxt))) {
     mxt_dbg(mxt->ctx, "Unrecognised device\n");
+  }
 
   mxt_dbg(mxt->ctx, "Info checksum verified %06X", calc_crc);
   return MXT_SUCCESS;
@@ -362,6 +395,9 @@ void mxt_display_chip_info(struct mxt_device *mxt)
   char firmware_version[MXT_FW_VER_LEN];
   struct mxt_id_info *id = mxt->info.id;
   uint16_t t144_addr = 0x0000;
+  uint8_t t160_addr = 0x0000;
+  int flag = false;
+  int ret;
   int i;
 
   mxt_get_firmware_version(mxt, (char *)&firmware_version);
@@ -403,20 +439,44 @@ void mxt_display_chip_info(struct mxt_device *mxt)
       mxt->mxt_dev.t38_size = mxt_get_object_size(mxt, SPT_USERDATA_T38);
     }
 
+    /* Check encryption and host/client here after device infoblock is parsed */
     switch (id->family) {
       case 0xA6:
-      if (id->variant & 0x80) {
-        SET_BIT(mxt->mxt_enc.encryption_state, DEV_ENCRYPTED);
-        mxt_info(mxt->ctx, "mxt-app: Device is encrypted\n");
-        mxt->mxt_enc.enc_blocksize = 0x30;
-      } else {
-        CLEAR_BIT(mxt->mxt_enc.encryption_state, DEV_ENCRYPTED);
-      }
 
-      break;
+        if (id->variant & 0x80) {
+          SET_BIT(mxt->mxt_enc.encryption_state, DEV_ENCRYPTED);
+          mxt_info(mxt->ctx, "mxt-app: Device is encrypted\n");
+          mxt->mxt_enc.enc_blocksize = 0x30;
+        } else {
+          CLEAR_BIT(mxt->mxt_enc.encryption_state, DEV_ENCRYPTED);
+        }
 
-    default:
-      break;
+        break;
+
+      case 0xA7:
+        
+        if ((id->variant & 0x7F) == 0x0B) {
+          t160_addr = mxt_get_object_address(mxt, SPT_MCCOMMSCONFIG_T160, 0);
+
+          if (t160_addr == MXT_ERROR_OBJECT_NOT_FOUND) {
+            mxt_err(mxt->ctx, "Could not find t160 object");
+            break;
+          }
+
+          /* Send GETINFO command */
+          ret = mxt_handle_t160_cmd(mxt, HOST_CHIP, 0x01, GETINFO_CMD, &flag);
+          if (ret)
+            mxt_err(mxt->ctx, "Could not send t160 command");
+
+          if (mxt->mxt_hc.hc_mode == true) {
+            mxt_info(mxt->ctx, "Touch controller is in Host Client mode");
+          }
+        }
+
+        break;
+
+      default:
+        break;
     }
 }
 

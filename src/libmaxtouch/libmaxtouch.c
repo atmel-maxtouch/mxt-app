@@ -270,6 +270,7 @@ int mxt_get_info(struct mxt_device *mxt)
   if (ret)
     return ret;
 
+  /* Pending remove - duplicate to mxt_display_chip_info() */
   //mxt_print_info_block(mxt);
 
   ret = mxt_calc_report_ids(mxt);
@@ -277,6 +278,9 @@ int mxt_get_info(struct mxt_device *mxt)
     mxt_err(mxt->ctx, "Failed to generate report ID look-up table");
     return ret;
   }
+
+  /* Enable debug messaging - disable on exit */
+  mxt_set_debug(mxt, true);
 
   mxt_display_chip_info(mxt);
 
@@ -358,16 +362,14 @@ static int mxt_read_register_block(struct mxt_device *mxt, uint8_t *buf,
   case E_SYSFS_SPI:  
   case E_SYSFS_I2C:
 
-//Stop the handling of interrupts in driver
-  if (mxt->mxt_crc.crc_enabled == true) {
-    err = sysfs_set_debug_irq(mxt, false);
-    
-    if (err)
-      mxt_dbg(mxt->ctx, "Failed to disable debug_irq");
-  }
+    //Stop the handling of interrupts in driver
+    if (mxt->mxt_crc.crc_enabled == true) {
+      err = sysfs_set_debug_irq(mxt, false);
+      if (err)
+        mxt_dbg(mxt->ctx, "Failed to disable debug_irq");
+    }
 
     ret = sysfs_read_register(mxt, buf, start_register, count, bytes);
-
     if (ret)
       mxt_err(mxt->ctx, "Error reading register");
 
@@ -377,6 +379,7 @@ static int mxt_read_register_block(struct mxt_device *mxt, uint8_t *buf,
     
         if (err)
           mxt_dbg(mxt->ctx, "Failed to enable debug_irq");
+
       }
     }
 
@@ -387,12 +390,13 @@ static int mxt_read_register_block(struct mxt_device *mxt, uint8_t *buf,
     ret = i2c_dev_read_register(mxt, buf, start_register, count, bytes);
 
     if ((mxt->mxt_crc.config_triggered == false) && (mxt->mxt_crc.processing_msg == false) &&
-      (mxt->debug_fs.enabled == true)) {
+        (mxt->debug_fs.enabled == true)) {
 
       err = debugfs_set_irq(mxt, true);
 
       if (err)
         mxt_dbg(mxt->ctx, "Could not disable IRQ");
+
     }
 
     break;
@@ -456,9 +460,9 @@ int mxt_write_register(struct mxt_device *mxt, uint8_t const *buf,
   switch (mxt->conn->type) {
   case E_SYSFS_SPI:
   case E_SYSFS_I2C:
+
     if (mxt->mxt_crc.crc_enabled == true) {
       err = sysfs_set_debug_irq(mxt, false);
-
       if (err)
         mxt_dbg(mxt->ctx, "Failed to disable debug_irq");
     }
@@ -605,6 +609,115 @@ int mxt_get_debug(struct mxt_device *mxt, bool *value)
 }
 
 //******************************************************************************
+/// \brief Transfer T160 message to context pointer
+/// \breif r
+/// \return #mxt_rc
+static int get_t160_msg(struct mxt_device *mxt, uint8_t *msg,
+                                void *context, uint8_t size, uint8_t msg_count)
+{
+
+  uint8_t t160_msg[12];  /* Fix to 12 bytes, T5 size + Report ID */
+  uint8_t *t160_message;
+  int i;
+  
+  if (mxt_report_id_to_type(mxt, msg[0]) == SPT_MCCOMMSCONFIG_T160) {
+
+    mxt_dbg(mxt->ctx, "Recvd T160 message");
+    
+    t160_message = context;
+
+    for (i = 0; i < sizeof(t160_msg); i++) {
+      t160_message[i] = msg[i];
+    }
+
+    return MXT_SUCCESS;
+  }
+
+  return MXT_MSG_CONTINUE;
+}
+
+//******************************************************************************
+/// \brief Send T160 CMD and process message
+/// \return #mxt_rc
+int mxt_handle_t160_cmd(struct mxt_device *mxt, uint8_t devid, uint16_t readsize, 
+                        uint8_t cmd, int *flag)
+{
+  int ret, err;
+  uint8_t msg_string[12]; /* Size of T5 */
+  uint8_t write_value[5]; /* Size of T160 */
+  uint16_t t160_addr;
+  int i;
+
+  /* Pending - dynamicallly allocate size of msg_string and write_value, next release */
+
+  mxt_flush_msgs(mxt);
+  /* Obtain command processor's address */
+  t160_addr = mxt_get_object_address(mxt, SPT_MCCOMMSCONFIG_T160, 0);
+
+  if (t160_addr == MXT_ERROR_OBJECT_NOT_FOUND)
+    return MXT_ERROR_OBJECT_NOT_FOUND;
+
+  if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true) {
+    err = debugfs_set_irq(mxt, false);
+
+    if (err)
+      mxt_warn(mxt->ctx, "Could not disable IRQ");
+  }
+
+  write_value[0] = HC_RSVD;
+  write_value[1] = devid & 0x07;      /* Insert devid bits[0-2] */
+  write_value[2] = readsize & 0xFF;   /* Insert only LSByte */
+  write_value[3] = (readsize >> 8) & 0xFF;  /* Insert only MSByte */
+  write_value[4] = cmd & 0xff;        /* Insert cmd value */
+
+  /* First select the  */
+  ret = mxt_write_register(mxt, write_value, t160_addr, 5);
+  if (ret == 0) {
+    mxt_dbg(mxt->ctx, "Sent multi-chip CMD");
+  } else {
+    mxt_err(mxt->ctx, "Failed to send multi-chip CMD");
+  }
+
+  if (!*flag) {
+    /* Wait for command to clear or let read_message() manage delays */
+    ret = mxt_read_messages(mxt, MXT_HC_MSG_TIMEOUT, &msg_string, get_t160_msg, flag);
+    if (ret)
+      return 0;   /* Return 0 for no content read */
+
+    msleep(2);   /* May need to increase this to wait for t160 msg */
+
+
+    if (cmd == DEV_SELECT_CMD) {
+      /* Check SELDEVID */ 
+      if ((msg_string[1] & DEVID_MASK) != write_value[1]) {
+        mxt_err(mxt->ctx, "Failed to select correction Device ID\n"
+          "Err_id %x, Error %x %x", (msg_string[6] & HC_ERRDEVID_MASK), msg_string[7], msg_string[8]);
+
+        ret = MXT_ERROR_NO_DEVICE;
+      }
+    } else if (cmd == GETINFO_CMD) {  /* Used mainly for GETINFO */
+
+        mxt->mxt_hc.devid_num = msg_string[1] & DEVID_MASK;
+
+        mxt_dbg(mxt->ctx, "Requested read/write size = %d", readsize);
+        mxt_info(mxt->ctx, "Current Device = %x", mxt->mxt_hc.devid_num);
+
+        mxt->mxt_hc.num_client_spt = msg_string[2] & NUM_CLIENT_MASK;
+
+        if (mxt->mxt_hc.num_client_spt > 0) {
+          mxt->mxt_hc.hc_mode = true;
+        }
+
+        mxt->mxt_hc.max_rw_size = (((msg_string[4] << 8) & 0xFF00) | (msg_string[3] & 0xFF));
+        mxt_dbg(mxt->ctx, "Maximum read/write size = %d bytes", mxt->mxt_hc.max_rw_size);
+        mxt_dbg(mxt->ctx, "Number of Client Devices = %x", mxt->mxt_hc.num_client_spt);
+      }
+  }
+
+  return ret;
+}
+
+//******************************************************************************
 /// \brief  Perform fallback reset
 /// \return #mxt_rc
 static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, uint16_t reset_time_ms)
@@ -683,6 +796,7 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
   return ret;
 }
 
+/* Pending review - Function not used */
 //******************************************************************************
 /// \brief  Perform fallback reset
 /// \return #mxt_rc
@@ -854,8 +968,10 @@ end:
 /// \return #mxt_rc
 int mxt_backup_config(struct mxt_device *mxt, uint8_t backup_command)
 {
-  int ret;
+  int ret = 0;
   uint16_t t6_addr;
+
+  /* New added backup commands will have no effect on legacy devices */
 
   /* Obtain command processor's address */
   t6_addr = mxt_get_object_address(mxt, GEN_COMMANDPROCESSOR_T6, 0);
@@ -866,10 +982,17 @@ int mxt_backup_config(struct mxt_device *mxt, uint8_t backup_command)
   ret = mxt_write_register(mxt, &backup_command, 
     t6_addr + MXT_T6_BACKUPNV_OFFSET, 1);
 
-  if (ret == MXT_SUCCESS)
-    mxt_info(mxt->ctx, "Backed up settings to the non-volatile memory");
-  else
-    mxt_err(mxt->ctx, "Failed to back up settings");
+  if (ret == MXT_SUCCESS) {
+    if (backup_command == UNFREEZE_COMMAND) {
+      mxt_info(mxt->ctx, "HC device is unfrozen state");
+    } else if (backup_command == FREEZE_COMMAND) {
+        mxt_info(mxt->ctx, "HC device is in frozen state");
+    } else if (backup_command == BACKUPNV_COMMAND) {
+      mxt_info(mxt->ctx, "Backed up settings to the non-volatile memory");
+    }
+  } else {
+      mxt_err(mxt->ctx, "Failed to back up settings");
+  }
 
   return ret;
 }

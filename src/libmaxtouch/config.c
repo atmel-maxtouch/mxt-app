@@ -67,6 +67,7 @@ struct mxt_object_config {
   uint32_t size;
   uint32_t enc_size;
   uint16_t start_position;
+  uint8_t dev_id;    /* Used in config write */
   uint8_t *data;
   struct mxt_object_config *next;
 };
@@ -78,11 +79,13 @@ struct mxt_config {
   struct mxt_id_info id;
   struct mxt_object_config *head;
   uint32_t info_crc;
-  uint32_t config_crc;
+  uint32_t config_crc;    /* Pending - consolidate */
+  uint32_t config_crc_0;
+  uint32_t config_crc_1;
   int cfg_enc;
   int cfg_blksize;
   int cfg_version;
-  int device_num;
+  int device_num;     /* Used as global HC setting */
   int num_of_devices;
   enum mxt_config_type config_type;
 };
@@ -98,8 +101,10 @@ int mxt_check_encryption(struct mxt_device *mxt)
 
   mxt->mxt_enc.addr = mxt_get_object_address(mxt,
     GEN_ENCRYPTIONSTATUS_T2, 0);
-  if (mxt->mxt_enc.addr == OBJECT_NOT_FOUND)
-    return MXT_ERROR_OBJECT_NOT_FOUND;
+  if (mxt->mxt_enc.addr == OBJECT_NOT_FOUND) {
+    mxt_dbg(mxt->ctx, "Device does not support encryption");
+    return MXT_SUCCESS;
+  }
 
   ret = mxt_read_register(mxt, buf, mxt->mxt_enc.addr, 1);
 
@@ -146,6 +151,50 @@ int mxt_check_encryption(struct mxt_device *mxt)
 }
 
 //******************************************************************************
+/// \brief  Returns the category for each object to determine appropriate
+/// \brief  action.  (Currently not in use)
+/// \return True if used, false if not
+static int rtn_hc_category(const uint32_t type, uint8_t **mode)
+{
+  uint8_t *c_mode;
+  uint8_t value = 0;
+
+  c_mode = (uint8_t *) malloc(sizeof(uint8_t));
+  
+  if (c_mode == NULL) {
+    return MXT_ERROR_NO_MEM;
+  }
+
+  switch (type) {
+    case GEN_ENCRYPTIONSTATUS_T2:
+    case GEN_MESSAGEPROCESSOR_T5:
+    case GEN_COMMANDPROCESSOR_T6:
+    case DEBUG_DIAGNOSTIC_T37:
+    case SPT_USERDATA_T38:
+    case SPT_MESSAGECOUNT_T44:
+    case SERIAL_DATA_COMMAND_T68:
+    case SPT_MCCOMMSCONFIG_T160:
+
+      value = 0x01;    /* 0x01 - Object functional host side only */
+      break;
+
+    case GEN_POWERCONFIG_T7:
+
+      value = 0x02;   
+      break;
+
+    default:
+      value = 0x03;
+      break;
+  }
+
+  *c_mode = value;
+
+  *mode = c_mode;
+
+}
+
+//******************************************************************************
 /// \brief  Determines whether the object type is used for CRC checksum calculation
 /// \return True if used, false if not
 static bool is_type_used_for_crc(const uint32_t type)
@@ -159,6 +208,7 @@ static bool is_type_used_for_crc(const uint32_t type)
   case SPT_MESSAGECOUNT_T44:
   case SERIAL_DATA_COMMAND_T68:
   case SPT_MESSAGECOUNT_T144:
+  case SPT_MCCOMMSCONFIG_T160:
     return false;
 
   default:
@@ -178,11 +228,61 @@ static bool mxt_object_is_volatile(uint16_t object_type)
   case SPT_MESSAGECOUNT_T44:
   case GEN_DATASOURCE_T53:
   case DEBUG_DIAGNOSTIC_T37:
+  case SPT_MCCOMMSCONFIG_T160:
     return true;
 
   default:
     return false;
   }
+}
+
+//******************************************************************************
+/// \brief  Save current content of the T7 object
+/// \return true if data captured
+bool mxt_save_t7_parameters(struct mxt_device *mxt, uint8_t *obj_data)
+{
+
+  struct mxt_t7_config *t7_cfg = &mxt->t7_cfg;
+  int i;
+
+  t7_cfg->size = mxt_get_object_size(mxt, GEN_POWERCONFIG_T7);
+  t7_cfg->data = (uint8_t *) calloc(t7_cfg->size, sizeof(uint8_t));
+
+ // if (!t7_cfg.captured) {
+    for (i = 0; i < t7_cfg->size; i++) {
+      t7_cfg->data[i] = obj_data[i];
+    }
+
+    t7_cfg->idle = obj_data[0];
+    t7_cfg->active = obj_data[1];
+ // }
+
+  t7_cfg->captured = true;  /* TBD - Not using */
+
+  return true;
+}
+
+//******************************************************************************
+/// \brief Write T7 parameters after configuration upload
+bool mxt_write_t7_parameters(struct mxt_device *mxt)
+{
+  int ret = 0;
+  int i;
+
+  //if (t7_cfg.captured) {
+    mxt->t7_cfg.addr = mxt_get_object_address(mxt, GEN_POWERCONFIG_T7, 0);
+    mxt_dbg(mxt->ctx, "T7 address %x\n", mxt->t7_cfg.addr);
+
+    ret = mxt_write_register(mxt, mxt->t7_cfg.data, mxt->t7_cfg.addr, mxt->t7_cfg.size);
+    if (ret) {
+      mxt_info(mxt->ctx, "Warning: Write to T7 failed");
+    }
+
+ // }
+
+  mxt->t7_cfg.captured = false;
+
+  return true;
 }
 
 //******************************************************************************
@@ -207,7 +307,8 @@ static void mxt_free_config(struct mxt_config *cfg)
 //******************************************************************************
 /// \brief Write configuration for a single object
 static int mxt_write_object_config(struct mxt_device *mxt,
-                                   const struct mxt_object_config *objcfg)
+                                   const struct mxt_object_config *objcfg,
+                                   enum mxt_config_type config_type)
 {
   struct t68_ctx ctx;
   uint8_t obj_buf[MXT_OBJECT_SIZE_MAX];
@@ -218,20 +319,32 @@ static int mxt_write_object_config(struct mxt_device *mxt,
   uint8_t diff = 0;
   bool t38_found = false;
   int ret = 0;
+  int flag = false;
   int i;
+
+  if (objcfg->type == 7) {
+    /* Store T7 and write back later */
+    /* Verify Host mode before saving, otherwise, T7 is wrong data */
+    /* Host mode is default */
+    if (mxt->mxt_hc.hc_capable && mxt->mxt_hc.devid_num == 0) {
+      if (mxt_save_t7_parameters(mxt, objcfg->data)) {
+        ret = MXT_ERROR_OBJECT_IS_VOLATILE;
+        goto close_object_write;
+      }
+    }
+  }
 
   if (mxt_object_is_volatile(objcfg->type)) {
     ret = MXT_ERROR_OBJECT_IS_VOLATILE;
     goto close_object_write;
   }
 
-  mxt_dbg(mxt->ctx, "write_object: T%d instance %d size %d",
-             objcfg->type, objcfg->instance, objcfg->size);
+  mxt_dbg(mxt->ctx, "write_object: T%d instance %x size %d dev_id %d",
+    objcfg->type, objcfg->instance, objcfg->size, objcfg->dev_id);
 
-  if ((objcfg->type == SERIAL_DATA_COMMAND_T68) && 
-      (objcfg->instance & 0x8000)) {
+  if ((objcfg->type == SERIAL_DATA_COMMAND_T68) && (objcfg->instance & 0x8000)) {
 
-    mxt_info(mxt->ctx, "Found T68 payload");
+    mxt_dbg(mxt->ctx, "Found T68 payload");
 
     ctx.t68_datatype = objcfg->instance & 0x000F;
 
@@ -269,11 +382,13 @@ static int mxt_write_object_config(struct mxt_device *mxt,
         }
         mxt_info(mxt->ctx, "Disabling device encryption");
       }
+
+      mxt_info(mxt->ctx, "Enabling or disabling chip configuration may require a chip power cycle");
     }
 
     ret = mxt_buf_init(&ctx.buf);
 
-    for (i=0; i < objcfg->size; i++) {
+    for (i = 0; i < objcfg->size; i++) {
       value = objcfg->data[i];
       ret = mxt_buf_add(&ctx.buf, value);
     }
@@ -283,16 +398,28 @@ static int mxt_write_object_config(struct mxt_device *mxt,
 
     ctx.t68_data_size = ctx.t68_size - 9;
 
-    /* Remove payload CRC, do not write to T68 */
-    ctx.t68_length = objcfg->size - 4;
+    /* Payload size adjusted for RAW file payload */
+    if (config_type == CONFIG_XCFG) {
+      ctx.t68_length = objcfg->size;
+    } else if (config_type == CONFIG_RAW) {
+      ctx.t68_length = objcfg->size - 4;
+    }
 
     /* Fill T68 payload with 0x00 padding and add to buffer */
-    if (objcfg->size < ctx.t68_data_size) {
-      diff = ctx.t68_data_size - objcfg->size;
+    if ((ctx.t68_length % ctx.t68_data_size) != 0x00) {
+      diff = (ctx.t68_data_size - (objcfg->size % ctx.t68_data_size));
 
-      for (i=0; i < diff; i++) {
+      for (i = 0; i < diff; i++) {
         ret = mxt_buf_add(&ctx.buf, 0x00);
       }
+    }
+
+    if (mxt->mxt_hc.hc_capable == 1) {      
+      ret = mxt_handle_t160_cmd(mxt, objcfg->dev_id, device_size, DEV_SELECT_CMD, &flag);
+      if (ret)
+        return ret;
+
+      mxt->mxt_hc.devid_num = objcfg->dev_id;
     }
 
     /* Expect this to be end of config file */
@@ -304,7 +431,17 @@ static int mxt_write_object_config(struct mxt_device *mxt,
       goto close_object_write;
     }
 
-  } else if (!(CHECK_BIT(mxt->mxt_enc.encryption_state, DEV_ENCRYPTED))) {  
+    /* Switch back to Host after read by default */
+    if (mxt->mxt_hc.hc_capable == 1) {
+      ret = mxt_handle_t160_cmd(mxt, 0, device_size, DEV_SELECT_CMD, &flag);
+      if (ret)
+        return ret;
+
+      mxt->mxt_hc.devid_num = 0;
+    }
+
+  } else if (!(CHECK_BIT(mxt->mxt_enc.encryption_state, DEV_ENCRYPTED))) {    
+    /* Normal config writes, no encryption */
 
     obj_addr = mxt_get_object_address(mxt, objcfg->type, objcfg->instance);
     
@@ -319,10 +456,27 @@ static int mxt_write_object_config(struct mxt_device *mxt,
 
     device_size = mxt_get_object_size(mxt, objcfg->type);
 
+    if (mxt->mxt_hc.hc_capable == 1) {
+      ret = mxt_handle_t160_cmd(mxt, objcfg->dev_id, device_size, DEV_SELECT_CMD, &flag);
+      if (ret)
+        return ret;
+
+      mxt->mxt_hc.devid_num = objcfg->dev_id;
+    }
+
     ret = mxt_read_register(mxt, obj_buf, obj_addr,
                           mxt_get_object_size(mxt, objcfg->type));
     if (ret)
       return ret;
+
+    /* Switch back to Host after read, default Host mode */
+    if (mxt->mxt_hc.hc_capable == 1) {
+      ret = mxt_handle_t160_cmd(mxt, 0, device_size, DEV_SELECT_CMD, &flag);
+      if (ret)
+        return ret;
+
+      mxt->mxt_hc.devid_num = 0;
+    }
 
     device_size = mxt_get_object_size(mxt, objcfg->type);
 
@@ -342,6 +496,7 @@ static int mxt_write_object_config(struct mxt_device *mxt,
     }
 
     /* Update bytes from config */
+    /* Pending - duplicate */
     memcpy(obj_buf, objcfg->data, num_bytes);
 
   } else { /* encrypted data */
@@ -366,11 +521,28 @@ static int mxt_write_object_config(struct mxt_device *mxt,
   /* Update bytes from config */
   memcpy(obj_buf, objcfg->data, num_bytes);
 
+  if (mxt->mxt_hc.hc_capable == 1) {
+      ret = mxt_handle_t160_cmd(mxt, objcfg->dev_id, num_bytes, DEV_SELECT_CMD, &flag);
+      if (ret)
+        return ret;
+
+      mxt->mxt_hc.devid_num = objcfg->dev_id;
+  }
+
   /* Write object */
   ret = mxt_write_register(mxt, obj_buf, obj_addr, num_bytes);
   if (ret) {
     mxt_err(mxt->ctx, "Config write error, ret = %d", ret);
     goto close_object_write;
+  }
+
+  /* Switch back to Host after write */
+  if (mxt->mxt_hc.hc_capable == 1) {
+      ret = mxt_handle_t160_cmd(mxt, 0, num_bytes, DEV_SELECT_CMD, &flag);
+      if (ret)
+        return ret;
+
+      mxt->mxt_hc.devid_num = 0;
   }
  
 close_object_write:
@@ -392,20 +564,29 @@ static int mxt_write_device_config(struct mxt_device *mxt, struct mxt_config *cf
   /* Exception, if config has encryption handling, bypass warning */
 
   if (cfg->info_crc && cfg->info_crc != mxt->info.crc) {
-    mxt_warn(mxt->ctx, "Info Block CRC mismatch - device=0x%06X "
-             "file=0x%06X - attempting to apply config",
-             mxt->info.crc, cfg->info_crc);
 
-    if (cfg->cfg_version <= 2) {
+    if (mxt->mxt_hc.hc_capable) {
+      mxt_err(mxt->ctx, "Info Block CRC mismatch - device=0x%06X "
+        "file=0x%06X", mxt->info.crc, cfg->info_crc);
       return MXT_ERROR_NOT_SUPPORTED;
+
+    } else {
+        mxt_warn(mxt->ctx, "Info Block CRC mismatch - device=0x%06X "
+          "file=0x%06X - attempting to apply config",
+          mxt->info.crc, cfg->info_crc);
+
+        /* Pending - calculate info.crc for enc parts, otherwise skip for now */
+        if (cfg->cfg_version <= 2) {
+          return MXT_ERROR_NOT_SUPPORTED;
+        }
     }
   }
 
-  mxt_info(mxt->ctx, "Writing config to chip");
+  mxt_info(mxt->ctx, "Writing config to chip . . .");
 
   while (objcfg) {
-    mxt_dbg(mxt->ctx, "T%d instance %d size %d",
-             objcfg->type, objcfg->instance, objcfg->size);
+    mxt_dbg(mxt->ctx, "T%d instance %d size %d dev_id %d",
+             objcfg->type, objcfg->instance, objcfg->size, objcfg->dev_id);
 
     if (mxt->conn->type == E_I2C_DEV) {
       mxt->mxt_crc.config_triggered = true;
@@ -415,12 +596,13 @@ static int mxt_write_device_config(struct mxt_device *mxt, struct mxt_config *cf
       err = sysfs_set_debug_irq(mxt, false);
     }
 
-    ret = mxt_write_object_config(mxt, objcfg);
+    ret = mxt_write_object_config(mxt, objcfg, cfg->config_type);
+
     if (ret == MXT_ERROR_OBJECT_NOT_FOUND)
       mxt_warn(mxt->ctx, "T%d not present", objcfg->type);
     else if (ret == MXT_ERROR_OBJECT_IS_VOLATILE)
-      mxt_warn(mxt->ctx, "Skipping volatile T%d", objcfg->type);
-    else if (ret){
+      mxt_dbg(mxt->ctx, "Skipping volatile T%d", objcfg->type);
+    else if (ret) {
       mxt->mxt_crc.config_triggered = false;
 
     if (mxt->conn->type == E_SYSFS_SPI)
@@ -794,7 +976,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename,
   struct t68_ctx t68_ctx;
   char object[255];
   char tmp[255];
-  char encryption_type[255];
+  char encryption[255];
   char *substr;
   int object_id;
   int instance;
@@ -809,6 +991,8 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename,
   bool add_datasize = true;
   uint8_t family_id = 0;
   uint8_t variant_id = 0;
+  uint8_t num_of_devices;
+  int device_num = 0;
   uint16_t t38_addr = 0;
   bool t68_not = true;
   int ret;
@@ -861,11 +1045,18 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename,
 
     /* Ignore the comments and file info header sections */
     if (!strcmp(object, "COMMENTS")
-        || !strcmp(object, "APPLICATION_INFO_HEADER")
-        || !strcmp(object, "DEVICE_0")
-        || !strcmp(object, "DEVICE_1")) {
+        || !strcmp(object, "APPLICATION_INFO_HEADER")) {
       ignore_line = true;
       mxt_dbg(mxt->ctx, "Skipping %s", object);
+      continue;
+    }
+
+    if (!strncmp(object, "DEVICE_", 7)) {
+      
+      ignore_line = true;
+      sscanf(object, "%[^'_']_%x", tmp, &device_num);
+      mxt_info(mxt->ctx, "Found Device ID %x", device_num);
+
       continue;
     }
 
@@ -894,7 +1085,7 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename,
           sscanf(tmp, "%[^'=']=%" SCNu8, object, &variant_id);
 
           /* Check variantID before flashing */
-	  /* Check encryption state T2 object later */
+          /* Check encryption state T2 object later */
           if ((variant_id & ENC_BIT_MASK) != 
             (mxt->info.id->variant & ENC_BIT_MASK)) {
             mxt_err(mxt->ctx, "Variant ID mismatch error");
@@ -903,12 +1094,29 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename,
           }
         }
 
-        if (!strncmp(tmp, "CHECKSUM", 8)) {
+        if (!strncmp(tmp, "NO_DEVICES", 10)) {
+          sscanf(tmp, "%[^'=']=%" SCNu8, object, &num_of_devices);
+          mxt_info(mxt->ctx, "Number of devices %x", num_of_devices);
+        } 
+
+        if (!strncmp(tmp, "CHECKSUM_DEVICE_1", 17)) {
+          sscanf(tmp,"%[^'=']=%x", object, &cfg->config_crc_1);
+          mxt_info(mxt->ctx, "Config File Checksum Device_ID 1: 0x%06X", cfg->config_crc_1);
+        } else if (!strncmp(tmp, "CHECKSUM_DEVICE_0", 17)) {
+          sscanf(tmp, "%[^'=']=%x", object, &cfg->config_crc_0);
+          mxt_info(mxt->ctx, "Config File Checksum Device_ID_0: 0x%06X", cfg->config_crc_0);
+        } else if (!strncmp(tmp, "CHECKSUM", 8)) {
           sscanf(tmp, "%[^'=']=%x", object, &cfg->config_crc);
-          mxt_info(mxt->ctx, "Config File Checksum: %s", tmp);
+          mxt_info(mxt->ctx, "Config File Checksum: 0x%06X", cfg->config_crc);
+        }
+
+        if (!strncmp(tmp, "INFO_BLOCK_CHECKSUM", 19)) {
+          sscanf(tmp, "%[^'=']=%x", object, &cfg->info_crc);
+          mxt_info(mxt->ctx, "Config File info_crc 0x%06X", cfg->info_crc);
           ignore_line = true;
         }
       }
+
       continue;
     }
 
@@ -927,9 +1135,9 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename,
         }
 
         if (!strncmp(tmp, "ENCRYPTION", 10)) {
-          sscanf(tmp, "%[^'=']=%s", object, encryption_type);
+          sscanf(tmp, "%[^'=']=%s", object, encryption);
 
-          if (!strcmp(encryption_type, "FALSE")) {  /* Only if cfg file is encrypted */
+          if (!strcmp(encryption, "FALSE")) {  /* Only if cfg file is encrypted */
             cfg->cfg_enc = false;  
           } else {   
             cfg->cfg_enc = true;
@@ -940,22 +1148,24 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename,
               mxt_info(mxt->ctx, "Config file and device config are encrypted."
               "Okay to update chip configuration.");
             } else {
-              mxt_info(mxt->ctx, "Cannot program encrypted cfg file into unencrypted device cfg");
-              ret = MXT_ERROR_FILE_FORMAT;
-              goto close;            
+                mxt_info(mxt->ctx, "Cannot program encrypted cfg file into unencrypted device cfg");
+                ret = MXT_ERROR_FILE_FORMAT;
+                goto close;            
             }
 
-          } else {
-            mxt_info(mxt->ctx, "Config file is unencrypted. Checking device config encryption");
-            if (CHECK_BIT(mxt->mxt_enc.encryption_state, CFG_ENCRYPTED)) {
-              mxt_info(mxt->ctx, "Cannot program unencrypted cfg into encrypted device cfg");
-              ret = MXT_ERROR_FILE_FORMAT;
-              goto close;
-            } else {
-              mxt_info(mxt->ctx, "Device config is unencrypted. Okay to write new config.");
-            }
+          } else { 
+              mxt_info(mxt->ctx, "Config file is unencrypted. Checking device config encryption");
+
+              if (CHECK_BIT(mxt->mxt_enc.encryption_state, CFG_ENCRYPTED)) {
+                mxt_info(mxt->ctx, "Cannot program unencrypted cfg into encrypted device cfg");
+                ret = MXT_ERROR_FILE_FORMAT;
+                goto close;
+              } else {
+                  mxt_info(mxt->ctx, "Device config is unencrypted. Okay to write new config.");
+              }
+          }
         }
-      }
+
         if (!strncmp(tmp, "MAX_ENCRYPTION_BLOCKS", 21)) {
           sscanf(tmp, "%[^'=']=%d", object, &cfg->cfg_blksize);
           ignore_line = true;
@@ -964,23 +1174,31 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename,
       continue;
     }
 
+    /* Save T68 payload data, check format */
     /* Found a T68 payload, load parameters into variables */
     if (!strncmp(object, "T68_SERIALDATACOMMAND_PAYLOAD", 29)) {
 
       if (strstr(object, "ENCRYPTION") != NULL) {
           mxt_dbg(mxt->ctx, "Found Encryption payload");
           instance = 0x800C;
-        } else if (strstr(object, "PWMPATTERN") != NULL) {
+      } else if (strstr(object, "PWMPATTERN") != NULL) {
           mxt_dbg(mxt->ctx, "Found PWM payload");
-          instance = 0x800A;
-        } else if (strstr(object, "SELFCAP_EDGE") != NULL) {
+          if (mxt->mxt_hc.hc_capable) {
+            instance = 0x800F;
+          } else {
+            instance = 0x800A;
+          }
+      } else if (strstr(object, "SELFCAP_EDGE") != NULL) {
           mxt_dbg(mxt->ctx, "Found Edge Shaping payload");
           instance = 0x800B;
-        } else {
+      } else if (strstr(object, "SMART_MUTUAL") != NULL) {
+          mxt_info(mxt->ctx, "Found Smart Mutual payload");
+          instance = 0x800D;
+      } else {
           mxt_dbg(mxt->ctx, "Payload datatype unknown");
           ret = MXT_ERROR_BAD_INPUT;
           goto close;
-        }
+      }
 
       while (false == ignore_line) {
         if (fscanf(fp, "%s", tmp) != 1) {
@@ -991,17 +1209,17 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename,
 
         if (!strncmp(tmp, "PAYLOAD_CHECKSUM", 16)) {
           sscanf(tmp, "%[^'=']=%x", object, &payload_crc);
-          mxt_dbg(mxt->ctx, "Payload_CRC = %x", payload_crc);
+          mxt_info(mxt->ctx, "Payload_CRC = %x", payload_crc);
         }
 
         if (!strncmp(tmp, "PAYLOAD_SIZE", 12)) {
           sscanf(tmp, "%[^'=']=%d", object, &payload_size);
-          mxt_dbg(mxt->ctx, "Payload_size = %d", payload_size);
+          mxt_info(mxt->ctx, "Payload_size = %d", payload_size);
           skip_addr_size = true;
-          ignore_line = true;
+          ignore_line = true; /* TBD -- is ignored in next statement */
         }
       }
-    }
+    }   /* End of T68 payload section */
 
     ignore_line = false;
 
@@ -1048,8 +1266,10 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename,
         goto close;
       }
 
-      c = getc(fp);
+      /* Next character to capture is new line */
+      c = getc(fp);   
 
+      /* Get chars, stop at equal sign */
       while((c != '=') && (c != EOF))
         c = getc(fp);
 
@@ -1082,19 +1302,23 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename,
       t68_ctx.t68_size = object_size;
       t68_ctx.t68_instance = instance;
       t68_ctx.t68_addr = object_address;
+      mxt_dbg(mxt->ctx, "Found T68 object: T%u OBJECT_ADDRESS=%d OBJECT_SIZE=%d INSTANCE=%d DEVID=%d",
+            object_id, object_address, object_size, instance, device_num);
     }
 
     mxt_dbg(mxt->ctx, "%s T%u OBJECT_ADDRESS=%d OBJECT_SIZE=%d",
             object, object_id, object_address, object_size);
 
+    /* Allocate space for object data */
     objcfg = calloc(1, sizeof(struct mxt_object_config));
     if (!objcfg) {
       ret = MXT_ERROR_NO_MEM;
       goto close;
     }
 
-    /* Collect T68 addr, size, instance */
+    /* Collect object addr, size, instance, if not T68 */
     if (skip_addr_size != true) {
+      objcfg->dev_id = device_num;
       objcfg->type = object_id;
       objcfg->instance = instance;
       objcfg->start_position = object_address;
@@ -1120,30 +1344,42 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename,
         }
         /* increase object size overall to 2 for datasize header */
         //objcfg->size += 2;
-    } else if (CHECK_BIT(mxt->mxt_enc.encryption_state, MSG_ENCRYPTED)) {
+      } else if (CHECK_BIT(mxt->mxt_enc.encryption_state, MSG_ENCRYPTED)) {
         /* Pass this along and zero data size later */
         /* Could just make this zero data size here */
         objcfg->enc_size = object_size;
         mxt->mxt_enc.enc_datasize = object_size;
         add_datasize = true;
-        objcfg->size = object_size;
-        
-    }
+        objcfg->size = object_size;     
+      }
 
       t68_not = true;
-    /* TBD need to figure out how to manage MSG enabled */
-    /* adds datasize bytes but does not limit blocksize */
-    /* Does not need padding */
-    } else {
+
+    } else {  /* T68 parameter data saved prior to finding T68 payload */
+      mxt_info(mxt->ctx,"Storing T68 parameters\n");
+      objcfg->dev_id = device_num;
       objcfg->type = t68_ctx.t68_object_id;
-      objcfg->size = payload_size + 4;  /* do I need this for xcfg */
-      //objcfg->size = payload_size + 2;  /* add two for embedded datasize */
+      if (cfg->config_type == CONFIG_XCFG) {
+        objcfg->size = payload_size;
+      } else {
+        objcfg->size = payload_size - 4;
+      }
+
+    //  objcfg->size = payload_size + 4;  /* TBD - do I need this for xcfg, only raw file */
+      //objcfg->size = payload_size + 2;  /* Pending removal, add two for embedded datasize */
       objcfg->instance = instance;
       objcfg->start_position = t68_ctx.t68_addr;
       skip_addr_size = false;
       add_datasize = false;
       t68_not = false;
+
+      mxt_dbg(mxt->ctx, "Type %u Object_size %d Dev_ID = %d Instance = %x", 
+        objcfg->type, objcfg->size, objcfg->dev_id, objcfg->instance);
     }
+
+     mxt_dbg(mxt->ctx, "%s T%u OBJECT_ADDRESS=%d OBJECT_SIZE=%d, DEVID=%d\n",
+        object, object_id, object_address, object_size, device_num);
+
 
     *next = objcfg;
     next = &objcfg->next;
@@ -1165,16 +1401,18 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename,
 
       /* Find next line, check first character valid and rewind */
       c = getc(fp);
+
+      /* Get new line, carriage return, and spaces */
       while((c == '\n') || (c == '\r') || (c == 0x20))
         c = getc(fp);
 
       fseek(fp, -1, SEEK_CUR);
 
-      /* End of object */
+      /* End of object reached, break */
       if (c == '[')
         break;
 
-      /* End of file */
+      /* End of file reached, break */
       if (c == EOF) {
         file_read = true;
         break;
@@ -1273,9 +1511,10 @@ static int mxt_load_xcfg_file(struct mxt_device *mxt, const char *filename,
             ret = MXT_ERROR_FILE_FORMAT;
             goto close;
           }
-        }
+      }
     }
   }
+
   ret = MXT_SUCCESS;
   mxt_info(mxt->ctx, "Configuration read from %s in XCFG format", filename);
 
@@ -1296,9 +1535,10 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename,
   bool t38_found = false;
   bool t68_payload_found = false;
   char line[2048];
+  char tmp[255];
   struct mxt_object_config **next;
   struct mxt_object_config *objcfg;
-  char c;
+  int c;
 
   cfg->config_type = CONFIG_RAW;
 
@@ -1374,14 +1614,13 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename,
       goto close;
     }
 
-    if (!strncmp(line, "ENC_BLOCK_HDR",strlen(ENC_BLOCK_HDR))) {
+    if (!strncmp(line, "ENC_BLOCK_HDR", strlen(ENC_BLOCK_HDR))) {
        mxt_err(mxt->ctx, "Unexpected header found %s, expected ENC_BLOCK_HDR", line);
       ret = MXT_ERROR_FILE_FORMAT;
       goto close;
     }
 
-    if (cfg->cfg_version == 0x04)
-    {
+    if (cfg->cfg_version == 0x04) {
       ret = (fscanf(fp, "%s%d", line, &cfg->num_of_devices));
       if (ret != 2) {
         mxt_err(mxt->ctx, "Bad format, Num of devices not found\n");
@@ -1389,8 +1628,7 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename,
         goto close;
       }
     
-      if (!strncmp(line, "DEVICE_NO",
-        strlen(DEVICE_NO))) {
+      if (!strncmp(line, "DEVICE_NO", strlen(DEVICE_NO))) {
         mxt_err(mxt->ctx, "Unexpected header found %s expected NO_DEVICES", line);
         ret = MXT_ERROR_FILE_FORMAT;
         goto close;
@@ -1415,42 +1653,64 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename,
     ret = MXT_ERROR_FILE_FORMAT;
     goto close;
   }
+  
+  mxt_info(mxt->ctx, "Config File info_crc 0x%06X", cfg->info_crc);
 
-  ret = fscanf(fp, "%x", &cfg->config_crc);
-  if (ret != 1) {
-    mxt_err(mxt->ctx, "Bad format: failed to parse Config CRC");
-    ret = MXT_ERROR_FILE_FORMAT;
-    goto close;
-  }
-
-  /* Read the Device server or client */
-
-  if (fscanf(fp, "%[^] ]", line) != 1) {
-      mxt_err(mxt->ctx, "Object parse error");
+  if (mxt->mxt_hc.hc_capable) {
+    /* Read config checksum */
+    ret = fscanf(fp, "%x", &cfg->config_crc_1);
+    if (ret != 1) {
+      mxt_err(mxt->ctx, "Bad format: failed to parse Config CRC");
       ret = MXT_ERROR_FILE_FORMAT;
       goto close;
-  }
+    }
+    mxt_info(mxt->ctx, "Config File Checksum Devid 1 0x%06X", cfg->config_crc_1);
 
-  if (!strncmp(line, "[DEVICE_0", 9)) {
-   mxt_err(mxt->ctx, "Unexpected header found %s expected Device_ID", line);
-   ret = MXT_ERROR_FILE_FORMAT;
-    goto close;
-  }
-
-  cfg->device_num = 0;
-
-  if (!strncmp(line, "[DEVICE_1", 9)) {
-    mxt_err(mxt->ctx, "Unexpected header found %s expected Device_ID", line);
-    ret = MXT_ERROR_FILE_FORMAT;
-    goto close;
-
+    if (cfg->num_of_devices > 1) {
+      ret = fscanf(fp, "%x", &cfg->config_crc_0);
+      if (ret != 1) {
+        mxt_err(mxt->ctx, "Bad format: failed to parse Config CRC");
+        ret = MXT_ERROR_FILE_FORMAT;
+        goto close;
+      }
     }
 
-  cfg->device_num = 1;
+    mxt_info(mxt->ctx, "Config File Checksum Devid 0 0x%06X", cfg->config_crc_0);
+  } else {
+      ret = fscanf(fp, "%x", &cfg->config_crc);
+      if (ret != 1) {
+        mxt_err(mxt->ctx, "Bad format: failed to parse Config CRC");
+        ret = MXT_ERROR_FILE_FORMAT;
+        goto close;
+      }
+
+      mxt_info(mxt->ctx, "Config File Checksum 0x%06X", cfg->config_crc);
+  }
+
+  int offset;
+  int file_read = 0;
+  int diff;
 
   c = getc(fp);
 
   next = &cfg->head;
+
+  while (!file_read) {
+
+    if (fscanf(fp, "%s%n", line, &offset) != 1) {
+      mxt_err(mxt->ctx, "Object parse error");
+      ret = MXT_ERROR_FILE_FORMAT;
+      goto close;
+    }
+
+    if ((!strncmp(line, "[DEVICE_", 8)) || (!strncmp(line, "DEVICE_", 7))) {
+      sscanf(line, "%[^'_']_%x", tmp, &cfg->device_num);
+      mxt_dbg(mxt->ctx, "Device ID %d\n", cfg->device_num);
+    } else {
+      diff = ftell(fp) - offset;
+      mxt_dbg(mxt->ctx, "diff %i\n", diff);
+      fseek(fp, -diff, SEEK_CUR);
+    }
 
   while (true) {
     objcfg = calloc(1, sizeof(struct mxt_object_config));
@@ -1458,6 +1718,9 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename,
       ret = MXT_ERROR_NO_MEM;
       goto close;
     }
+
+    /* Insert the device number */
+    objcfg->dev_id = cfg->device_num;
 
     /* Read type,instance,length - Use SCNx16 for T68 payload */
     ret = fscanf(fp, "%x %" SCNx16 " %x",
@@ -1473,7 +1736,6 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename,
     }
 
     if ((objcfg->type == 68) && (objcfg->instance & 0x8000)) {
-      mxt_info(mxt->ctx, "T68 payload found in cfg file");
       t68_payload_found = true;
     }
 
@@ -1500,7 +1762,8 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename,
       }
     } /* End of cfg->version */
 
-    mxt_dbg(mxt->ctx, "OBP_RAW T%u instance %u size %d", objcfg->type, objcfg->instance, objcfg->size);
+    mxt_dbg(mxt->ctx, "OBP_RAW T%u instance %u size %d devid %d", 
+      objcfg->type, objcfg->instance, objcfg->size, objcfg->dev_id);
 
     *next = objcfg;
     next = &objcfg->next;
@@ -1537,10 +1800,29 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename,
       }
     }
 
+    /* Get one char */
+    c = getc(fp);
+
+      /* Get new line, carriage return, and spaces */
+    while((c == '\n') || (c == '\r') || (c == 0x20))
+      c = getc(fp);     /* Get next character */
+
+    fseek(fp, -1, SEEK_CUR);
+
+    if ((c == 'D') || (c == '['))
+      break;
+
+    if (c == EOF) {
+      file_read = true;
+      break;
+    }
+
     t68_payload_found = false;
 
     mxt_log_buffer(mxt->ctx, LOG_DEBUG, "CFG:", objcfg->data, objcfg->size);
   } //End of while {true} loop
+
+} //End of file_read loop
 
   ret = MXT_SUCCESS;
   mxt_info(mxt->ctx, "Config loaded from %s in raw format", filename);
@@ -1584,14 +1866,22 @@ static int mxt_get_config_from_file(struct mxt_device *mxt,
 int mxt_load_config_file(struct mxt_device *mxt, const char *filename)
 {
   uint8_t backup_cmd = BACKUPNV_COMMAND;
+  uint8_t freeze_cmd = FREEZE_COMMAND;
+  uint8_t unfreeze_cmd = UNFREEZE_COMMAND;
   struct mxt_config cfg = {{0}};
   int ret;
+
+  /* Issues backup/freeze config */
+  ret = mxt_backup_config(mxt, freeze_cmd);
+  if (ret)
+    return ret;
 
   ret = mxt_get_config_from_file(mxt, filename, &cfg);
 
   if (ret == MXT_SUCCESS) {
     mxt->mxt_enc.enc_cfg_write = true;
     ret = mxt_write_device_config(mxt, &cfg);
+    ret = mxt_write_t7_parameters(mxt);
     mxt_free_config(&cfg);
   } else {
     mxt_dbg(mxt->ctx, "Error loading file content\n");
@@ -1600,6 +1890,10 @@ int mxt_load_config_file(struct mxt_device *mxt, const char *filename)
   }
 
   mxt->mxt_enc.enc_cfg_write = false;
+
+  ret = mxt_backup_config(mxt, unfreeze_cmd);
+
+  msleep(30);
 
   ret = mxt_backup_config(mxt, backup_cmd);
   
@@ -1617,7 +1911,6 @@ int mxt_load_config_file(struct mxt_device *mxt, const char *filename)
   }
 
   ret = mxt_reset_chip(mxt, false, 0);
-      
   if (ret) {
     mxt_err(mxt->ctx, "Error resetting");
   } else {
@@ -1639,7 +1932,7 @@ int mxt_load_config_file(struct mxt_device *mxt, const char *filename)
   }
 
   if ((mxt->mxt_enc.msg_enc_enabled) || (mxt->mxt_enc.state_triggered)) {
-        mxt_info(mxt->ctx, "Enable debug_irq");
+    mxt_info(mxt->ctx, "Enable debug_irq");
     ret = mxt_set_irq(mxt, true);
     if (ret)
       mxt_dbg(mxt->ctx, "debug irq was not set\n");

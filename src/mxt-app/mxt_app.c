@@ -926,9 +926,6 @@ int main (int argc, char *argv[])
     ret = mxt_init_chip(ctx, &mxt, &conn);
     if (ret && cmd != CMD_CRC_CHECK )
       goto free;
-
-    if (mxt)
-      mxt_set_debug(mxt, true);
   }
 
   switch (cmd) {
