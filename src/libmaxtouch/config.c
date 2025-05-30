@@ -1707,9 +1707,7 @@ static int mxt_load_raw_file(struct mxt_device *mxt, const char *filename,
       sscanf(line, "%[^'_']_%x", tmp, &cfg->device_num);
       mxt_dbg(mxt->ctx, "Device ID %d\n", cfg->device_num);
     } else {
-      diff = ftell(fp) - offset;
-      mxt_dbg(mxt->ctx, "diff %i\n", diff);
-      fseek(fp, -diff, SEEK_CUR);
+      fseek(fp, -offset, SEEK_CUR);
     }
 
   while (true) {
