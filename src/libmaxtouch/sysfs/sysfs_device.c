@@ -548,7 +548,7 @@ close:
 int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf,
                          int start_register, size_t count, size_t padding)
 {
-  unsigned char tbuf[1024];
+  unsigned char tbuf[8194];
   unsigned char *ebuf;
   uint16_t datasize;
   uint16_t bytesToWrite = 0;
@@ -597,7 +597,7 @@ int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf,
     if (!ebuf)
       return MXT_ERROR_NO_MEM;
 
-	/* Pending - cipher code not yet available */
+    /* Pending - cipher code not yet available */
 
     /* Copy full incoming data to tbuf, padding is zero currently */
     memcpy(ebuf, buf, count);
@@ -608,17 +608,17 @@ int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf,
       /* Determine if last data packet and padding exists */
       if ((tmp_padding > 0) && (bytesToWrite - data_ofs == 16)) {
         
-	/* add random byte */
+        /* add random byte */
         ebuf[count] = mxt->mxt_enc.renc_byte;
         tmp_padding -= 1; /* reduce by 1 for random data byte */
         padding_ofs = count + 1; /* random data byte */
         
-	/* add the padding to the last data bytes */
+        /* add the padding to the last data bytes */
         while (tmp_padding > 0) {
           /* Repeat until padding is done*/
           temp = MIN(tmp_padding, count);
           
-	/* i.e. ABCDABCDA */
+          /* i.e. ABCDABCDA */
           memcpy(&ebuf[padding_ofs], &buf[0], temp);
           tmp_padding -= temp;
           padding_ofs = padding_ofs + temp;
@@ -629,7 +629,7 @@ int sysfs_write_register(struct mxt_device *mxt, unsigned char const *buf,
 
     } while (data_ofs < bytesToWrite);
 
-	/* Pending - Cipher code not yet available */
+	   /* Pending - Cipher code not yet available */
 
     /* Copy encrypted content shifted by datasize */
     memcpy(&tbuf[2], &ebuf[0], msg_length);

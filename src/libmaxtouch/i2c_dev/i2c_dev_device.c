@@ -474,7 +474,7 @@ int i2c_dev_write_register(struct mxt_device *mxt, unsigned char const *val,
   int fd = -ENODEV;
   int ret, i;
   unsigned char *abuf;
-  unsigned char tbuf[1024];
+  unsigned char tbuf[8194];
   uint16_t enc_datasize = 0;
   uint16_t data_size = 0;
   int bytesToWrite = 0;
@@ -607,7 +607,10 @@ int i2c_dev_write_register(struct mxt_device *mxt, unsigned char const *val,
         abuf[3] = 0x00;
       }
     } else {
-        msg_count = msg_length + 2;
+        if (msg_length > I2C_DEV_MAX_BLOCK)
+          msg_length = I2C_DEV_MAX_BLOCK;
+
+        msg_count = msg_length + 2; /* Data to be written along with 16 addr */
         memcpy(&abuf[2], (tbuf + bytesWritten), msg_length);
     }
 
