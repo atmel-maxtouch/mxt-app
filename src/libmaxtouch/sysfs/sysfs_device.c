@@ -939,7 +939,7 @@ int sysfs_set_debug(struct mxt_device *mxt, bool debug_state)
 /// \return #mxt_rc
 int sysfs_set_debug_irq(struct mxt_device *mxt, bool debug_state)
 {
-  int ret;
+  int ret = 0;
 
   // Check device is initialised
   if (!mxt) {

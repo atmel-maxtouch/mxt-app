@@ -989,6 +989,12 @@ int mxt_backup_config(struct mxt_device *mxt, uint8_t backup_command)
         mxt_info(mxt->ctx, "HC device is in frozen state");
     } else if (backup_command == BACKUPNV_COMMAND) {
       mxt_info(mxt->ctx, "Backed up settings to the non-volatile memory");
+    } else if (backup_command == RESTORENV_COMMAND) {
+      mxt_info(mxt->ctx, "Stop T70 and restore NVRAM settings");
+    } else if (backup_command == RESTORENV_NS_COMMAND) {
+      mxt_info(mxt->ctx, "Restore NVRAM settings without stopping T70");
+    } else {
+      mxt_info(mxt->ctx, "Backup command send 0x%x", backup_command);
     }
   } else {
       mxt_err(mxt->ctx, "Failed to back up settings");

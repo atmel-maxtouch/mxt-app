@@ -77,14 +77,15 @@ struct mxt_conn_info;
 #define MXT_T113_CTRL       0x00
 
 /* Values to write to the command processor fields */
-#define RESET_COMMAND       0x01
-#define BOOTLOADER_COMMAND  0xA5
-#define UNFREEZE_COMMAND    0x11
-#define FREEZE_COMMAND      0x22
-#define RESTORENV_COMMAND   0x33
-#define BACKUPNV_COMMAND    0x55
-#define NVM_VALID_COMMAND   0x66
-#define CALIBRATE_COMMAND   0x01
+#define RESET_COMMAND		0x01
+#define BOOTLOADER_COMMAND	0xA5
+#define UNFREEZE_COMMAND	0x11
+#define FREEZE_COMMAND		0x22
+#define RESTORENV_COMMAND	0x33
+#define RESTORENV_NS_COMMAND	0x44
+#define BACKUPNV_COMMAND	0x55
+#define NVM_VALID_COMMAND	0x66
+#define CALIBRATE_COMMAND	0x01
 
 /* T160 MULTI-CHIP comms defintions */
 #define HOST_CHIP            0x00

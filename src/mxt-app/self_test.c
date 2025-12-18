@@ -111,21 +111,21 @@ static int self_test_handle_messages(struct mxt_device *mxt, uint8_t *msg,
   	  
   	  switch (msg[1]) {
   	  case OND_TEST_ALL_PASS:
-  	    mxt_info(mxt->ctx, "PASS: All On-Demand tests have passed");
+  	    mxt_info(mxt->ctx, "PASS: On-Demand tests have passed");
   	    ret = MXT_SUCCESS;
   	    break;
   	  case POST_TEST_ALL_PASS:
-  	  	mxt_info(mxt->ctx, "PASS: All POST tests have passed");
-  	  	ret = MXT_SUCCESS;
-  	  	break;
+  	    mxt_info(mxt->ctx, "PASS: POST tests have passed");
+  	    ret = MXT_SUCCESS;
+  	    break;
   	  case BIST_TEST_ALL_PASS:
-  	  	mxt_info(mxt->ctx, "PASS: All BIST tests have passed");
-  	  	ret = MXT_SUCCESS;
-  	  	break;
+  	    mxt_info(mxt->ctx, "PASS: BIST tests have passed");
+  	    ret = MXT_SUCCESS;
+  	    break;
   	  case BIST_TEST_OVERRUN:
-  	  	mxt_info(mxt->ctx, "OVERRUN: BIST test cycle overrun");
-  	  	ret = MXT_BIST_OVERRUN;
-  	  	break;
+  	    mxt_info(mxt->ctx, "OVERRUN: BIST test cycle overrun");
+  	    ret = MXT_BIST_OVERRUN;
+  	    break;
   	  case OND_TEST_INVALID:
   	    mxt_err(mxt->ctx, "FAIL: Invalid or unsupported test command");
   	    ret = MXT_ERROR_NOT_SUPPORTED;
@@ -136,13 +136,13 @@ static int self_test_handle_messages(struct mxt_device *mxt, uint8_t *msg,
 
   	    if (msg[1] == POST_TEST_FAILED) {
   	  	  mxt_err(mxt->ctx, "FAIL: A POST test failure was detected");
-  	    } else if (BIST_TEST_FAILED) {
+  	    } else if (msg[1] == BIST_TEST_FAILED) {
   	  	  mxt_err(mxt->ctx, "FAIL: A BIST test failure was detected");
   	    } else {
   	    	mxt_err(mxt->ctx, "FAIL: On-Demand test failure was detected");
   	    }
 
-  	    switch(msg[2]){
+  	    switch(msg[2]) {
   	    case CLOCK_FAILURE:
   	  	  mxt_err(mxt->ctx, "FAIL: Clock related failure occurred");
   	  	  ret = MXT_CLOCK_FAILURE;
@@ -160,8 +160,8 @@ static int self_test_handle_messages(struct mxt_device *mxt, uint8_t *msg,
   	  	  ret = MXT_CTE_TEST_FAILURE;
   	  	  break;
   	    case SIGNAL_LIMIT_FAILURE:
-  	  	  mxt_err(mxt->ctx, "Signal Limit relatd failure occurred");
-  	  	  mxt_err(mxt->ctx, "T%d instance[%d] failed signal limit test", msg[2], msg[3]);
+  	  	  mxt_err(mxt->ctx, "Signal Limit related failure occurred");
+  	  	  mxt_err(mxt->ctx, "T%d instance[%d] failed signal limit test", msg[3], msg[4]);
   	  	  ret = MXT_ERROR_SELF_TEST_SIGNAL_LIMIT;
   	  	  break;
   	    case POWER_TEST_FAILURE:
@@ -183,7 +183,7 @@ static int self_test_handle_messages(struct mxt_device *mxt, uint8_t *msg,
   	  
   	  	default:
   	  	  mxt_err(mxt->ctx, "Test Data: 0x%x, 0x%x, 0x%x, 0x%x, 0x%x", msg[1], msg[2], msg[3], msg[4], msg[5]);
-
+          	  break;
 	  	}
 
 	  break;
