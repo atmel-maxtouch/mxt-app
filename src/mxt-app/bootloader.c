@@ -32,6 +32,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <ctype.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -59,10 +60,22 @@
 #define MXT_BOOT_STATUS_MASK     0x3f
 #define MXT_BOOT_ID_MASK         0x1f
 
+/* Bootloader mode status for FW Authentication */
+#define MXT_SIGNATURE_MODE        0x0C
+#define MXT_INFO_VALID            0x0D
+#define MXT_INFO_INVALID          0x0E
+#define MXT_SIGN_IN_PROGRESS      0x0F
+#define MXT_SIGN_MODE_FINISHED    0x10
+
 #define FIRMWARE_BUFFER_SIZE     1024
 
 #define MXT_RESET_TIME           1
 #define MXT_BOOTLOADER_DELAY     50000
+
+#define HEX_PER_LINE             128
+#define BYTES_PER_LINE           64
+#define SIG_HEADER_SIZE          5
+#define HASH_SIG_SIZE            64
 
 //******************************************************************************
 /// \brief Bootloader context object
@@ -186,8 +199,6 @@ recheck:
       return ret;
     }
   }
-
-  mxt_verb(fw->ctx, "Bootloader status %02X", val);
 
   switch (state) {
   case MXT_WAITING_BOOTLOAD_CMD:
@@ -410,6 +421,7 @@ static int lookup_bootloader_addr(struct flash_context *fw, int addr)
 /// \return #mxt_rc
 static int mxt_bootloader_init_chip(struct flash_context *fw)
 {
+  struct mxt_conn_info *new_conn;
   int ret;
 
   if (!fw->conn) {
@@ -422,7 +434,6 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
 
   switch (fw->conn->type) {
   case E_SYSFS_SPI:
-
      //Do nothing, no init needed
     break;
      
@@ -490,7 +501,7 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
     return ret;
   }
 
-  mxt_info(fw->ctx, "Chip detected");
+  mxt_dbg(fw->ctx, "Chip detected\n");
 
   return MXT_SUCCESS;
 }
@@ -559,7 +570,7 @@ static int mxt_enter_bootloader_mode(struct flash_context *fw)
       return MXT_ERROR_BOOTLOADER_NO_ADDRESS;
     }
 
-    mxt_dbg(fw->ctx, "I2C Adapter:%d", fw->conn->i2c_dev.adapter);
+    mxt_dbg(fw->ctx, "\nI2C Adapter:%d", fw->conn->i2c_dev.adapter);
     mxt_dbg(fw->ctx, "Bootloader addr:0x%02x", fw->conn->i2c_dev.address);
     mxt_dbg(fw->ctx, "App mode addr:0x%02x", fw->appmode_address);
 
@@ -809,4 +820,591 @@ release:
   mxt_unref_conn(fw.conn);
 
   return ret;
+}
+
+//******************************************************************************
+/// \brief Read authenication state
+/// \return #mxt_rc
+static int mxt_check_authen_status(struct flash_context *fw, unsigned int state,
+    struct fw_authen_options *fw_opts)
+{
+  unsigned char sbuf[3];
+  unsigned char bootloader_id;
+  unsigned char bootloader_version;
+  uint8_t count = 0;
+  unsigned char val;
+  bool done = false;
+  int ret = 0;
+
+  while (!done) {
+
+    ret = mxt_bootloader_read(fw->mxt, &val, 1);
+    if(ret)
+      return ret;
+
+    switch(state) {
+      case MXT_WAITING_BOOTLOAD_CMD:
+        if ((val & ~MXT_BOOT_STATUS_MASK) == MXT_WAITING_BOOTLOAD_CMD) {
+          bootloader_id = val & MXT_BOOT_STATUS_MASK;
+          val &= ~MXT_BOOT_STATUS_MASK;
+          mxt_dbg(fw->ctx, "\nMXT_WAITING_BOOTLOAD_CMD state\n");
+
+          if (bootloader_id & 0x20) {
+              mxt_info(fw->ctx, "Bootloader using extended ID mode");
+              fw->extended_id_mode = true;
+
+              ret = mxt_bootloader_read(fw->mxt, sbuf, sizeof(sbuf));
+              if (ret)
+                return ret;
+
+              mxt_info(fw->ctx, "Bootloader ID: %d Version: %d\n",
+                     sbuf[1] & MXT_BOOT_ID_MASK, sbuf[2]);
+          }
+        }
+        break;
+      case MXT_INFO_VALID:
+        if (val == MXT_INFO_INVALID) {
+          msleep(10);
+          continue; /* Check again for INFO_VALID */
+        }
+        msleep(1000);
+        mxt_info(fw->ctx, "INFO_VALID mode found = %02X", val);
+        break;
+      case MXT_SIGNATURE_MODE:
+        mxt_info(fw->ctx, "Signature mode found = %02X", val);
+        break;
+      case MXT_SIGN_IN_PROGRESS:
+        mxt_info(fw->ctx, "Signature in progress = %02X\n", val);
+        break;
+      case MXT_SIGN_MODE_FINISHED:
+        mxt_info(fw->ctx, "Signature mode done = %02X\n", val);
+        break;
+      default:
+        /* TBD -- Determine action if failure, currently return success */
+        mxt_info(fw->ctx, "Device is in state %02X\n. Expected state %02X\n", val, state);
+        break;
+    }
+
+    if (val != state) {
+      mxt_err(fw->ctx, "Invalid bootloader state %02X != %02X\n",
+        val, state);
+      ret = MXT_BTLR_WRONG_STATE;
+      break;
+    }
+
+    done = true;
+  }
+
+  return ret;
+}
+
+static int mxt_enter_authen_mode(struct flash_context *fw, struct fw_authen_options *fw_opts)
+{
+  unsigned char tbuf[6];
+  int ret = 0;
+
+  if (fw_opts->authen_type == 0x01) {         /* Signature mode */
+    mxt_info(fw->ctx, "Unlocking to signature mode\n");
+    tbuf[0] = MXT_UNLOCK_CMD_LSB;
+    tbuf[1] = MXT_UNLOCK_CMD_MSB;
+    tbuf[2] = 0x0F;
+    tbuf[3] = 0xAC;
+    tbuf[4] = 0xEC;
+    tbuf[5] = 0x05;
+  } else if (fw_opts->authen_type == 0x02) {  /* ACFA mode, not yet supported */
+    tbuf[0] = MXT_UNLOCK_CMD_LSB;
+    tbuf[1] = MXT_UNLOCK_CMD_MSB;
+    tbuf[2] = 0x0F;
+    tbuf[3] = 0xAC;
+    tbuf[4] = 0x87;
+    tbuf[5] = 0xCA;
+  }
+
+  ret = mxt_bootloader_write(fw->mxt, tbuf, sizeof(tbuf));
+
+  if (ret) {
+    mxt_err(fw->ctx, "Could not write to bootloader");
+    return ret;
+  }
+
+  return MXT_SUCCESS;
+}
+
+static int mxt_send_sig_authen_req(struct flash_context *fw, struct fw_authen_options *fw_opts)
+{
+  unsigned char buf[9];
+  uint32_t calc_crc;
+  int ret = 0;
+
+  buf[0] = 0x0C;    /* FW Authentication mode with SHA */
+
+  if (fw_opts->req_mode == 0x00) {        /* Block Mode Request */
+    buf[1] = 0x00;
+    buf[2] = (fw_opts->blk_idx & 0xFF00) >> 8;
+    buf[3] = (fw_opts->blk_idx & 0x00FF);
+    buf[4] = (fw_opts->num_of_blks & 0xFF00) >> 8;
+    buf[5] = (fw_opts->num_of_blks & 0x00FF);
+  } else if (fw_opts->req_mode == 0xFF) { /* Segment Mode Request */
+    buf[1] = 0xFF;
+    buf[2] = 00;
+    buf[3] = fw_opts->seg_id;     /* 0x00 - Btld, 0x01 - FW, 0x02 - NVM */
+    buf[4] = 0xFF;
+    buf[5] = 0xFF;
+  }
+
+  /* Calculate checksum */
+  ret = mxt_calculate_crc(fw->ctx, &calc_crc, buf, 6);
+  if (ret)
+    return ret;
+
+  buf[6] = (calc_crc & 0x00FF0000) >> 16;
+  buf[7] = (calc_crc & 0x0000FF00) >> 8;
+  buf[8] = (calc_crc & 0x000000FF);
+
+  return mxt_bootloader_write(fw->mxt, buf, sizeof(buf));
+}
+
+static int mxt_send_acfa_req(struct flash_context *fw, struct fw_authen_options *fw_opts)
+{
+  /* Pending for acfa mode */
+}
+
+/* Convert two hex characters to a byte */
+static unsigned char hex_pair_to_byte(struct flash_context *fw, char high, char low)
+{
+  unsigned char value;
+
+    int hi = (high >= '0' && high <= '9') ? high - '0' :
+             (high >= 'A' && high <= 'F') ? high - 'A' + 10 :
+             (high >= 'a' && high <= 'f') ? high - 'a' + 10 : -1;
+    int lo = (low >= '0' && low <= '9') ? low - '0' :
+             (low >= 'A' && low <= 'F') ? low - 'A' + 10 :
+             (low >= 'a' && low <= 'f') ? low - 'a' + 10 : -1;
+
+    if (hi == -1 || lo == -1) 
+     value = 0;
+    else
+      value = (hi << 4) | lo;
+    
+    return value;
+}
+
+int mxt_read_input_file(struct flash_context *fw, struct fw_authen_options *fw_opts,
+                        const char *strbuf, unsigned char **out)
+{
+
+  char line[HEX_PER_LINE + 2];  /* +2 for newline and null terminator */
+  int line_count = 0;
+  int line_num;
+  size_t len;
+  int i, j;
+
+  fw_opts->in_file = fopen(strbuf, "r");
+  if (fw_opts->in_file == NULL) {
+    fprintf(fw_opts->a_log, "Error opening input file %s\n", strbuf);
+    return MXT_ERROR_IO;
+  } else {
+    fprintf(fw_opts->a_log, "\nSuccessfully opened %s input file.\n\n", strbuf);
+  }
+
+  /* Read the data into 2D array by line count/index */
+
+  while(fgets(line, sizeof(line), fw_opts->in_file)) {
+    /* remove new line, if present */
+    len = strlen(line);
+    if (len > 0 && (line[len - 1] == '\n' || line[len - 1] == 'r')) {
+      line[len - 1] = '\0';
+      len--;
+    }
+
+    if (len < HEX_PER_LINE) {
+      mxt_err(fw->ctx, "line %d is too short (%zu chars).\n", line_num + 1, len);
+      continue;
+    }
+
+    /* Convert line from hex string to hex buffer */
+    for (i = 0; i < BYTES_PER_LINE; ++i) {
+      out[line_count][i] = hex_pair_to_byte(fw, line[2 * i], line [2 * i + 1]);
+    }
+
+    line_count++;
+  }
+
+  return MXT_SUCCESS;
+}
+
+static int mxt_test_my_loop(struct flash_context *fw, struct fw_authen_options *fw_opts)
+{
+  int myloop = 50;
+
+  do {
+
+    myloop--;
+    printf("myloop %d\n", myloop);
+
+  } while (myloop > 0);
+
+  mxt_info(fw->ctx, "Finished the loop\n");
+
+  return MXT_SUCCESS;
+}
+
+static int mxt_compare_data(struct flash_context *fw, struct fw_authen_options *fw_opts,
+                            unsigned char **in_buf,int index)
+{
+  unsigned char *chip_data;
+  uint8_t read_pkt_size;
+  uint16_t sblk_idx = 0;
+  uint16_t nblk_idx = 0;
+  uint16_t rd_offset = 0;
+  uint16_t curr_index;
+  uint16_t curr_chip_index;
+  bool is_segment;
+  bool error_flag = false;
+  uint16_t error_count = 0;
+  uint16_t block_loop = 1;
+  uint8_t retry = 0;
+  int ret;
+  int i;
+  int j;
+
+  /* Make a copy of the current index, prevent corruption to index */
+  curr_index = index;
+
+  /* Setup number of loops based on num of blocks */
+  if (fw_opts->req_mode == 0x00) {
+    if (fw_opts->num_of_blks != 0x00) {
+      block_loop = fw_opts->num_of_blks;
+    } 
+  }
+
+  read_pkt_size = SIG_HEADER_SIZE + HASH_SIG_SIZE;
+
+  chip_data = (char *)calloc(read_pkt_size, sizeof(char));   /* 5 byte header, 64 bytes of data */
+  if (chip_data == NULL)
+    return MXT_ERROR_NO_MEM;
+
+  /* Loop until finished for block mode.  Segment mode recommend to do in script */
+  /* This is a block mode request, modification of index valid only in function */
+
+  do {
+    ret = mxt_bootloader_read(fw->mxt, chip_data + rd_offset, read_pkt_size);
+      if (ret) {
+        msleep(5);
+        mxt_warn(fw->ctx, "Could not read the signature data");
+
+        retry++;
+
+        if (retry == 3) {
+          mxt_err(fw->ctx, "Failed to read bootloader data");
+          ret = MXT_ERROR_IO;
+          break;
+        }
+
+        continue;
+      }
+
+    sblk_idx = (chip_data[1] << 8) | chip_data[2];
+    curr_chip_index = sblk_idx;    /* Keep track of current chip index */
+
+    /* Start at non-zero offset with block */
+    rd_offset = (chip_data[3] << 8) | chip_data[4];
+
+    for (j = 0; j < BYTES_PER_LINE; j++) {
+      if (in_buf[curr_index][j] != chip_data[5 + j]) {
+        fprintf(fw_opts->a_log, "Error: Diff at byte[%d]: input=0x%02X, chip=0x%02X at index %d\n",
+                j, in_buf[curr_index][j], chip_data[5 + j], curr_index);
+
+        printf("Error: Diff at byte[%d]: input=0x%02X, chip=0x%02X at index %d\n", j,
+             in_buf[curr_index][j], chip_data[5 + j], curr_index);
+        error_flag = true;
+        error_count++;
+      }
+    }
+
+    if (error_flag == false) {
+      fprintf(fw_opts->a_log, "Index %d comparison passed\n", curr_index);
+      printf("Index %d comparison passed\n", curr_index);
+    }
+
+    curr_index++;
+    block_loop--;
+    error_flag = false;
+
+  } while (block_loop > 0);
+
+  if (fw_opts->req_mode == 0xFF) {
+    is_segment = true;
+  } else {
+    is_segment = false;
+  }
+
+  if ((error_count == 0) && (ret == 0)) {
+    fprintf(fw_opts->a_log, "\n%ssignature comparison completed successfully with no errors\n\n",
+            is_segment ? "Segment " : "Block index");
+    printf("\n%ssignature comparison completed successfully with no errors\n",
+            is_segment ? "Segment " : "Block index");
+  } else {
+    fprintf(fw_opts->a_log, "\n%ssignature comparison failed\n\n",
+            is_segment ? "Segment " : "Block_index");
+    printf("\n%ssignature comparison failed\n\n",
+           is_segment ? "Segment " : "Block index");
+  }
+
+  return MXT_SUCCESS;
+}
+
+static int mxt_create_outfile(struct flash_context *fw, struct fw_authen_options *fw_opts,
+                                  const char *strbuf, const char *strbuf2)
+{
+  int ret = 0;
+  char *output_file = NULL;   /* Empty file */
+  unsigned char *buffer = NULL;
+  char default_log[12] = "results.log";
+  char line[HEX_PER_LINE + 2];  /* +2 for newline and null terminator */
+  int i;
+
+  /* Create log file, Use default name, if strbuf2 argv is NULL */
+ if (strbuf2[0] != '\0') {
+    output_file = (char *)calloc(strlen(strbuf2) + 1, sizeof(char));
+    strncpy(output_file, strbuf2, strlen(strbuf2));
+    output_file[strlen(strbuf2) - 1] = '\0';
+  } else {
+    output_file = (char *)calloc(strlen(default_log) + 1, sizeof(char));
+    strcpy(output_file, default_log);
+  }
+
+  fw_opts->a_log = fopen(output_file, "w");
+  if (fw_opts->a_log == NULL) {
+    mxt_err(fw->ctx, "Failed to open output file %s", output_file);
+    return MXT_ERROR_IO;
+  }
+
+  mxt_info(fw->ctx, "Output file: %s created\n", output_file);
+
+  /* Generate a header file for the output file */
+
+  for (i = 0; i < 40; i++) {
+    fprintf(fw_opts->a_log, "-");
+  }
+
+  fprintf(fw_opts->a_log, "\nFW Authentication Output File\n");
+
+  for (i = 0; i < 40; i++)
+    fprintf(fw_opts->a_log, "-");
+
+  fprintf(fw_opts->a_log, "\n\n");
+
+  for (i = 0; i < 40; i++)
+    fprintf(fw_opts->a_log, "-");
+
+  fprintf(fw_opts->a_log, "\nSelected Input parameters\n");
+
+  for (i = 0; i < 40; i++)
+    fprintf(fw_opts->a_log, "-");
+
+  fprintf(fw_opts->a_log, "\nAuthentication type = %02X\n", fw_opts->authen_type);
+  fprintf(fw_opts->a_log, "Input file = %s\n", strbuf);
+  fprintf(fw_opts->a_log, "Output file = %s\n", output_file);
+  fprintf(fw_opts->a_log, "Request mode = %02X\n", fw_opts->req_mode);
+
+  if (fw_opts->req_mode == 0xFF)
+    fprintf(fw_opts->a_log, "Segment ID = %d\n", fw_opts->seg_id);
+  else
+    fprintf(fw_opts->a_log, "Starting block index = %d\n", fw_opts->blk_idx);
+  
+  fprintf(fw_opts->a_log, "Number of blocks = %d\n", fw_opts->num_of_blks);
+
+  for (i = 0; i < 40; i++)
+    fprintf(fw_opts->a_log, "-");
+
+  fprintf(fw_opts->a_log, "\n");
+  return MXT_SUCCESS;
+}
+
+int mxt_authentication_handler(struct mxt_device *maxtouch, struct mxt_conn_info *conn, 
+                               struct fw_authen_options *fw_opts, const char *strbuf,
+                               const char *strbuf2)
+{
+  struct flash_context fw = { 0 };
+  unsigned char **dataout;
+  uint8_t segment_loop = 0;
+  int index;
+  int mode;
+  int i, j;
+  int ret = 0;
+
+  fw.ctx = maxtouch->ctx;
+  fw.mxt = maxtouch;
+  fw.conn = conn;
+
+  mxt_info(fw.ctx, "Starting authentication\n");
+
+  /* Create output log add header */
+  ret = mxt_create_outfile(&fw, fw_opts, strbuf, strbuf2);
+  if (ret) {
+    mxt_err(fw.ctx, "Error: Could not create output log file\n");
+    return MXT_ERROR_IO;
+  }
+
+  /* Allocate memory for the array of pointers, index # */
+  /* Changed to dynamic to reduce memory use later, fixed size for now */
+
+  dataout = (unsigned char **)malloc(4096 * sizeof(unsigned char*));
+  if (dataout == NULL) {
+    mxt_err(fw.ctx, "Could not initalize input index buffer\n");
+    return MXT_ERROR_NO_MEM;
+  }
+
+  /* Loop to allocate memory for each 64 byte hash data */
+  for (i = 0; i < 4096; i++) {
+    dataout[i] = (unsigned char *)malloc(64 * sizeof(unsigned char));
+
+    if (dataout[i] == NULL) {
+      mxt_err(fw.ctx, "Failed to allocate memory out data buffer\n");
+      for (j = 0; j < i; j++) {
+        free(dataout[j]);
+      }
+
+      free(dataout);
+
+      return MXT_ERROR_NO_MEM;
+    }
+
+    for (j = 0; j < 64; j++) {
+      dataout[i][j] = 0;
+    }
+  }
+
+  /* Create input log file and read signatures into buffer */
+  ret = mxt_read_input_file(&fw, fw_opts, strbuf, dataout);
+  if (ret) {
+    mxt_info(fw.ctx, "Failed to open input file.\n");
+    return MXT_ERROR_IO;
+  }
+
+  if ((fw_opts->req_mode == 0xFF) && (fw_opts->seg_id == 0x03)) {
+    segment_loop = 3;
+  } else {
+    segment_loop = 1;
+  }
+
+  mxt_info(fw.ctx, "Initializing the bootloader");
+
+  while (segment_loop > 0) {
+
+    mode = mxt_bootloader_init_chip(&fw);
+
+    /* Send the flash command to enter bootloader mode */
+    if (mode != MXT_DEVICE_IN_BOOTLOADER) {
+      mxt_info(fw.ctx,"Switching to bootloader mode");
+      ret = mxt_enter_bootloader_mode(&fw);
+      if (ret) {
+        mxt_err(fw.ctx, "Could not enter bootloader mode");
+        goto authen_release;
+      }
+    }
+
+    /* Find new device after entering bootloader mode */
+    ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
+    if (ret) {
+      mxt_err(fw.ctx, "Could not open device for FW authentication");
+      return ret;
+    }
+
+    ret = mxt_check_authen_status(&fw, MXT_WAITING_BOOTLOAD_CMD, fw_opts);
+    if (ret) {
+      mxt_err(fw.ctx, "Bootloader incorrect state, Waiting bootloader CMD. Exiting\n");
+      return ret;
+    }
+
+    mxt_info(fw.ctx, "Found new device in bootloader mode");
+
+    if (ret == MXT_SUCCESS) {
+      mxt_info(fw.ctx, "Unlocking bootloader mode");
+      ret = mxt_enter_authen_mode(&fw, fw_opts);
+      if (ret) {
+        mxt_err(fw.ctx, "Could not enter authentication mode");
+        return ret;
+      }
+    }
+
+    ret = mxt_check_authen_status(&fw, MXT_SIGNATURE_MODE, fw_opts);
+
+    mxt_info(fw.ctx, "Initializing into Signature mode");
+
+    if (ret == MXT_SUCCESS) {
+      mxt_info(fw.ctx, "Device is in Signature mode\n");
+  
+      if (fw_opts->authen_type == 0x01) {
+        ret = mxt_send_sig_authen_req(&fw, fw_opts);
+        if (ret) {
+          mxt_err(fw.ctx, "Failed to send signature authentication request");
+          goto authen_release;
+        }
+      } else if (fw_opts->authen_type == 0x02) {
+        mxt_info(fw.ctx, "ACFA mode - Not yet available\n");
+        //ret = mxt_send_acfa_req(&fw, fw_opts);
+        ret = 0x01; //pending for next release
+        if (ret) {
+          mxt_err(fw.ctx, "Failed to send ACFA authentication request");
+        } 
+      }
+    } else {
+        mxt_err(fw.ctx, "Bootloader incorrect state.  Expecting Signature Mode. Exiting\n");
+        return ret;
+    }
+
+    ret = mxt_check_authen_status(&fw, MXT_INFO_VALID, fw_opts);
+
+    if (ret == MXT_SUCCESS) {
+      /* Index is either segment ID or start of block index */
+      if (fw_opts->req_mode == 0xFF) {
+        index = fw_opts->seg_id; 
+      } else if (fw_opts->req_mode == 0x00) {
+        index = fw_opts->blk_idx;
+      }
+
+      ret = mxt_check_authen_status(&fw, MXT_SIGN_IN_PROGRESS, fw_opts);
+
+      ret = mxt_compare_data(&fw, fw_opts, dataout, index);
+      if (ret) {
+        mxt_err(fw.ctx, "Signature data comparison error");
+        return ret;
+      }
+
+    } else {
+      mxt_err(fw.ctx, "Bootloader incorrect state. Expecting INFO VALID state\n");
+    }
+
+    ret = mxt_check_authen_status(&fw, MXT_SIGN_MODE_FINISHED, fw_opts);
+    if (ret) {
+      mxt_err(fw.ctx, "Signature mode finished state not found");
+      return ret;
+    }
+
+    mxt_info(fw.ctx, "Signature mode finished. Returning to APP mode");
+
+    segment_loop--;
+  }
+
+    /* Recover from bootloader mode */
+    ret = mxt_new_device(fw.ctx, fw.conn, &fw.mxt);
+    if (ret) {
+      mxt_err(fw.ctx, "Could not open device for FW authentication");
+    }
+
+authen_release:
+  mxt_free_device(fw.mxt);
+  mxt_unref_conn(fw.conn);
+  fclose(fw_opts->a_log);
+  fclose(fw_opts->in_file);
+
+  for (i = 0; i < 4096; i++)
+    free(dataout[i]);
+
+  free(dataout);
+
+  return ret;
+
 }

@@ -27,6 +27,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //------------------------------------------------------------------------------
+#include "buffer.h"
 
 #define MIN(a,b) \
    ({ __typeof__ (a) _a = (a); \
@@ -188,6 +189,7 @@ typedef enum mxt_app_cmd_t {
   CMD_BROKEN_LINE,
   CMD_SENSOR_VARIANT,
   CMD_CRC_CHECK,
+  CMD_FW_AUTHEN,
 } mxt_app_cmd;
 
 //******************************************************************************
@@ -290,12 +292,30 @@ struct mxt_t15_info {
   uint8_t t15_enable;
 };
 
+struct fw_authen_options
+{
+  struct mxt_buffer fw_buf;   /* Use generic buffer to load FW request payload */
+  struct libmaxtouch_ctx *lc;
+  uint8_t authen_type;      /* FW authentication mode, SHA only or RSA */
+  uint8_t req_mode;         /* Block mode 0x00, Segment mode 0xFF */
+  uint16_t blk_idx;         /* Block mode only, Index of block to read */
+  uint16_t offset_index;   /* Start of byte index within block */
+  uint16_t index_count;     /* Holds value of next index to be read */
+  uint8_t seg_id;           /* Segment mode idx */
+                            /* 0x00 - Btldr, 0x01-FW_APP, 0x02-NVM */
+  uint16_t num_of_blks;     /* Block mode only, Segment mode, 0xFFFF-RSVD */
+  uint32_t fw_req_crc;      /* 24bit CRC of byte 0 to 265 */
+  FILE *key_log;            /* Hold key conversions and setup parameters */
+  FILE *a_log;              /* Holds setup parameters and comparison results */
+  FILE *in_file;            /* Input signature data for comparison */
+};
 
-
-int mxt_flash_firmware(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, const char *filename, const char *new_version, struct mxt_conn_info *conn);
+int mxt_flash_firmware(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, const char *filename,
+                       const char *new_version, struct mxt_conn_info *conn);
 int mxt_socket_server(struct mxt_device *mxt, uint16_t port);
 int mxt_socket_client(struct mxt_device *mxt, char *ip_address, uint16_t port);
-int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file, uint16_t frames, uint16_t obj_inst, uint16_t format, uint8_t attr);
+int mxt_debug_dump(struct mxt_device *mxt, int mode, const char *csv_file, uint16_t frames,
+                   uint16_t obj_inst, uint16_t format, uint8_t attr);
 void mxt_dd_menu(struct mxt_device *mxt);
 void mxt_dd_menu2(struct mxt_device *mxt, char selection);
 void mxt_mutual_menu(struct mxt_device *mxt, char selection);
@@ -315,7 +335,9 @@ int mxt_self_cap_tune(struct mxt_device *mxt, mxt_app_cmd cmd);
 int mxt_read_diagnostic_data_frame(struct mxt_device *mxt, struct t37_ctx *ctx);
 int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx);
 sig_atomic_t mxt_get_sigint_flag(void);
-int mxt_read_messages_sigint(struct mxt_device *mxt, int timeout_seconds, void *context, int (*msg_func)(struct mxt_device *mxt, uint8_t *msg, void *context, uint8_t size, uint8_t msg_count));
+int mxt_read_messages_sigint(struct mxt_device *mxt, int timeout_seconds, void *context,
+                             int (*msg_func)(struct mxt_device *mxt, uint8_t *msg,
+                             void *context, uint8_t size, uint8_t msg_count));
 int mxt_bootloader_version(struct libmaxtouch_ctx *ctx, struct mxt_device *mxt, struct mxt_conn_info *conn);
 int disable_gr(struct mxt_device *mxt);
 int16_t get_value(struct t37_ctx *ctx, int x, int y);
@@ -330,3 +352,5 @@ int debug_frame(struct t37_ctx *ctx);
 int usb_switch_fast_mode(struct mxt_device *mxt, struct mxt_conn_info *conn);
 int usb_switch_parallel_mode(struct mxt_device *mxt, struct mxt_conn_info *conn);
 int bridge_configure(struct mxt_device *mxt);
+int mxt_authentication_handler(struct mxt_device *mxt, struct mxt_conn_info *conn,
+                               struct fw_authen_options *fw_opts, const char *strbuf, const char *strbuf2);
