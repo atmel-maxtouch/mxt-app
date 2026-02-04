@@ -263,7 +263,7 @@ static int bridge_handle_reset(struct mxt_device *mxt,
   int ret;
   char *response;
   const char * const PREFIX = "RST ";
-  size_t response_len = 8;
+  size_t response_len = 9;
   uint16_t reset_timeout = 0;
 
   //Address argument used as reset time for chip

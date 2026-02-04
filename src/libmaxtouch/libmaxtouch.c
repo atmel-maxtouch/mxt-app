@@ -746,7 +746,7 @@ static int mxt_send_reset_command(struct mxt_device *mxt, bool bootloader_mode, 
   /* The value written determines which mode the chip will boot into */
   if (bootloader_mode) {
 
-    mxt_info(mxt->ctx, "Resetting in bootloader mode");
+    mxt_dbg(mxt->ctx, "Resetting in bootloader mode");
    
     write_value = BOOTLOADER_COMMAND;
 
@@ -921,7 +921,6 @@ int mxt_calibrate_chip(struct mxt_device *mxt)
 
   if (mxt->conn->type == E_I2C_DEV && mxt->debug_fs.enabled == true) {
     err = debugfs_set_irq(mxt, false);
-
     if (err)
       mxt_dbg(mxt->ctx, "Could not disable IRQ");
 

@@ -164,6 +164,7 @@ enum mxt_rc {
   MXT_POWER_FAILURE = 41,                    /*!< Power related test failure */
   MXT_BIST_OVERRUN = 42,                     /*!< BIST test cycle overrun */
   MXT_OND_TEST_FAILURE = 43,                 /*!< On-Demand test falure */
+  MXT_BTLR_WRONG_STATE,                      /*!< Bootloader incorrect state */  
 };
 
 //******************************************************************************

@@ -371,7 +371,7 @@ int sysfs_open_i2c(struct mxt_device *mxt)
     mxt->sysfs.debug_v2 = true;
   }
 
-  mxt_info(mxt->ctx, "\nDevice registered on sysfs path:%s\n", conn->path);
+  mxt_info(mxt->ctx, "Device registered on sysfs path:%s\n", conn->path);
 
   return MXT_SUCCESS;
 }
@@ -939,7 +939,7 @@ int sysfs_set_debug(struct mxt_device *mxt, bool debug_state)
 /// \return #mxt_rc
 int sysfs_set_debug_irq(struct mxt_device *mxt, bool debug_state)
 {
-  int ret = 0;
+  int ret;
 
   // Check device is initialised
   if (!mxt) {

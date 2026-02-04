@@ -105,8 +105,6 @@ static bool mxt_lookup_chips(struct mxt_device *mxt)
   
   family_id = id->family;
   variant_id = id->variant;
-  
-  printf("\n");
 
   switch (family_id) {
 

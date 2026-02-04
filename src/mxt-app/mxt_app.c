@@ -124,6 +124,17 @@ static void print_usage(char *prog_name)
           "  -T [--type] TYPE           : select object TYPE\n"
           "  --zero                     : zero all configuration settings\n"
           "\n"
+          "Request FW Authentication:\n"
+          "  --fw-authen <arg>          : Request FW authentication\n"
+          "  <arg> options:             : List of arguments with options below:\n"
+          "     --authen-type N         : Mode of authentication - N is 1 for Signature or 2 for ACFA\n"
+          "     --infile FILENAME       : Input file containing sample RSA parameters\n"
+          "     --outfile FILENAME      : Output file containing internally generated keys\n"
+          "     --req-mode N            : Request mode, N - Block - 0x00 or Segment - 0xFF \n"
+          "     --blk-idx N             : Block mode only: Index of first block, N = 0 to 3072 (RSA), 4096 (SHA)\n"
+          "     --seg-id N              : Segment mode only: 0x00 - BTLDR, 0x01 - FW_APP, 0x02 - NVM, 0x03 - All\n"
+          "     --num-of-blks N         : Blk mode only: Number of blocks, N = 0 to Max (dependent on chip)\n"
+          "\n"
           "TCP socket commands:\n"
           "  -C [--bridge-client] HOST  : connect over TCP to HOST\n"
           "  -S [--bridge-server]       : start TCP socket server\n"
@@ -251,6 +262,12 @@ int main (int argc, char *argv[])
   sv_opts.upper_limit = 15;
   sv_opts.lower_limit = 15;
   sv_opts.matrix_size = 0;
+  struct fw_authen_options fw_opts = {0};
+  fw_opts.authen_type = 0x01;   /* Default authenication mode signature mode */
+  fw_opts.req_mode = 0xFF;  /* Default segment mode */
+  fw_opts.blk_idx = 0x0000;   /* Set 0x00 start index */
+  fw_opts.num_of_blks = 0x0001;  /* Get minimum one block */
+  fw_opts.seg_id = 0x00;  /* Default bootloader segment */
   strbuf[0] = '\0';
   strbuf2[0] = '\0';
   mxt_app_cmd cmd = CMD_NONE;
@@ -325,6 +342,14 @@ int main (int argc, char *argv[])
       {"switch-parallel",  optional_argument, 0, 0},
       {"switch-fast",      optional_argument, 0, 0},
       {"bridge-config",  required_argument, 0, 0},
+      {"fw-authen",     required_argument, 0, 0},
+      {"authen-type",       required_argument, 0, 0},
+      {"infile",        required_argument, 0, 0},
+      {"outfile",       required_argument, 0, 0},
+      {"req-mode",      required_argument, 0, 0},
+      {"num-of-blks",   required_argument, 0, 0},
+      {"blk-idx",       required_argument, 0, 0},
+      {"seg-id",        required_argument, 0, 0},
       {0,                  0,                 0, 0}
     };
 
@@ -362,7 +387,7 @@ int main (int argc, char *argv[])
           cmd = CMD_BACKUP;
           if (optarg) {
             ret = mxt_convert_hex(optarg, &databuf, &count, sizeof(databuf));
-            if (ret < 0) {
+            if (ret || count == 0) {
               fprintf(stderr, "Hex convert error\n");
               ret = MXT_ERROR_BAD_INPUT;
             }
@@ -379,6 +404,30 @@ int main (int argc, char *argv[])
           print_usage(argv[0]);
           return MXT_ERROR_BAD_INPUT;
         }
+      } else if (!strcmp(long_options[option_index].name, "fw-authen")) {
+        printf("fw-authen\n"); 
+        if (cmd == CMD_NONE) {
+          cmd = CMD_FW_AUTHEN;
+        } else {
+          print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "authen-type")) {
+        fw_opts.authen_type = strtol(optarg, NULL, 0);
+      } else if (!strcmp(long_options[option_index].name, "infile")) {
+        strncpy(strbuf, optarg, sizeof(strbuf));
+        strbuf[sizeof(strbuf) - 1] = '\0';
+      } else if (!strcmp(long_options[option_index].name, "outfile")) {
+        strncpy(strbuf2, optarg, sizeof(strbuf2));
+        strbuf[sizeof(strbuf) - 1] = '\0';
+      } else if (!strcmp(long_options[option_index].name, "req-mode")) {
+        fw_opts.req_mode = strtol(optarg, NULL, 0);
+      } else if (!strcmp(long_options[option_index].name, "num-of-blks")) {
+        fw_opts.num_of_blks = strtol(optarg, NULL, 0);
+      } else if (!strcmp(long_options[option_index].name, "seg-id")) {
+        fw_opts.seg_id = strtol(optarg, NULL, 0);
+      } else if (!strcmp(long_options[option_index].name, "blk-idx")) {
+        fw_opts.blk_idx = strtol(optarg, NULL, 0);
       } else if (!strcmp(long_options[option_index].name, "debug-dump")) {
         if (cmd == CMD_NONE) {
           cmd = CMD_DEBUG_DUMP;
@@ -496,7 +545,7 @@ int main (int argc, char *argv[])
           cmd = CMD_OD_TEST;
           if (optarg) {
             ret = mxt_convert_hex(optarg, &databuf, &count, sizeof(databuf));
-              if (ret < 0) {
+              if (ret) {
                 fprintf(stderr, "Hex convert error\n");
                 ret = MXT_ERROR_BAD_INPUT;
               }
@@ -1097,6 +1146,17 @@ int main (int argc, char *argv[])
     mxt_verb(ctx, "CMD_CRC_CHECK");
     mxt_verb(ctx, "filename:%s", strbuf);
     ret = mxt_checkcrc(mxt, strbuf);
+    break;
+
+  case CMD_FW_AUTHEN:
+    mxt_verb(ctx, "CMD_FW_AUTHEN");
+
+    ret = mxt_authentication_handler(mxt, conn, &fw_opts, strbuf, strbuf2);
+    if (ret) {
+      printf("Authentication unsuccessful\n");
+    } else {
+      printf("Authentication completed successfully\n");
+    }
     break;
 
   case CMD_NONE:
