@@ -193,23 +193,17 @@ static int get_objects_addr(struct t37_ctx *ctx)
   if (ret)
     mxt_warn(ctx->lc, "Failed to get the singled-ended axis info");
   
-  ctx->scp_axis_en = buf;
+  ctx->is_altaxis_enabled = ((buf & 0x40) != 0); /* 0 - long axis 1 - short axis */
 
-  if (ctx->scp_axis_en & 0x04) {
-    /* Use the longer axis btw XSIZE and YSIZE */
-    if (ts_info[0].xsize <= ts_info[0].ysize) {
-      ctx->scp_axis = 0;  /* 0 - indicates X axis */
-    } else {
-      ctx->scp_axis = 1;  /* 1 - indicates Y axis */
-    }
-  } else {  /* ALTAXISEN = 0 */
-    /* Use the shorter axis btw XSIZE and YSIZE */
-    if (ts_info[0].ysize >= ts_info[0].xsize) {
-      ctx->scp_axis = 1;  /* 0 - indicates Y axis */
-    } else {
-      ctx->scp_axis = 0;  /* 1 - indicates X axis */
-    }
-  }
+  // Set scp_axis based on ALTAXISEN and longer axis ( 1 - Yaxis, 0 - Xaxis)
+  /* Ysize > size, is_altaxis_enabled, scp_axis
+   * true, false, true
+   * false, false, false
+   * true, true, false
+   * false, true, true
+   */
+
+  ctx->scp_axis = (ts_info[0].ysize >= ts_info[0].xsize) ^ ctx->is_altaxis_enabled;
 
   return MXT_SUCCESS;
 }
@@ -662,22 +656,29 @@ static int sort_debug_selfcap_data(struct mxt_device *mxt, struct t37_ctx *ctx)
     count = (ctx->page * ctx->page_size/2);
 
     /* Y then X even, X odd */
-    if (id->variant == 0x06 || id->variant == 0x07) {
-      for (i = 0; i < ctx->y_size/2; i++) {
-        /* 0, 2, 4, 6 */
-        ctx->temp_buf[count] = ctx->data_buf[i + (ctx->page_size/2 * ctx->page)];
 
-        /* 1, 3, 5, 7 */
-        ctx->temp_buf[count + 1] = ctx->data_buf[i + (ctx->y_size/2) + (ctx->page_size/2 * ctx->page)];
+    switch (id->variant) {
+      case 0x06:
+      case 0x07:
+      case 0x14:
+        for (i = 0; i < ctx->y_size/2; i++) {
+          /* 0, 2, 4, 6 */
+          ctx->temp_buf[count] = ctx->data_buf[i + (ctx->page_size/2 * ctx->page)];
 
-        count+=2;
-      }
-    } else {  /* Some parts Y is sequential */
-      for (i = 0; i < ctx->y_size; i++) {
-        /* Sequential for some U series */
-        ctx->temp_buf[count] = ctx->data_buf[i + (ctx->page_size/2 * ctx->page)];
-        count++;
-      }
+          /* 1, 3, 5, 7 */
+          ctx->temp_buf[count + 1] = ctx->data_buf[i + (ctx->y_size/2) + (ctx->page_size/2 * ctx->page)];
+
+          count+=2;
+        }
+        break;
+
+      default:
+        for (i = 0; i < ctx->y_size; i++) {
+          /* Sequential for some U series */
+          ctx->temp_buf[count] = ctx->data_buf[i + (ctx->page_size/2 * ctx->page)];
+          count++;
+        }
+        break;
     }
     
     /* even X then odd X */
@@ -918,8 +919,15 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
             }
             
             for (y = 0; y < ctx->y_size; y++) {
+              if (page_ofs == ctx->scp_start_page && ctx->scp_axis == 0) {
+                value = 0;  /* Y is zero, X is real data */
+              } else {
+                value = (int16_t)ctx->data_buf[data_ofs + y];
+              }
 
-              value = (int16_t)ctx->data_buf[data_ofs + y];
+              //value = (int16_t)ctx->data_buf[data_ofs + y];
+            //  value = (page_ofs == 2 && ctx->scp_axis) != 1 ? 0 :
+             //       (uint16_t)ctx->data_buf[data_ofs + y];
 
               ret = fprintf(ctx->hawkeye, "%d,",
                       (ctx->mode == SELF_CAP_DELTAS) ? (int16_t)value : value);
@@ -928,10 +936,17 @@ static int mxt_hawkeye_output(struct t37_ctx *ctx)
             }
 
             for (x = 0; x < ctx->x_size; x++) {
+              if (page_ofs == ctx->scp_start_page && ctx->scp_axis == 1) {
+                value  = 0;
+              } else {
+                value = (int16_t)ctx->data_buf[data_ofs + ctx->y_size + x];
+              }
+              
+              //value = (int16_t)ctx->data_buf[data_ofs + ctx->y_size + x];
+             // value = (page_ofs == 2 && ctx->scp_axis) != 0 ? 0 :
+             //       (uint16_t)ctx->data_buf[data_ofs + ctx->y_size + x];
 
-              value = (int16_t)ctx->data_buf[data_ofs + ctx->y_size + x];
-
-              if ((page_ofs == ctx->pages_per_pass-1) && (x == ctx->x_size -1)) {
+              if ((page_ofs == ctx->pages_per_pass - 1) && (x == ctx->x_size - 1)) {
                 ret = fprintf(ctx->hawkeye, "%d",
                       (ctx->mode == SELF_CAP_DELTAS) ? (int16_t)value : value);
               } else {
@@ -1233,12 +1248,12 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
 
     ctx->stripe_width = ctx->y_size;
       
-    mxt_dbg(ctx->lc, "ctx->data_values: %d", ctx->data_values);
-    mxt_dbg(ctx->lc, "ctx->passes: %d", ctx->passes);
-    mxt_dbg(ctx->lc, "ctx->y_size %d", ctx->y_size);
-    mxt_dbg(ctx->lc, "ctx->x_size: %d", ctx->x_size);
-    mxt_dbg(ctx->lc, "stripe_width: %d", ctx->stripe_width);
-    mxt_dbg(ctx->lc, "pages_per_pass: %d", ctx->pages_per_pass);
+    mxt_info(ctx->lc, "ctx->data_values: %d", ctx->data_values);
+    mxt_info(ctx->lc, "ctx->passes: %d", ctx->passes);
+    mxt_info(ctx->lc, "ctx->y_size %d", ctx->y_size);
+    mxt_info(ctx->lc, "ctx->x_size: %d", ctx->x_size);
+    mxt_info(ctx->lc, "stripe_width: %d", ctx->stripe_width);
+    mxt_info(ctx->lc, "pages_per_pass: %d", ctx->pages_per_pass);
 
     break;
 
@@ -1284,28 +1299,35 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
       switch (id->variant) {
 
       case 0x01: /* 640U offset for odd X */
-        ctx->start_offsetx = 0x14;
+        ctx->start_offsetx = 0x28;
+        ctx->scp_start_page = 2;
         break;
 
       case 0x06: /* 336U offset for odd X */
-        ctx->start_offsetx = 0x0C;
-        break;
-
-      case 0x08: /* 144U offset for odd X */
-        ctx->start_offsetx = 0x18;
+        ctx->start_offsetx = 0x30;
+        ctx->scp_start_page = 2;
         break;
 
       case 0x07: /* 308U offset pending more updates */
         ctx->start_offsetx = 0x30;
+        ctx->scp_start_page = 2;
+        break;
+
+      case 0x08: /* 144U offset for odd X */
+        ctx->start_offsetx = 0x18;
+        ctx->scp_start_page = 2;
         break;
 
       case 0x14: /* 336UD offset and scp_start_page */
-        ctx->start_offsetx = 0x0C;
         ctx->scp_start_page = 2;
+        ctx->start_offsetx = 0x30;  /* offset to 16bit X odd nodes */
+
+        break;
 
       case 0x17: /* 640UD offset and scp_start_page */
         ctx->start_offsetx = 0x14;
         ctx->scp_start_page = 2;
+        break;
 
       default:
         break;
@@ -1343,9 +1365,14 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
                           ctx->page_size;
     }
 
-      mxt_dbg(ctx->lc, "ctx->y_size %d", ctx->y_size);
-      mxt_dbg(ctx->lc, "ctx->x_size: %d", ctx->x_size);
-      mxt_dbg(ctx->lc, "ctx->data_values: %d", ctx->data_values);
+    mxt_info(ctx->lc, "ctx->data_values: %d", ctx->data_values);
+    mxt_info(ctx->lc, "ctx->passes: %d", ctx->passes);
+    mxt_info(ctx->lc, "ctx->y_size %d", ctx->y_size);
+    mxt_info(ctx->lc, "ctx->x_size: %d", ctx->x_size);
+    mxt_info(ctx->lc, "ctx->scp_page_start: %d", ctx->scp_start_page);
+    mxt_info(ctx->lc, "ctx->start_offsetx: %d", ctx->start_offsetx);
+	mxt_info(ctx->lc, "ctx->page_size: %d", ctx->page_size);
+    mxt_info(ctx->lc, "pages_per_pass: %d", ctx->pages_per_pass);
 
     break;
       
@@ -1524,7 +1551,7 @@ static int mxt_read_diagnostic_data_self_cap(struct mxt_device *mxt, struct t37_
     }
   }
 
-  if (id->family == 0xA6 && ctx->mode == SELF_CAP_REFS) {
+  if (id->family == 0xA6 && ctx->mode != SELF_CAP_DELTAS) {
 
     switch (id->variant) {
       case 0x01 ... 0x02:

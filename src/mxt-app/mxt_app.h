@@ -246,7 +246,7 @@ struct t37_ctx {
   bool scp_enabled;
 
   bool scp_axis;
-  uint8_t scp_axis_en;
+  bool is_altaxis_enabled;
   uint16_t t113_addr;
   /* Experiment on variable usage */
   uint8_t xscp_page_start;
