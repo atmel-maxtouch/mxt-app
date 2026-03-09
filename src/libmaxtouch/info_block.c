@@ -155,7 +155,7 @@ static bool mxt_lookup_chips(struct mxt_device *mxt)
 
       switch (variant_id & 0x7F) {
         case 0x14: //"336UD-HA"
-          mxt_info(mxt->ctx, "Found mXT366UD-HA");
+          mxt_info(mxt->ctx, "Found mXT336UD-HA");
           break;
         case 0x15: //"640UD-HA"
           mxt_info(mxt->ctx, "Found mXT640UD-HA");
