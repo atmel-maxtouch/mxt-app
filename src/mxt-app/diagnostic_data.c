@@ -1248,12 +1248,12 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
 
     ctx->stripe_width = ctx->y_size;
       
-    mxt_info(ctx->lc, "ctx->data_values: %d", ctx->data_values);
-    mxt_info(ctx->lc, "ctx->passes: %d", ctx->passes);
-    mxt_info(ctx->lc, "ctx->y_size %d", ctx->y_size);
-    mxt_info(ctx->lc, "ctx->x_size: %d", ctx->x_size);
-    mxt_info(ctx->lc, "stripe_width: %d", ctx->stripe_width);
-    mxt_info(ctx->lc, "pages_per_pass: %d", ctx->pages_per_pass);
+    mxt_dbg(ctx->lc, "ctx->data_values: %d", ctx->data_values);
+    mxt_dbg(ctx->lc, "ctx->passes: %d", ctx->passes);
+    mxt_dbg(ctx->lc, "ctx->y_size %d", ctx->y_size);
+    mxt_dbg(ctx->lc, "ctx->x_size: %d", ctx->x_size);
+    mxt_dbg(ctx->lc, "stripe_width: %d", ctx->stripe_width);
+    mxt_dbg(ctx->lc, "pages_per_pass: %d", ctx->pages_per_pass);
 
     break;
 
@@ -1365,14 +1365,14 @@ int mxt_debug_dump_initialise(struct mxt_device *mxt, struct t37_ctx *ctx)
                           ctx->page_size;
     }
 
-    mxt_info(ctx->lc, "ctx->data_values: %d", ctx->data_values);
-    mxt_info(ctx->lc, "ctx->passes: %d", ctx->passes);
-    mxt_info(ctx->lc, "ctx->y_size %d", ctx->y_size);
-    mxt_info(ctx->lc, "ctx->x_size: %d", ctx->x_size);
-    mxt_info(ctx->lc, "ctx->scp_page_start: %d", ctx->scp_start_page);
-    mxt_info(ctx->lc, "ctx->start_offsetx: %d", ctx->start_offsetx);
-	mxt_info(ctx->lc, "ctx->page_size: %d", ctx->page_size);
-    mxt_info(ctx->lc, "pages_per_pass: %d", ctx->pages_per_pass);
+    mxt_dbg(ctx->lc, "ctx->data_values: %d", ctx->data_values);
+    mxt_dbg(ctx->lc, "ctx->passes: %d", ctx->passes);
+    mxt_dbg(ctx->lc, "ctx->y_size %d", ctx->y_size);
+    mxt_dbg(ctx->lc, "ctx->x_size: %d", ctx->x_size);
+    mxt_dbg(ctx->lc, "ctx->scp_page_start: %d", ctx->scp_start_page);
+    mxt_dbg(ctx->lc, "ctx->start_offsetx: %d", ctx->start_offsetx);
+    mxt_dbg(ctx->lc, "ctx->page_size: %d", ctx->page_size);
+    mxt_dbg(ctx->lc, "pages_per_pass: %d", ctx->pages_per_pass);
 
     break;
       
