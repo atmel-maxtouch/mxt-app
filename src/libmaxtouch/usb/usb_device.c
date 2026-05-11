@@ -526,8 +526,11 @@ int bridge_configure(struct mxt_device *mxt)
     buf = CMD_CONFIG_I2C_RETRY_ON_NAK;
   }
 
-  if (mxt->conn->usb.b_i2c_addr != 0x00)
+  if (mxt->conn->usb.b_i2c_addr != 0x00) {
     buf = mxt->conn->usb.b_i2c_addr;
+  } else if (mxt->usb.address != 0x00) {
+    buf = mxt->usb.address;
+  }
 
   /* Command packet */
   memset(&pkt, 0, sizeof(pkt));
@@ -773,6 +776,13 @@ retry:
 
   /* Configure bridge chip if necessary */
   if (mxt->usb.bridge_chip) {
+    /* Search for I2C device */
+    if (mxt->conn->usb.b_i2c_addr == 0x00 || mxt->usb.address == 0x00) {
+      ret = bridge_find_i2c_address(mxt);
+        if (ret)
+          return ret;
+      }
+
     mxt->usb.report_id = 0;
     ret = bridge_set_fs_mode(mxt);
     if (ret)
@@ -785,14 +795,6 @@ retry:
     ret = bridge_save_config(mxt);
     if (ret)
       return ret;
-
-    if (mxt->conn->usb.b_i2c_addr == 0x00) {
-      if (!((mxt->usb.bootloader == true) || (mxt->usb.sent_btlr_cmd == true))) {
-        ret = bridge_find_i2c_address(mxt);
-        if (ret)
-          return ret;
-      }
-    }
   } else {
     mxt->usb.report_id = 1;
   }
