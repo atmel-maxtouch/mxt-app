@@ -56,10 +56,13 @@ struct usb_conn_info {
 struct usb_device {
   bool device_connected;
   bool bridge_chip;
+  bool is_d21_bridge;
   libusb_device *device;
   libusb_device_handle *handle;
   struct libusb_device_descriptor desc;
   int ep1_in_max_packet_size;
+  int ep_in;
+  int ep_out;
   int interface;
   bool bootloader;
   int report_id;
