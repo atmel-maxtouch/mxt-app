@@ -54,7 +54,8 @@
 #define CMD_FIND_IIC_ADDRESS 0xE0
 #define CMD_FAST_MODE        0xFA
 #define CMD_PARALLEL_MODE    0xFE
-#define SAVE_CONFIGS_EEPROM   0xEA
+#define SAVE_CONFIGS_EEPROM  0xEA
+#define CMD_NULL             0x86
 
 /* mXT command status codes */
 #define COMMS_STATUS_OK          0x00
@@ -153,7 +154,7 @@ static int usb_transfer(struct mxt_device *mxt, void *cmd, int cmd_size,
   /* Send command to request read */
   ret = libusb_interrupt_transfer
         (
-          mxt->usb.handle, ENDPOINT_2_OUT, cmd,
+          mxt->usb.handle, mxt->usb.ep_out, cmd,
           cmd_size, &bytes_transferred, USB_TRANSFER_TIMEOUT
         );
 
@@ -180,7 +181,7 @@ static int usb_transfer(struct mxt_device *mxt, void *cmd, int cmd_size,
   /* Read response from read request */
   ret = libusb_interrupt_transfer
         (
-          mxt->usb.handle, ENDPOINT_1_IN, response,
+          mxt->usb.handle, mxt->usb.ep_in, response,
           response_size, &bytes_transferred, USB_TRANSFER_TIMEOUT
         );
 
@@ -517,6 +518,7 @@ int bridge_configure(struct mxt_device *mxt)
 {
   unsigned char pkt[mxt->usb.ep1_in_max_packet_size];
   int buf = 0;
+  int ret;
 
   if (mxt->usb.address == 0x4a && mxt->usb.sent_btlr_cmd == true) {
     buf = (CMD_CONFIG_I2C_RETRY_ON_NAK | 0x26);
@@ -566,6 +568,42 @@ static int bridge_save_config(struct mxt_device *mxt)
   mxt_verb(mxt->ctx, "Saving config parameters");
 
   return usb_transfer(mxt, &pkt, sizeof(pkt), &pkt, sizeof(pkt), false);
+}
+
+//******************************************************************************
+/// \brief Used for d21 bridge discovery
+/// \return #mxt_rc
+static int bridge_cmd_null(struct mxt_device *mxt)
+{
+  int ret;
+  unsigned char pkt[mxt->usb.ep1_in_max_packet_size];
+  unsigned char response[2];
+  int i;
+
+  /* Command packet */
+  memset(&pkt, 0, sizeof(pkt));
+  pkt[0] = CMD_NULL;
+  pkt[1] = 0xAA;
+  pkt[2] = 0x55;
+
+  mxt_info(mxt->ctx, "Sending CMD_NULL");
+
+  ret = usb_transfer(mxt, &pkt, sizeof(pkt), &pkt, sizeof(pkt), false);
+  if (ret)
+    return ret;
+
+  response[0] = pkt[1];
+  response[1] = pkt[2];
+
+  if (response[0] == 0x55 && response[1] == 0xAA) {
+    mxt_info(mxt->ctx, "Found D21 Bridge board");
+    mxt->usb.is_d21_bridge = true;
+  } else {
+    mxt_info(mxt->ctx, "Not D21 bridge board");
+    mxt->usb.is_d21_bridge = false;
+  }
+
+  return MXT_SUCCESS;
 }
 
 //******************************************************************************
@@ -699,6 +737,76 @@ static int usb_initialise_libusb(struct libmaxtouch_ctx *ctx)
 }
 
 //******************************************************************************
+/// \brief  Discover interrupt IN/OUT endpoint addresses for the claimed
+///         interface. Different bridge boards expose different endpoint
+///         numbers (e.g. 0x01/0x81, 0x02/0x81, 0x04/0x83), so we cannot
+///         assume the legacy ENDPOINT_2_OUT / ENDPOINT_1_IN values.
+/// \return #mxt_rc
+static int usb_scan_endpoints(struct mxt_device *mxt)
+{
+  int i, j, k, e, ret;
+  bool found_in = false;
+  bool found_out = false;
+
+  for (i = 0; i < mxt->usb.desc.bNumConfigurations; ++i) {
+    struct libusb_config_descriptor *config;
+
+    ret = libusb_get_config_descriptor(mxt->usb.device, i, &config);
+    if (ret < 0) {
+      mxt_warn(mxt->ctx, "Couldn't get config descriptor %d", i);
+      continue;
+    }
+
+    for (j = 0; j < config->bNumInterfaces && !(found_in && found_out); j++) {
+      const struct libusb_interface *interface = &config->interface[j];
+
+      for (k = 0; k < interface->num_altsetting && !(found_in && found_out); k++) {
+        const struct libusb_interface_descriptor *alt = &interface->altsetting[k];
+
+        if (alt->bInterfaceNumber != mxt->usb.interface)
+          continue;
+
+        for (e = 0; e < alt->bNumEndpoints; e++) {
+          const struct libusb_endpoint_descriptor *ep = &alt->endpoint[e];
+
+          if ((ep->bmAttributes & LIBUSB_TRANSFER_TYPE_MASK)
+              != LIBUSB_TRANSFER_TYPE_INTERRUPT)
+            continue;
+
+          if ((ep->bEndpointAddress & LIBUSB_ENDPOINT_DIR_MASK)
+              == LIBUSB_ENDPOINT_IN) {
+            mxt->usb.ep_in = ep->bEndpointAddress;
+            found_in = true;
+          } else {
+            mxt->usb.ep_out = ep->bEndpointAddress;
+            found_out = true;
+          }
+        }
+      }
+    }
+
+    libusb_free_config_descriptor(config);
+
+    if (found_in && found_out)
+      break;
+  }
+
+  if (!found_in || !found_out) {
+    mxt_err(mxt->ctx,
+            "Could not locate interrupt endpoints on interface %d (in=%s out=%s)",
+            mxt->usb.interface,
+            found_in ? "ok" : "missing",
+            found_out ? "ok" : "missing");
+    return MXT_ERROR_NO_DEVICE;
+  }
+
+  mxt_info(mxt->ctx, "Using endpoints IN=0x%02X OUT=0x%02X on interface %d",
+           mxt->usb.ep_in, mxt->usb.ep_out, mxt->usb.interface);
+
+  return MXT_SUCCESS;
+}
+
+//******************************************************************************
 /// \brief  Try to connect device
 /// \return #mxt_rc
 int usb_open(struct mxt_device *mxt)
@@ -731,6 +839,9 @@ retry:
   }
 
   mxt->usb.interface = -1;
+  /* Defaults used until we discover the real endpoint addresses below. */
+  mxt->usb.ep_in = ENDPOINT_1_IN;
+  mxt->usb.ep_out = ENDPOINT_2_OUT;
 
   ret = usb_scan_device_configs(mxt);
   if (ret) {
@@ -761,42 +872,54 @@ retry:
     mxt_verb(mxt->ctx, "Claimed the USB interface");
   }
 
-  /* Get the maximum size of packets on endpoint 1 */
+  /* Discover the actual interrupt IN/OUT endpoints for this bridge board */
+  ret = usb_scan_endpoints(mxt);
+  if (ret)
+    return ret;
+
+  /* Get the maximum size of packets on the IN endpoint */
   ret = libusb_get_max_packet_size(libusb_get_device(mxt->usb.handle),
-                                   ENDPOINT_1_IN);
+                                   mxt->usb.ep_in);
   if (ret < LIBUSB_SUCCESS) {
-    mxt_err(mxt->ctx, "%s getting maximum packet size on endpoint 1 IN",
-            usb_error_name(ret));
+    mxt_err(mxt->ctx, "%s getting maximum packet size on endpoint 0x%02X",
+            usb_error_name(ret), mxt->usb.ep_in);
     return usberror_to_rc(ret);
   }
 
   mxt->usb.ep1_in_max_packet_size = ret;
-  mxt_verb(mxt->ctx, "Maximum packet size on endpoint 1 IN is %d bytes",
-           mxt->usb.ep1_in_max_packet_size);
+  mxt_info(mxt->ctx, "Maximum packet size on endpoint 0x%02X is %d bytes",
+           mxt->usb.ep_in, mxt->usb.ep1_in_max_packet_size);
 
   /* Configure bridge chip if necessary */
   if (mxt->usb.bridge_chip) {
-    /* Search for I2C device */
-    if (mxt->conn->usb.b_i2c_addr == 0x00 || mxt->usb.address == 0x00) {
-      ret = bridge_find_i2c_address(mxt);
+      ret = bridge_cmd_null(mxt);
+      if (ret)
+        return ret;
+
+      /* Search for I2C device */
+      if (mxt->conn->usb.b_i2c_addr == 0x00 || mxt->usb.address == 0x00) {
+        ret = bridge_find_i2c_address(mxt);
+          if (ret)
+            return ret;
+      }
+
+      if (!mxt->usb.is_d21_bridge) {
+        ret = bridge_set_fs_mode(mxt);
+        if (ret)
+          return ret;
+
+        ret = bridge_configure(mxt);
+        if (ret)
+          return ret;
+
+        ret = bridge_save_config(mxt);
         if (ret)
           return ret;
       }
 
-    mxt->usb.report_id = 0;
-    ret = bridge_set_fs_mode(mxt);
-    if (ret)
-      return ret;
-
-    ret = bridge_configure(mxt);
-    if (ret)
-      return ret;
-
-    ret = bridge_save_config(mxt);
-    if (ret)
-      return ret;
+      mxt->usb.report_id = 0;
   } else {
-    mxt->usb.report_id = 1;
+      mxt->usb.report_id = 1;
   }
 
   mxt->usb.device_connected = true;
