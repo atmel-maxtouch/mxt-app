@@ -81,10 +81,13 @@ static int readline(struct mxt_device *mxt, int fd, struct mxt_buffer *linebuf)
       if (ret)
         return ret;
     } else if (readcount == 0) {
-      if (n == 1)
-        return MXT_SUCCESS;
-      else
+      /* Socket closed by peer */
+      if (n == 1) {
+        mxt_dbg(mxt->ctx, "Socket closed by peer");
+        return MXT_ERROR_CONNECTION_FAILURE;
+      } else {
         break;
+      }
     } else {
       mxt_err(mxt->ctx, "Read error: %s (%d)", strerror(errno), errno);
       return mxt_errno_to_rc(errno);
@@ -543,7 +546,6 @@ static int bridge(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
 {
   int ret, pollret;
   struct pollfd fds[2];
-  int fopts = 0;
   int debug_ng_fd = 0;
   int numfds = 1;
   int timeout;
@@ -576,17 +578,22 @@ static int bridge(struct mxt_device *mxt, struct bridge_context *bridge_ctx)
       goto disconnect;
     }
 
-    /* Detect socket disconnect */
-    if (fcntl(bridge_ctx->sockfd, F_GETFL, &fopts) < 0) {
+    /* Detect socket disconnect via POLLHUP or POLLERR */
+    if (fds[0].revents & (POLLHUP | POLLERR)) {
       ret = MXT_SUCCESS;
-      mxt_warn(mxt->ctx, "Socket disconnected");
+      mxt_info(mxt->ctx, "Socket disconnected (POLLHUP/POLLERR)");
       goto disconnect;
     }
 
-    if (fds[0].revents) {
+    if (fds[0].revents & POLLIN) {
       ret = handle_cmd(mxt, bridge_ctx);
       if (ret) {
-        mxt_err(mxt->ctx, "handle_cmd returned %d", ret);
+        if (ret == MXT_ERROR_CONNECTION_FAILURE) {
+          mxt_info(mxt->ctx, "Client disconnected");
+          ret = MXT_SUCCESS;
+        } else {
+          mxt_err(mxt->ctx, "handle_cmd returned %d", ret);
+        }
         goto disconnect;
       }
     }
@@ -659,16 +666,23 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
 {
   int serversock;
   struct bridge_context bridge_ctx;
-  bridge_ctx.msgs_enabled = false;
   int ret;
   int one = 1;
   struct sockaddr_in server_addr, client_addr;
-  socklen_t sin_size = sizeof(client_addr);
+  socklen_t sin_size;
 
   /* Create endpoint */
   serversock = socket(AF_INET, SOCK_STREAM, 0);
   if (serversock < 0) {
     mxt_err(mxt->ctx, "Socket error: %s (%d)", strerror(errno), errno);
+    return MXT_ERROR_CONNECTION_FAILURE;
+  }
+
+  /* Allow socket reuse to avoid "Address already in use" on reconnect */
+  ret = setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+  if (ret < 0) {
+    mxt_err(mxt->ctx, "Setsockopt SO_REUSEADDR error: %s (%d)", strerror(errno), errno);
+    close(serversock);
     return MXT_ERROR_CONNECTION_FAILURE;
   }
 
@@ -701,22 +715,37 @@ int mxt_socket_server(struct mxt_device *mxt, uint16_t portno)
     return MXT_ERROR_CONNECTION_FAILURE;
   }
 
-  /* This string is used by ADB bridge client to signal it can connect */
-  printf("AWAITING_CONNECTION\n");
-  bridge_ctx.sockfd = accept(serversock, (struct sockaddr *) &client_addr, &sin_size);
-  if (bridge_ctx.sockfd < 0) {
-    mxt_err(mxt->ctx, "Accept error: %s (%d)", strerror(errno), errno);
-    close(serversock);
-    return MXT_ERROR_CONNECTION_FAILURE;
+  /* Loop to accept multiple client connections */
+  while (1) {
+    /* Reset bridge context for new connection */
+    bridge_ctx.msgs_enabled = false;
+    sin_size = sizeof(client_addr);
+
+    /* This string is used by ADB bridge client to signal it can connect */
+    printf("AWAITING_CONNECTION\n");
+    fflush(stdout);
+    bridge_ctx.sockfd = accept(serversock, (struct sockaddr *) &client_addr, &sin_size);
+    if (bridge_ctx.sockfd < 0) {
+      mxt_err(mxt->ctx, "Accept error: %s (%d)", strerror(errno), errno);
+      close(serversock);
+      return MXT_ERROR_CONNECTION_FAILURE;
+    }
+
+    printf("CONNECTED\n");
+    fflush(stdout);
+
+    ret = bridge(mxt, &bridge_ctx);
+
+    /* Close client socket and prepare for next connection */
+    close(bridge_ctx.sockfd);
+
+    printf("DISCONNECTED\n");
+    fflush(stdout);
+
+    mxt_info(mxt->ctx, "Client disconnected, ready for new connection");
   }
 
-  printf("CONNECTED\n");
-
-  ret = bridge(mxt, &bridge_ctx);
-
   close(serversock);
-
-  printf("DISCONNECTED\n");
 
   return ret;
 }
