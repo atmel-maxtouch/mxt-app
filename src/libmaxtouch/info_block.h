@@ -35,8 +35,15 @@ struct libmaxtouch_ctx;
 
 #define MXT_INSTANCES(o) ((uint16_t)((o).instances_minus_one) + 1)
 #define MXT_SIZE(o) ((uint16_t)((o).size_minus_one) + 1)
+#define MXT_EXT_INSTANCES(o) ((uint16_t)((o).instances_minus_one) + 1)
+#define MXT_EXT_SIZE(o) ((uint16_t)((o).size_minus_one) + 1)
 //#define MXT_OBJECT_SIZE_MAX 256
 #define MXT_OBJECT_SIZE_MAX 1024
+
+/* T254 Extended Object Table constants */
+#define T254_OBJECTS_PER_BLOCK  3
+#define T254_ELEMENT_SIZE       7
+#define T254_CRC_SIZE           3
 
 /* Define macros */
 #define CHECK_BIT(var, pos) (((unsigned int)(var) >> (pos)) & 1)
@@ -75,6 +82,15 @@ struct mxt_object {
   uint8_t instances_minus_one;   /*!< Number of objects of this obj. type - 1 */
   uint8_t num_report_ids;        /*!< The max number of touches in a screen,
                                   *  max number of sliders in a slider array, etc.*/
+} __attribute__((packed));
+
+/*! \brief Extended object table element struct (16-bit type for T254) */
+struct mxt_object_ext {
+  uint16_t type;                 /*!< Object type ID (16-bit) */
+  uint16_t start_address;        /*!< Start address of the obj config structure */
+  uint8_t size_minus_one;        /*!< Byte length of the obj config structure - 1 */
+  uint8_t instances_minus_one;   /*!< Number of objects of this obj. type - 1 */
+  uint8_t num_report_ids;        /*!< Number of report IDs */
 } __attribute__((packed));
 
 /*! \brief ID Information fields in the Information Block*/
@@ -121,6 +137,12 @@ struct mxt_info {
 
   /*! Number of valid report IDs */
   uint8_t max_report_id;
+
+  /*! T254 Extended Object Table */
+  uint16_t t254_address;
+  uint16_t t254_size;
+  struct mxt_object_ext *ext_objects;
+  uint8_t num_ext_objects;
 };
 
 struct mxt_crc_device {
@@ -300,6 +322,7 @@ struct mxt_enc_device {
   f(SPT_DATACONTAINER_T117, 117) \
   f(SPT_DATACONTAINERCTRL_T118, 118) \
   f(PROCI_SENSOR_CORRECTION_T121, 121) \
+  f(SPT_LOWPOWERIDLECONFIG_T126, 126) \
   f(PROCI_HOVERGESTUREPROCESSOR_T129, 129) \
   f(SPT_MESSAGEFILTER_T132, 132)\
   f(SPT_SELFCAPVOLTAGEMOD_T133, 133) \
@@ -315,6 +338,9 @@ struct mxt_enc_device {
   f(SPT_PEAKRESTORATION_T161, 161)\
   f(SPT_EVENTCOUNTER_T170, 170) \
   f(GEN_INFOBLOCK16BIT_T254, 254) \
+  f(TOUCH_MTCHKEYARRAY_T500, 500) \
+  f(SPT_MTCHKEYCTRL_T501, 501) \
+  f(SPT_MTCHSLIDERCTRL_T502, 502) \
   f(SPT_PROTOTYPE_T220, 220) \
   f(SPT_PROTOTYPE_T221, 221) \
   f(SPT_PROTOTYPE_T222, 222) \
@@ -358,3 +384,9 @@ int mxt_get_firmware_version(struct mxt_device *dev, char *version_str);
 uint16_t mxt_report_id_to_type(struct mxt_device *dev, int report_id);
 uint8_t mxt_get_object_instances(struct mxt_device *mxt, uint16_t object_type);
 int mxt_calculate_crc(struct libmaxtouch_ctx *ctx, uint32_t *crc_result, uint8_t *base_addr, size_t size);
+
+/* T254 Extended Object Table functions */
+int mxt_read_t254_object_table(struct mxt_device *mxt);
+uint16_t mxt_get_ext_object_address(struct mxt_device *mxt, uint16_t object_type, uint8_t instance);
+uint16_t mxt_get_ext_object_size(struct mxt_device *mxt, uint16_t object_type);
+void mxt_free_ext_object_table(struct mxt_device *mxt);

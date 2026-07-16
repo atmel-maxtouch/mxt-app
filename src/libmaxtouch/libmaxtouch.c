@@ -38,6 +38,7 @@
 
 #include "libmaxtouch.h"
 #include "libmaxtouch/sysfs/dmesg.h"
+#include "info_block.h"
 #include "msg.h"
 
 void msleep(int tms)
@@ -325,6 +326,7 @@ void mxt_free_device(struct mxt_device *mxt)
 
   free(mxt->info.raw_info);
   free(mxt->report_id_map);
+  mxt_free_ext_object_table(mxt);
   free(mxt);
 }
 

@@ -31,6 +31,13 @@
 struct dmesg_item;
 
 //******************************************************************************
+/// \brief sysfs driver type selection
+enum sysfs_driver_type {
+  SYSFS_DRIVER_MXT,    // atmel_mxt_ts (default, maXTouch)
+  SYSFS_DRIVER_MTCH,   // mchp_mtch
+};
+
+//******************************************************************************
 /// \brief sysfs device connection information
 struct sysfs_conn_info {
   char *path;
@@ -41,6 +48,7 @@ struct sysfs_conn_info {
   int spi_bus;
   bool spi_found;
   bool i2c_found;
+  enum sysfs_driver_type driver;
 };
 
 //******************************************************************************

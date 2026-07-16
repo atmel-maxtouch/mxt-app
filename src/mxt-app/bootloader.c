@@ -94,6 +94,7 @@ struct flash_context {
   bool check_version;
   const char *new_version;
   bool usb_bootloader;
+  bool is_mtch_driver;
 };
 
 //******************************************************************************
@@ -398,6 +399,18 @@ static int send_frames(struct flash_context *fw)
 /// \brief Lookup bootloader I2C address
 static int lookup_bootloader_addr(struct flash_context *fw, int addr)
 {
+  /* MTCH devices: 0x3a -> 0x16, 0x3b -> 0x17 */
+  if (fw->is_mtch_driver) {
+    switch (addr) {
+    case 0x3a:
+    case 0x3b:
+      return (addr - 0x24);
+    default:
+      return -1;
+    }
+  }
+
+  /* MXT devices */
   switch (addr) {
   case 0x4a:
   case 0x4b:
@@ -424,7 +437,10 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
   struct mxt_conn_info *new_conn;
   int ret;
 
-  if (!fw->conn) {
+  /* Always scan if no connection or if sysfs path not yet populated */
+  if (!fw->conn ||
+      ((fw->conn->type == E_SYSFS_I2C || fw->conn->type == E_SYSFS_SPI) &&
+       !fw->conn->sysfs.path)) {
     ret = mxt_scan(fw->ctx, &fw->conn, false);
     if (ret) {
       mxt_info(fw->ctx, "Could not find a device");
@@ -439,6 +455,9 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
      
   case E_SYSFS_I2C:
     mxt_info(fw->ctx, "Switching to i2c-dev mode");
+
+    /* Save driver type before switching connection */
+    fw->is_mtch_driver = (fw->conn->sysfs.driver == SYSFS_DRIVER_MTCH);
 
     struct mxt_conn_info *new_conn;
     ret = mxt_new_conn(&new_conn, E_I2C_DEV);
@@ -464,8 +483,15 @@ static int mxt_bootloader_init_chip(struct flash_context *fw)
 
   case E_I2C_DEV:
     fw->i2c_adapter = fw->conn->i2c_dev.adapter;
-    if (fw->conn->i2c_dev.address < 0x4a) {
-      mxt_info(fw->ctx, "Using bootloader address");
+    /* Check if already in bootloader mode based on address */
+    /* MXT bootloader: 0x24-0x27, MTCH bootloader: 0x16-0x17 */
+    if (fw->conn->i2c_dev.address >= 0x16 && fw->conn->i2c_dev.address <= 0x17) {
+      mxt_info(fw->ctx, "Using MTCH bootloader address");
+      fw->appmode_address = -1;
+      fw->is_mtch_driver = true;
+      return MXT_DEVICE_IN_BOOTLOADER;
+    } else if (fw->conn->i2c_dev.address >= 0x24 && fw->conn->i2c_dev.address <= 0x27) {
+      mxt_info(fw->ctx, "Using MXT bootloader address");
       fw->appmode_address = -1;
       return MXT_DEVICE_IN_BOOTLOADER;
     }
@@ -564,15 +590,18 @@ static int mxt_enter_bootloader_mode(struct flash_context *fw)
     fw->i2c_adapter = fw->conn->i2c_dev.adapter;
     fw->appmode_address = fw->conn->i2c_dev.address;
 
+    mxt_info(fw->ctx, "is_mtch_driver: %d, appmode_address: 0x%02x",
+             fw->is_mtch_driver, fw->appmode_address);
+
     fw->conn->i2c_dev.address = lookup_bootloader_addr(fw, fw->appmode_address);
     if (fw->conn->i2c_dev.address == -1) {
       mxt_err(fw->ctx, "No bootloader address!");
       return MXT_ERROR_BOOTLOADER_NO_ADDRESS;
     }
 
-    mxt_dbg(fw->ctx, "\nI2C Adapter:%d", fw->conn->i2c_dev.adapter);
-    mxt_dbg(fw->ctx, "Bootloader addr:0x%02x", fw->conn->i2c_dev.address);
-    mxt_dbg(fw->ctx, "App mode addr:0x%02x", fw->appmode_address);
+    mxt_info(fw->ctx, "I2C Adapter:%d", fw->conn->i2c_dev.adapter);
+    mxt_info(fw->ctx, "Bootloader addr:0x%02x", fw->conn->i2c_dev.address);
+    mxt_info(fw->ctx, "App mode addr:0x%02x", fw->appmode_address);
 
   } else if (fw->conn->type == E_SYSFS_SPI){
       ret = sysfs_set_bootloader(fw->mxt, true);

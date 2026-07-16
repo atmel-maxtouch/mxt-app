@@ -48,6 +48,8 @@
 #define SYSFS_I2C_ROOT "/sys/bus/i2c/drivers/"
 #define SYSFS_SPI_ROOT "/sys/bus/spi/drivers/"
 #define SYSFS_I2C_DRIVER_DIR /sys/bus/i2c/drivers/atmel_mxt_ts/
+#define SYSFS_DRIVER_MXT_NAME   "atmel_mxt_ts"
+#define SYSFS_DRIVER_MTCH_NAME  "mchp_mtch"
 #define CONVERTTOSTRING(x) #x
 #define TOSTRING(x) CONVERTTOSTRING(x)
 
@@ -94,16 +96,19 @@ static void sysfs_reopen_notify_fd(struct mxt_device *mxt)
 /// \return #mxt_rc
 static int sysfs_new_connection(struct libmaxtouch_ctx *ctx,
                                 struct mxt_conn_info **conn,
-                                const char *dir, bool acpi)
+                                const char *dir, bool acpi,
+                                enum sysfs_driver_type driver)
 {
   int ret = 0;
   struct mxt_conn_info *c;
 
- if (strncmp(dir, TOSTRING(SYSFS_I2C_DRIVER_DIR), 33) == 0)
-     ret = mxt_new_conn(&c, E_SYSFS_I2C);
-  else 
+  if (strstr(dir, SYSFS_DRIVER_MXT_NAME) != NULL ||
+      strstr(dir, SYSFS_DRIVER_MTCH_NAME) != NULL) {
+    ret = mxt_new_conn(&c, E_SYSFS_I2C);
+  } else {
     ret = mxt_new_conn(&c, E_SYSFS_SPI);
- 
+  }
+
   if (ret)
     return ret;
 
@@ -111,6 +116,7 @@ static int sysfs_new_connection(struct libmaxtouch_ctx *ctx,
   memcpy(c->sysfs.path, dir, strlen(dir) + 1);
 
   c->sysfs.acpi = acpi;
+  c->sysfs.driver = driver;
 
   *conn = c;
   return MXT_SUCCESS;
@@ -130,7 +136,8 @@ static int scan_sysfs_directory(struct libmaxtouch_ctx *ctx,
                                 struct mxt_conn_info **conn,
                                 struct dirent *dev_dir,
                                 const char *dir,
-                                bool acpi)
+                                bool acpi,
+                                enum sysfs_driver_type driver)
 {
   char *pszDirname;
   size_t length;
@@ -140,6 +147,9 @@ static int scan_sysfs_directory(struct libmaxtouch_ctx *ctx,
   bool debug_found = false;
   bool debug_v2_found = false;
   int ret = 0;
+  const char *driver_name;
+
+  driver_name = (driver == SYSFS_DRIVER_MTCH) ? "MTCH" : "maXTouch";
 
   length = strlen(dir) + strlen(dev_dir->d_name) + 2;
 
@@ -174,10 +184,10 @@ static int scan_sysfs_directory(struct libmaxtouch_ctx *ctx,
     ctx->scan_count++;
 
     if (ctx->query) {
-      printf("sysfs:%s Atmel %s interface\n", pszDirname,
+      printf("sysfs:%s %s %s interface\n", pszDirname, driver_name,
              debug_v2_found ? "Debug V2" : "Debug");
     } else {
-      ret = sysfs_new_connection(ctx, conn, pszDirname, acpi);
+      ret = sysfs_new_connection(ctx, conn, pszDirname, acpi, driver);
       mxt_dbg(ctx, "Found new device connection at: %s", pszDirname);
       goto close;
     }
@@ -200,7 +210,8 @@ free:
 /// \return #mxt_rc
 static int scan_driver_directory(struct libmaxtouch_ctx *ctx,
                                  struct mxt_conn_info **conn,
-                                 const char *path, struct dirent *dir)
+                                 const char *path, struct dirent *dir,
+                                 enum sysfs_driver_type driver)
 {
   char *pszDirname;
   size_t length;
@@ -232,7 +243,7 @@ static int scan_driver_directory(struct libmaxtouch_ctx *ctx,
   }
 
   /* readdir does not read in alpha or numeric order */
-  
+
   while ((pEntry = readdir(pDirectory)) != NULL) {
     if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
       continue;
@@ -244,16 +255,20 @@ static int scan_driver_directory(struct libmaxtouch_ctx *ctx,
       } else if (address == 0x4a) {
         mxt_info(ctx, "\nSearching for device at 0x4a");
       } else if (address == 0x4b) {
-        mxt_info(ctx, "\nSeaching for device at 0x4b");
+        mxt_info(ctx, "\nSearching for device at 0x4b");
+      } else if (address == 0x3a) {
+        mxt_info(ctx, "\nSearching for device at 0x3a");
+      } else if (address == 0x3b) {
+        mxt_info(ctx, "\nSearching for device at 0x3b");
       } else {
-         continue; 
+         continue;
       }
 
-        ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname, false);
-        if (ret != MXT_ERROR_NO_DEVICE) goto close;
+      ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname, false, driver);
+      if (ret != MXT_ERROR_NO_DEVICE) goto close;
 
     } else if (sscanf(pEntry->d_name, "i2c-%s", acpi) == 1) {
-      ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname, true);
+      ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname, true, driver);
       if (ret != MXT_ERROR_NO_DEVICE) goto close;
 
     } else if (sscanf(pEntry->d_name, "spi%d.%d", &bus_num, &cs_num) == 2) {
@@ -263,7 +278,7 @@ static int scan_driver_directory(struct libmaxtouch_ctx *ctx,
         continue;
       }
 
-      ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname, false);
+      ret = scan_sysfs_directory(ctx, conn, pEntry, pszDirname, false, driver);
       if (ret != MXT_ERROR_NO_DEVICE) goto close;
 
     }
@@ -286,46 +301,68 @@ int sysfs_scan(struct libmaxtouch_ctx *ctx, struct mxt_conn_info **conn)
 {
   struct dirent *pEntry;
   struct mxt_conn_info *cn;
-  DIR *pDirectory;
-  int ret = 0;
+  DIR *pDirectory = NULL;
+  int ret = MXT_ERROR_NO_DEVICE;
+  const char *target_driver;
+  enum sysfs_driver_type driver;
 
   cn = *conn;
+
+  driver = cn->sysfs.driver;
+  if (driver == SYSFS_DRIVER_MTCH) {
+    target_driver = SYSFS_DRIVER_MTCH_NAME;
+  } else {
+    target_driver = SYSFS_DRIVER_MXT_NAME;
+  }
 
   if (cn->type == E_SYSFS_SPI) {
 
     pDirectory = opendir(SYSFS_SPI_ROOT);
+    if (!pDirectory) {
+      goto check_i2c;
+    }
 
     while ((pEntry = readdir(pDirectory)) != NULL) {
       if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
         continue;
 
-      ret = scan_driver_directory(ctx, conn, SYSFS_SPI_ROOT, pEntry);
+      if (strcmp(pEntry->d_name, target_driver) != 0)
+        continue;
 
-      /* If found or memory error close, otherwise no device check I2C */ 
-      if (ret != MXT_ERROR_NO_DEVICE) 
-        goto close;
+      ret = scan_driver_directory(ctx, conn, SYSFS_SPI_ROOT, pEntry, driver);
+
+      /* If found or memory error close, otherwise no device check I2C */
+      if (ret != MXT_ERROR_NO_DEVICE) {
+        closedir(pDirectory);
+        return ret;
+      }
     }
+    closedir(pDirectory);
+    pDirectory = NULL;
   }
 
-    /* Check for I2C */
-    pDirectory = opendir(SYSFS_I2C_ROOT);
-  
-    if (!pDirectory) {
-        goto close;
-    }
+check_i2c:
+  /* Check for I2C */
+  pDirectory = opendir(SYSFS_I2C_ROOT);
 
-    while ((pEntry = readdir(pDirectory)) != NULL) {
-      if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
-        continue;
+  if (!pDirectory) {
+    return MXT_ERROR_NO_DEVICE;
+  }
 
-      ret = scan_driver_directory(ctx, conn, SYSFS_I2C_ROOT, pEntry);
+  while ((pEntry = readdir(pDirectory)) != NULL) {
+    if (!strcmp(pEntry->d_name, ".") || !strcmp(pEntry->d_name, ".."))
+      continue;
 
-      if (ret != MXT_ERROR_NO_DEVICE)
-        goto close;
-    }
-  
-close:
-  (void)closedir(pDirectory);
+    if (strcmp(pEntry->d_name, target_driver) != 0)
+      continue;
+
+    ret = scan_driver_directory(ctx, conn, SYSFS_I2C_ROOT, pEntry, driver);
+
+    if (ret != MXT_ERROR_NO_DEVICE)
+      break;
+  }
+
+  closedir(pDirectory);
 
   return ret;
 }
@@ -871,13 +908,14 @@ static int read_sysfs_byte(struct mxt_device *mxt, char *filename,
 }
 
 //******************************************************************************
-/// \brief  Reset chip using mxt_reset sysfs file
+/// \brief  Reset chip using mxt_reset or mtch_reset sysfs file
 /// \param  mxt Device context
 /// \param  none
 /// \return #mxt_rc
 int sysfs_reset_chip(struct mxt_device *mxt)
 {
-  int ret;
+  struct stat filestat;
+  char *filename;
 
   // Check device is initialised
   if (!mxt) {
@@ -885,9 +923,13 @@ int sysfs_reset_chip(struct mxt_device *mxt)
     return MXT_ERROR_NO_DEVICE;
   }
 
-    ret = write_boolean_file(mxt, make_path(mxt, "mxt_reset"), true);
+  filename = make_path(mxt, "mxt_reset");
+  if (stat(filename, &filestat) == 0) {
+    return write_boolean_file(mxt, filename, true);
+  }
 
-  return ret;
+  filename = make_path(mxt, "mtch_reset");
+  return write_boolean_file(mxt, filename, true);
 }
 
 //******************************************************************************
@@ -1250,6 +1292,14 @@ int sysfs_get_i2c_address(struct libmaxtouch_ctx *ctx,
 
   if (conn->sysfs.acpi)
     return MXT_ERROR_NOT_SUPPORTED;
+
+  if (!conn->sysfs.path) {
+    mxt_err(ctx, "sysfs path is NULL");
+    return MXT_INTERNAL_ERROR;
+  }
+
+  mxt_dbg(ctx, "Parsing sysfs path: %s, basename: %s",
+          conn->sysfs.path, basename(conn->sysfs.path));
 
   ret = sscanf(basename(conn->sysfs.path), "%d-%x", adapter, address);
   if (ret != 2) {
