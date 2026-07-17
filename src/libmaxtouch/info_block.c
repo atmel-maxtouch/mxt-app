@@ -467,10 +467,10 @@ void mxt_display_chip_info(struct mxt_device *mxt)
 
   /* Display extended objects from T254 */
   if (mxt->info.num_ext_objects > 0) {
-    mxt_info(mxt->ctx, "Extended objects from T254: %d", mxt->info.num_ext_objects);
+    mxt_dbg(mxt->ctx, "Extended objects from T254: %d", mxt->info.num_ext_objects);
     for (i = 0; i < mxt->info.num_ext_objects; i++) {
       struct mxt_object_ext *ext_obj = &mxt->info.ext_objects[i];
-      mxt_info(mxt->ctx, "T%u size:%u instances:%u address:%u",
+      mxt_dbg(mxt->ctx, "T%u size:%u instances:%u address:%u",
               ext_obj->type, MXT_EXT_SIZE(*ext_obj),
               MXT_EXT_INSTANCES(*ext_obj), ext_obj->start_address);
     }
