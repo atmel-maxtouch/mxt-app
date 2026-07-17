@@ -37,6 +37,7 @@
 #include <getopt.h>
 
 #include "libmaxtouch.h"
+#include "info_block.h"
 #include "utilfuncs.h"
 
 #define BUF_SIZE 1024
@@ -102,13 +103,44 @@ void mxt_print_info_block(struct mxt_device *mxt)
       printf("UNKNOWN_T%d\n", obj.type);
   }
 
+  /* Show extended objects from T254 */
+  if (mxt->info.num_ext_objects > 0) {
+    printf("\nExtended Objects (T254):\n");
+    printf("-----------------------------------------------------------------\n");
+    for (i = 0; i < mxt->info.num_ext_objects; i++) {
+      struct mxt_object_ext *ext_obj = &mxt->info.ext_objects[i];
+
+      if (ext_obj->num_report_ids > 0) {
+        report_id_start = report_id;
+        report_id_end = report_id_start + ext_obj->num_report_ids * MXT_EXT_INSTANCES(*ext_obj) - 1;
+        report_id = report_id_end + 1;
+      } else {
+        report_id_start = 0;
+        report_id_end = 0;
+      }
+
+      printf("T%-3u %4u  %4u    %2u       %2u-%-2u   ",
+             ext_obj->type,
+             ext_obj->start_address,
+             MXT_EXT_SIZE(*ext_obj),
+             MXT_EXT_INSTANCES(*ext_obj),
+             report_id_start, report_id_end);
+
+      const char *obj_name = mxt_get_object_name(ext_obj->type);
+      if (obj_name)
+        printf("%s\n", obj_name);
+      else
+        printf("UNKNOWN_T%d\n", ext_obj->type);
+    }
+  }
+
   printf("\n");
 }
 
 //******************************************************************************
 /// \brief Convert object type to object name
 /// \return null terminated string, or NULL for object not found
-const char *mxt_get_object_name(uint8_t objtype)
+const char *mxt_get_object_name(uint16_t objtype)
 {
   switch(objtype) {
     OBJECT_LIST(F_SWITCH)

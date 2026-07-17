@@ -38,6 +38,7 @@
 #include <signal.h>
 
 #include "libmaxtouch/libmaxtouch.h"
+#include "libmaxtouch/sysfs/sysfs_device.h"
 #include "libmaxtouch/log.h"
 #include "libmaxtouch/utilfuncs.h"
 #include "libmaxtouch/info_block.h"
@@ -197,7 +198,8 @@ static void print_usage(char *prog_name)
           "\n"
           "Device connection options:\n"
           "  -q [--query]               : scan for devices\n"
-          "  -d [--device] DEVICESTRING : DEVICESTRING as output by --query\n\n"
+          "  -d [--device] DEVICESTRING : DEVICESTRING as output by --query\n"
+          "  --driver DRIVER            : select sysfs driver (mxt or mtch, default: mxt)\n\n"
           "  Examples:\n"
           "  -d i2c-dev:ADAPTER:ADDRESS : raw i2c device, eg \"i2c-dev:2-004a\"\n"
 #ifdef HAVE_LIBUSB
@@ -284,6 +286,7 @@ int main (int argc, char *argv[])
       {"checksum",         required_argument, 0, 0},
       {"debug-dump",       required_argument, 0, 0},
       {"device",           required_argument, 0, 'd'},
+      {"driver",           required_argument, 0, 0},
       {"freq-sweep",       required_argument, 0, 0},
       {"t68-file",         required_argument, 0, 0},
       {"t68-datatype",     required_argument, 0, 0},
@@ -435,6 +438,20 @@ int main (int argc, char *argv[])
           strbuf[sizeof(strbuf) - 1] = '\0';
         } else {
           print_usage(argv[0]);
+          return MXT_ERROR_BAD_INPUT;
+        }
+      } else if (!strcmp(long_options[option_index].name, "driver")) {
+        if (!conn) {
+          ret = mxt_new_conn(&conn, E_SYSFS_I2C);
+          if (ret)
+            return ret;
+        }
+        if (!strcasecmp(optarg, "mtch")) {
+          conn->sysfs.driver = SYSFS_DRIVER_MTCH;
+        } else if (!strcasecmp(optarg, "mxt")) {
+          conn->sysfs.driver = SYSFS_DRIVER_MXT;
+        } else {
+          fprintf(stderr, "Invalid driver: %s (use 'mxt' or 'mtch')\n", optarg);
           return MXT_ERROR_BAD_INPUT;
         }
       } else if (!strcmp(long_options[option_index].name, "freq-sweep")) {

@@ -316,6 +316,32 @@ int mxt_read_info_block(struct mxt_device *mxt)
   }
 
   mxt_dbg(mxt->ctx, "Info checksum verified %06X", calc_crc);
+
+  /* Check for T254 extended object table */
+  mxt->info.t254_address = 0;
+  mxt->info.t254_size = 0;
+  mxt->info.ext_objects = NULL;
+  mxt->info.num_ext_objects = 0;
+
+  for (int i = 0; i < mxt->info.id->num_objects; i++) {
+    struct mxt_object *obj = &mxt->info.objects[i];
+    if (obj->type == GEN_INFOBLOCK16BIT_T254) {
+      mxt->info.t254_address = mxt_get_start_position(*obj, 0);
+      mxt->info.t254_size = MXT_SIZE(*obj);
+      mxt_dbg(mxt->ctx, "Found T254 at address 0x%04X, size %u",
+              mxt->info.t254_address, mxt->info.t254_size);
+      break;
+    }
+  }
+
+  /* Read T254 extended object table if present */
+  if (mxt->info.t254_address != 0) {
+    ret = mxt_read_t254_object_table(mxt);
+    if (ret) {
+      mxt_warn(mxt->ctx, "Failed to read T254 extended object table: %d", ret);
+    }
+  }
+
   return MXT_SUCCESS;
 }
 
@@ -335,10 +361,16 @@ int mxt_calc_report_ids(struct mxt_device *mxt)
 
   struct mxt_object obj;
 
-  /* Calculate the number of report IDs */
+  /* Calculate the number of report IDs from standard objects */
   for (i = 0; i < mxt->info.id->num_objects; i++) {
     obj = mxt->info.objects[i];
     mxt->info.max_report_id += MXT_INSTANCES(obj) * obj.num_report_ids;
+  }
+
+  /* Add report IDs from extended objects */
+  for (i = 0; i < mxt->info.num_ext_objects; i++) {
+    struct mxt_object_ext *ext_obj = &mxt->info.ext_objects[i];
+    mxt->info.max_report_id += MXT_EXT_INSTANCES(*ext_obj) * ext_obj->num_report_ids;
   }
 
   /* Allocate memory for report ID look-up table */
@@ -349,13 +381,26 @@ int mxt_calc_report_ids(struct mxt_device *mxt)
     return MXT_ERROR_NO_MEM;
   }
 
-  /* Store the object and instance for each report ID */
+  /* Store the object and instance for each report ID (standard objects) */
   for (i = 0; i < mxt->info.id->num_objects; i++) {
     obj = mxt->info.objects[i];
 
     for (instance = 0; instance < MXT_INSTANCES(obj); instance++) {
       for (report_index = 0; report_index < obj.num_report_ids; report_index++) {
         mxt->report_id_map[report_id_count].object_type = obj.type;
+        mxt->report_id_map[report_id_count].instance = instance;
+        report_id_count++;
+      }
+    }
+  }
+
+  /* Store the object and instance for each report ID (extended objects) */
+  for (i = 0; i < mxt->info.num_ext_objects; i++) {
+    struct mxt_object_ext *ext_obj = &mxt->info.ext_objects[i];
+
+    for (instance = 0; instance < MXT_EXT_INSTANCES(*ext_obj); instance++) {
+      for (report_index = 0; report_index < ext_obj->num_report_ids; report_index++) {
+        mxt->report_id_map[report_id_count].object_type = ext_obj->type;
         mxt->report_id_map[report_id_count].instance = instance;
         report_id_count++;
       }
@@ -418,6 +463,17 @@ void mxt_display_chip_info(struct mxt_device *mxt)
     mxt_dbg(mxt->ctx, "T%u size:%u instances:%u address:%u",
             obj.type, MXT_SIZE(obj),
             MXT_INSTANCES(obj), mxt_get_start_position(obj, 0));
+  }
+
+  /* Display extended objects from T254 */
+  if (mxt->info.num_ext_objects > 0) {
+    mxt_dbg(mxt->ctx, "Extended objects from T254: %d", mxt->info.num_ext_objects);
+    for (i = 0; i < mxt->info.num_ext_objects; i++) {
+      struct mxt_object_ext *ext_obj = &mxt->info.ext_objects[i];
+      mxt_dbg(mxt->ctx, "T%u size:%u instances:%u address:%u",
+              ext_obj->type, MXT_EXT_SIZE(*ext_obj),
+              MXT_EXT_INSTANCES(*ext_obj), ext_obj->start_address);
+    }
   }
 
     t144_addr = mxt_get_object_address(mxt, SPT_MESSAGECOUNT_T144, 0);
@@ -492,7 +548,9 @@ uint16_t mxt_get_object_address(struct mxt_device *mxt, uint16_t object_type, ui
   struct mxt_id_info *id = mxt->info.id;
   int i = 0;
   struct mxt_object obj;
+  uint16_t addr;
 
+  /* Search standard object table */
   for (i = 0; i < id->num_objects; i++) {
     obj = mxt->info.objects[i];
 
@@ -509,6 +567,12 @@ uint16_t mxt_get_object_address(struct mxt_device *mxt, uint16_t object_type, ui
     }
   }
 
+  /* Search extended object table (16-bit types) */
+  addr = mxt_get_ext_object_address(mxt, object_type, instance);
+  if (addr != OBJECT_NOT_FOUND) {
+    return addr;
+  }
+
   mxt_verb(mxt->ctx, "T%u not present on device", object_type);
   return OBJECT_NOT_FOUND;
 }
@@ -522,12 +586,20 @@ uint16_t mxt_get_object_address(struct mxt_device *mxt, uint16_t object_type, ui
  */
 uint8_t mxt_get_object_size(struct mxt_device *mxt, uint16_t object_type)
 {
+  uint16_t ext_size;
+
   int i = mxt_get_object_table_num(mxt, object_type);
-  if (i == 255) {
-    return OBJECT_NOT_FOUND;
+  if (i != 255) {
+    return MXT_SIZE(mxt->info.objects[i]);
   }
 
-  return MXT_SIZE(mxt->info.objects[i]);
+  /* Check extended object table */
+  ext_size = mxt_get_ext_object_size(mxt, object_type);
+  if (ext_size != OBJECT_NOT_FOUND) {
+    return (uint8_t)ext_size;
+  }
+
+  return OBJECT_NOT_FOUND;
 }
 
 /*!
@@ -542,9 +614,17 @@ uint8_t mxt_get_object_instances(struct mxt_device *mxt, uint16_t object_type)
   struct mxt_id_info *id = mxt->info.id;
   int i;
 
+  /* Search standard object table */
   for (i = 0; i < id->num_objects; i++) {
     if (mxt->info.objects[i].type == object_type) {
       return MXT_INSTANCES(mxt->info.objects[i]);
+    }
+  }
+
+  /* Search extended object table */
+  for (i = 0; i < mxt->info.num_ext_objects; i++) {
+    if (mxt->info.ext_objects[i].type == object_type) {
+      return MXT_EXT_INSTANCES(mxt->info.ext_objects[i]);
     }
   }
 
@@ -566,6 +646,13 @@ uint8_t mxt_get_object_table_num(struct mxt_device *mxt, uint16_t object_type)
   for (i = 0; i < id->num_objects; i++) {
     if (mxt->info.objects[i].type == object_type) {
       return i;
+    }
+  }
+
+  /* Check if it's in extended object table before warning */
+  for (i = 0; i < mxt->info.num_ext_objects; i++) {
+    if (mxt->info.ext_objects[i].type == object_type) {
+      return 255;
     }
   }
 
@@ -599,4 +686,174 @@ uint16_t mxt_report_id_to_type(struct mxt_device *mxt, int report_id)
     return OBJECT_NOT_FOUND;
 
   return (mxt->report_id_map[report_id].object_type);
+}
+
+/*!
+ * @brief  Read and parse T254 extended object table
+ * @return #mxt_rc
+ */
+int mxt_read_t254_object_table(struct mxt_device *mxt)
+{
+  uint8_t *buf;
+  int ret;
+  int i;
+  uint8_t num_ext_objects = 0;
+  uint16_t t254_size;
+  uint32_t calculated_crc, stored_crc;
+
+  if (mxt->info.t254_address == 0 || mxt->info.t254_size == 0)
+    return MXT_SUCCESS;
+
+  t254_size = mxt->info.t254_size;
+  buf = (uint8_t *)calloc(t254_size, sizeof(uint8_t));
+  if (!buf)
+    return MXT_ERROR_NO_MEM;
+
+  mxt_dbg(mxt->ctx, "T254 addr=0x%04X size=%u", mxt->info.t254_address, t254_size);
+
+  ret = mxt_read_register(mxt, buf, mxt->info.t254_address, t254_size);
+  if (ret) {
+    mxt_err(mxt->ctx, "Failed to read T254 object: %d", ret);
+    goto err_free;
+  }
+
+  /* Count valid extended objects (non-zero start address) */
+  for (i = 0; i < T254_OBJECTS_PER_BLOCK; i++) {
+    uint16_t start_addr = buf[(i * T254_ELEMENT_SIZE) + 2] |
+                          (buf[(i * T254_ELEMENT_SIZE) + 3] << 8);
+    if (start_addr != 0)
+      num_ext_objects++;
+  }
+
+  if (num_ext_objects == 0) {
+    mxt_dbg(mxt->ctx, "T254 present but contains no extended objects");
+    free(buf);
+    return MXT_SUCCESS;
+  }
+
+  /* Validate CRC */
+  stored_crc = buf[t254_size - 3] |
+               (buf[t254_size - 2] << 8) |
+               (buf[t254_size - 1] << 16);
+
+  ret = mxt_calculate_crc(mxt->ctx, &calculated_crc, buf, t254_size - T254_CRC_SIZE);
+  if (ret) {
+    mxt_err(mxt->ctx, "Failed to calculate T254 CRC");
+    goto err_free;
+  }
+
+  if (stored_crc != calculated_crc) {
+    mxt_err(mxt->ctx, "T254 CRC mismatch: calc=0x%06X read=0x%06X",
+            calculated_crc, stored_crc);
+    ret = MXT_ERROR_CHECKSUM_MISMATCH;
+    goto err_free;
+  }
+
+  mxt_dbg(mxt->ctx, "T254 CRC verified: 0x%06X", calculated_crc);
+
+  /* Allocate extended object table */
+  mxt->info.ext_objects = (struct mxt_object_ext *)calloc(num_ext_objects,
+                           sizeof(struct mxt_object_ext));
+  if (!mxt->info.ext_objects) {
+    ret = MXT_ERROR_NO_MEM;
+    goto err_free;
+  }
+
+  mxt->info.num_ext_objects = num_ext_objects;
+
+  /* Parse extended objects */
+  num_ext_objects = 0;
+  for (i = 0; i < T254_OBJECTS_PER_BLOCK; i++) {
+    uint8_t *entry = buf + (i * T254_ELEMENT_SIZE);
+    uint16_t start_addr = entry[2] | (entry[3] << 8);
+
+    if (start_addr == 0)
+      continue;
+
+    mxt->info.ext_objects[num_ext_objects].type = entry[0] | (entry[1] << 8);
+    mxt->info.ext_objects[num_ext_objects].start_address = start_addr;
+    mxt->info.ext_objects[num_ext_objects].size_minus_one = entry[4];
+    mxt->info.ext_objects[num_ext_objects].instances_minus_one = entry[5];
+    mxt->info.ext_objects[num_ext_objects].num_report_ids = entry[6];
+
+    mxt_dbg(mxt->ctx, "T254 ext object: T%u Start:%u Size:%u Instances:%u ReportIDs:%u",
+            mxt->info.ext_objects[num_ext_objects].type,
+            mxt->info.ext_objects[num_ext_objects].start_address,
+            mxt->info.ext_objects[num_ext_objects].size_minus_one + 1,
+            mxt->info.ext_objects[num_ext_objects].instances_minus_one + 1,
+            mxt->info.ext_objects[num_ext_objects].num_report_ids);
+
+    num_ext_objects++;
+  }
+
+  free(buf);
+  return MXT_SUCCESS;
+
+err_free:
+  free(buf);
+  return ret;
+}
+
+/*!
+ * @brief  Free extended object table memory
+ */
+void mxt_free_ext_object_table(struct mxt_device *mxt)
+{
+  if (mxt->info.ext_objects) {
+    free(mxt->info.ext_objects);
+    mxt->info.ext_objects = NULL;
+  }
+  mxt->info.num_ext_objects = 0;
+  mxt->info.t254_address = 0;
+  mxt->info.t254_size = 0;
+}
+
+/*!
+ * @brief  Get address of extended object (16-bit type)
+ * @return Object address, or OBJECT_NOT_FOUND
+ */
+uint16_t mxt_get_ext_object_address(struct mxt_device *mxt, uint16_t object_type, uint8_t instance)
+{
+  int i;
+
+  if (!mxt->info.ext_objects)
+    return OBJECT_NOT_FOUND;
+
+  for (i = 0; i < mxt->info.num_ext_objects; i++) {
+    struct mxt_object_ext *obj = &mxt->info.ext_objects[i];
+
+    if (obj->type == object_type) {
+      if (obj->instances_minus_one >= instance) {
+        return obj->start_address + (MXT_EXT_SIZE(*obj) * instance);
+      } else {
+        mxt_warn(mxt->ctx, "T%u instance %u not present on device",
+                 object_type, instance);
+        return OBJECT_NOT_FOUND;
+      }
+    }
+  }
+
+  return OBJECT_NOT_FOUND;
+}
+
+/*!
+ * @brief  Get size of extended object (16-bit type)
+ * @return Object size, or OBJECT_NOT_FOUND
+ */
+uint16_t mxt_get_ext_object_size(struct mxt_device *mxt, uint16_t object_type)
+{
+  int i;
+
+  if (!mxt->info.ext_objects)
+    return OBJECT_NOT_FOUND;
+
+  for (i = 0; i < mxt->info.num_ext_objects; i++) {
+    struct mxt_object_ext *obj = &mxt->info.ext_objects[i];
+
+    if (obj->type == object_type) {
+      return MXT_EXT_SIZE(*obj);
+    }
+  }
+
+  return OBJECT_NOT_FOUND;
 }
